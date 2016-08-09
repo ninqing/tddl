@@ -6,9 +6,7 @@ import static com.taobao.tddl.optimizer.utils.OptimizerToString.printFilterStrin
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
@@ -18,26 +16,22 @@ import com.taobao.tddl.optimizer.utils.OptimizerToString;
 
 public class Merge extends QueryTree implements IMerge {
 
-    protected List<IDataNodeExecutor> subNodes  = new LinkedList<IDataNodeExecutor>();
-    protected Boolean                 isSharded = true;
-    protected Boolean                 isUnion   = false;
-
-    public IMerge assignment(Map<Integer, ParameterContext> parameterSettings) {
-        super.assignment(parameterSettings);
-
-        for (IDataNodeExecutor iDataNodeExecutor : getSubNode()) {
-            iDataNodeExecutor.assignment(parameterSettings);
-        }
-
-        return this;
-    }
+    protected List<IDataNodeExecutor> subNodes                 = new LinkedList<IDataNodeExecutor>();
+    protected Boolean                 isSharded                = true;
+    protected Boolean                 isUnion                  = false;
+    protected Boolean                 isGroupByShardColumns    = false;
+    protected Boolean                 isDistinctByShardColumns = false;
 
     public IQueryTree copy() {
         IMerge merge = ASTNodeFactory.getInstance().createMerge();
         this.copySelfTo((QueryTree) merge);
-        merge.setSubNode(this.getSubNode());
+        for (IDataNodeExecutor dne : this.getSubNodes()) {
+            merge.addSubNode(dne.copy());
+        }
         merge.setSharded(this.isSharded);
         merge.setUnion(this.isUnion);
+        merge.setGroupByShardColumns(this.isGroupByShardColumns);
+        merge.setDistinctByShardColumns(this.isDistinctByShardColumns);
         return merge;
     }
 
@@ -45,11 +39,19 @@ public class Merge extends QueryTree implements IMerge {
         visitor.visit(this);
     }
 
-    public List<IDataNodeExecutor> getSubNode() {
+    public List<IDataNodeExecutor> getSubNodes() {
         return subNodes;
     }
 
-    public IMerge setSubNode(List<IDataNodeExecutor> subNodes) {
+    public IDataNodeExecutor getSubNode() {
+        if (this.subNodes.isEmpty()) {
+            return null;
+        }
+
+        return subNodes.get(0);
+    }
+
+    public IMerge setSubNodes(List<IDataNodeExecutor> subNodes) {
         this.subNodes = subNodes;
         return this;
     }
@@ -74,6 +76,28 @@ public class Merge extends QueryTree implements IMerge {
 
     public IMerge setUnion(boolean isUnion) {
         this.isUnion = isUnion;
+        return this;
+    }
+
+    @Override
+    public boolean isGroupByShardColumns() {
+        return isGroupByShardColumns;
+    }
+
+    @Override
+    public IMerge setGroupByShardColumns(boolean isGroupByShardColumns) {
+        this.isGroupByShardColumns = isGroupByShardColumns;
+        return this;
+    }
+
+    @Override
+    public boolean isDistinctByShardColumns() {
+        return isDistinctByShardColumns;
+    }
+
+    @Override
+    public IMerge setDistinctByShardColumns(boolean distinctByShardColumns) {
+        this.isDistinctByShardColumns = distinctByShardColumns;
         return this;
     }
 
@@ -103,6 +127,9 @@ public class Merge extends QueryTree implements IMerge {
         appendField(sb, "queryConcurrency", this.getQueryConcurrency(), tabContent);
         appendField(sb, "columns", this.getColumns(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
         appendField(sb, "executeOn", this.getDataNode(), tabContent);
 
         // if(this.getThread()!=null)
@@ -114,7 +141,7 @@ public class Merge extends QueryTree implements IMerge {
         // this.getSubRequestID(), tabContent);
 
         appendln(sb, tabContent + "subQueries");
-        for (IDataNodeExecutor s : this.getSubNode()) {
+        for (IDataNodeExecutor s : this.getSubNodes()) {
             sb.append(s.toStringWithInden(inden + 2));
         }
 

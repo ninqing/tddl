@@ -15,15 +15,15 @@ public class Cost implements Comparable {
     /**
      * keyFilter与valueFilter共同过滤后的行数
      */
-    private long    count;
-    private long    diskIo;
+    private long    count  = 1;
+    private long    diskIo = 0;
     private boolean isOnFly;
     private long    nc;        // 网络成本
 
     /**
      * keyFilter过滤后的行数
      */
-    long    scanCount;
+    long            scanCount;
 
     public Cost setRowCount(long count) {
         this.count = count;
@@ -61,7 +61,6 @@ public class Cost implements Comparable {
         return nc;
     }
 
-
     public Cost setScanCount(long count) {
         this.scanCount = count;
         return this;
@@ -71,10 +70,12 @@ public class Cost implements Comparable {
         return this.scanCount;
     }
 
+    @Override
     public int compareTo(Object arg) {
         throw new NotSupportException();
     }
 
+    @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this, TddlToStringStyle.DEFAULT_STYLE);
     }

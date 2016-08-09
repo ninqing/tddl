@@ -8,6 +8,9 @@ import java.util.Date;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+
 /**
  * convertor相关的单元测试
  * 

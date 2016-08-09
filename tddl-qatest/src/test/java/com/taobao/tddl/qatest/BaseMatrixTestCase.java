@@ -8,14 +8,14 @@ import java.util.concurrent.Executors;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.taobao.diamond.mockserver.MockServer;
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.matrix.jdbc.TDataSource;
 import com.taobao.tddl.qatest.util.LoadPropsUtil;
 import com.taobao.tddl.qatest.util.PrepareData;
@@ -51,19 +51,30 @@ public class BaseMatrixTestCase extends PrepareData {
         MockServer.tearDownMockServer();
         // setMatrixMockInfo(MATRIX_DBGROUPS_PATH, TDDL_DBGROUPS);
 
-        if (us == null) {
+        if (tddlDatasource == null) {
             if (dbType.equals("bdb") || dbType == "") {
                 JDBCClient(dbType);
             } else if (dbType.equals("mysql") || dbType.equals("tdhs") || dbType.equals("hbase")) {
                 JDBCClient(dbType, false);
             }
         }
+
+        mysqlConnection = getConnection();
+        tddlConnection = tddlDatasource.getConnection();
     }
 
-    @Before
-    public void prepareConnection() throws SQLException {
-        con = getConnection();
-        andorCon = us.getConnection();
+    @AfterClass
+    public static void cleanConnection() throws SQLException {
+
+        if (mysqlConnection != null) {
+            mysqlConnection.close();
+            mysqlConnection = null;
+        }
+        if (tddlConnection != null) {
+            tddlConnection.close();
+            tddlConnection = null;
+        }
+
     }
 
     @After
@@ -76,34 +87,33 @@ public class BaseMatrixTestCase extends PrepareData {
     }
 
     public static void JDBCClient(String dbTypeStack, boolean async) throws Exception {
-        us = new TDataSource();
+        tddlDatasource = new TDataSource();
         // if ("tddl".equalsIgnoreCase(dbTypeStack) ||
         // "mysql".equalsIgnoreCase(dbTypeStack)) {
-        us.setAppName("andor_mysql_qatest");
+        tddlDatasource.setAppName("andor_mysql_qatest");
         // } else if ("tdhs".equalsIgnoreCase(dbTypeStack)) {
         // us.setAppName("andor_tdhs_qatest");
         // } else if ("hbase".equalsIgnoreCase(dbTypeStack)) {
         // us.setAppName("andor_hbase_qatest");
         // }
 
-        us.setRuleFile(ruleFile + dbTypeStack + "_" + rule);
+        tddlDatasource.setRuleFile(ruleFile + dbTypeStack + "_" + rule);
 
         if ((!"tddl".equalsIgnoreCase(dbTypeStack)) && (!"tdhs".equalsIgnoreCase(dbTypeStack))) {
-            us.setTopologyFile(machineTapologyFile);
-            us.setSchemaFile(schemaFile + dbTypeStack + "_" + schema);
+            tddlDatasource.setTopologyFile(machineTapologyFile);
+            tddlDatasource.setSchemaFile(schemaFile + dbTypeStack + "_" + schema);
         }
 
         Map<String, Object> cp = new HashMap<String, Object>();
-        if ("tdhs".equalsIgnoreCase(dbTypeStack)) {
-            cp.put(ExtraCmd.USE_TDHS_FOR_DEFAULT, "true");
-        }
 
         if ("hbase".equalsIgnoreCase(dbTypeStack)) {
-            cp.put(ExtraCmd.HBASE_MAPPING_FILE, "matrix/hbase_mapping.xml");
+            cp.put(ConnectionProperties.HBASE_MAPPING_FILE, "matrix/hbase_mapping.xml");
         }
-        us.setConnectionProperties(cp);
+
+        // cp.put(ConnectionProperties.MERGE_CONCURRENT, "false");
+        tddlDatasource.setConnectionProperties(cp);
         try {
-            us.init();
+            tddlDatasource.init();
         } catch (Exception e) {
             Assert.fail(ExceptionUtils.getFullStackTrace(e));
         }
@@ -111,7 +121,7 @@ public class BaseMatrixTestCase extends PrepareData {
 
     public static JdbcTemplate JdbcTemplateClient(String dbType) throws Exception {
         IEnvInit();
-        return new JdbcTemplate(us);
+        return new JdbcTemplate(tddlDatasource);
     }
 
 }

@@ -191,7 +191,7 @@ public class TResultSet implements ResultSet {
 
     public int getAffectRows() throws SQLException {
         if (next()) {
-            Integer index = currentKVPair.getParentCursorMeta().getIndex(null, ResultCursor.AFFECT_ROW);
+            Integer index = currentKVPair.getParentCursorMeta().getIndex(null, ResultCursor.AFFECT_ROW, null);
 
             return currentKVPair.getInteger(index);
         } else {
@@ -271,11 +271,11 @@ public class TResultSet implements ResultSet {
                         ColumnMeta ic = this.getMetaData().getColumnMetas().get(i);
                         String name = ic.getName();
                         String tableName = ic.getTableName();
-                        Integer indexInCursorMeta = cm.getIndex(tableName, name);
+                        Integer indexInCursorMeta = null;
 
-                        if (indexInCursorMeta == null && ic.getAlias() != null) {
-                            indexInCursorMeta = cm.getIndex(tableName, ic.getAlias());
-                        }
+                        // 要以别名优先
+
+                        indexInCursorMeta = cm.getIndex(tableName, ic.getName(), ic.getAlias());
 
                         if (indexInCursorMeta == null) {
                             throw new TddlRuntimeException("不可能出现");

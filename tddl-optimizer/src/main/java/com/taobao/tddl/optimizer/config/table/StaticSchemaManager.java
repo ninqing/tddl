@@ -3,6 +3,7 @@ package com.taobao.tddl.optimizer.config.table;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -13,16 +14,17 @@ import org.apache.commons.lang.builder.ToStringBuilder;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.TddlToStringStyle;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataHandlerFactory;
 import com.taobao.tddl.config.ConfigDataListener;
 import com.taobao.tddl.config.impl.ConfigDataHandlerCity;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 import com.taobao.tddl.optimizer.config.table.parse.TableMetaParser;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * 有schema文件的schemamanager实现
@@ -40,6 +42,9 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
     private String                    schemaFilePath       = null;
     private String                    appName              = null;
     private String                    unitName             = null;
+    protected Map<String, TableMeta>  ss;
+
+    private static TableMetaParser    parser               = new TableMetaParser();
 
     public StaticSchemaManager(String schemaFilePath, String appName, String unitName){
         super();
@@ -51,9 +56,22 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
     public StaticSchemaManager(){
     }
 
-    protected Map<String, TableMeta> ss;
+    private List<App>                 subApps          = null;
+    private List<StaticSchemaManager> subSchemaManager = new ArrayList();
 
+    public void setSubApps(List<App> subApps) {
+        this.subApps = subApps;
+    }
+
+    @Override
     protected void doInit() throws TddlException {
+
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("StaticSchemaManager start init");
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + appName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + unitName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("schemaFile is: " + this.schemaFilePath);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("subApps is: " + this.subApps);
+
         super.doInit();
         ss = new ConcurrentHashMap<String, TableMeta>();
 
@@ -67,6 +85,21 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
         if (appName == null && schemaFilePath == null) {
             return;
+        }
+
+        if (this.subApps != null) {
+            for (App subApp : subApps) {
+                StaticSchemaManager subManager = new StaticSchemaManager(subApp.getSchemaFile(),
+                    subApp.getAppName(),
+                    this.unitName);
+
+                try {
+                    subManager.init();
+                    this.subSchemaManager.add(subManager);
+                } catch (Exception ex) {
+                    logger.error("sub schema manager init error, sub app is: " + subApp, ex);
+                }
+            }
         }
 
         ConfigDataHandlerFactory factory = null;
@@ -86,7 +119,7 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
         String data = schemaCdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT,
             ConfigDataHandler.FIRST_CACHE_THEN_SERVER_STRATEGY);
 
-        if (data == null) {
+        if (data == null || data.isEmpty()) {
             schemaCdh.destroy();
             // 尝试找一下andor的版本配置
             dataId = ANDOR_SCHEMA_DATA_ID.format(new Object[] { appName });
@@ -96,7 +129,7 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
         }
 
-        if (data == null) {
+        if (data == null || data.isEmpty()) {
             logger.warn(schemaNullError.format(new Object[] { appName, unitName, schemaFilePath, dataId }));
             return;
         }
@@ -104,7 +137,7 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
         InputStream sis = null;
         try {
             sis = new ByteArrayInputStream(data.getBytes());
-            List<TableMeta> schemaList = TableMetaParser.parse(sis);
+            List<TableMeta> schemaList = parser.parse(sis);
 
             this.ss.clear();
 
@@ -141,10 +174,9 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
             InputStream sis = null;
             try {
                 sis = new ByteArrayInputStream(data.getBytes());
-                List<TableMeta> schemaList = TableMetaParser.parse(sis);
+                List<TableMeta> schemaList = parser.parse(sis);
 
                 schemaManager.ss.clear();
-
                 for (TableMeta table : schemaList) {
                     schemaManager.putTable(table.getTableName(), table);
                 }
@@ -162,22 +194,42 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
     }
 
-    protected void dodestroy() throws TddlException {
-        super.dodestroy();
+    @Override
+    protected void doDestroy() throws TddlException {
+        super.doDestroy();
         ss.clear();
         if (schemaCdh != null) {
             schemaCdh.destroy();
         }
     }
 
+    @Override
     public TableMeta getTable(String tableName) {
-        return ss.get((tableName));
+        TableMeta meta = ss.get((tableName));
+
+        if (meta != null) {
+            return meta;
+        }
+
+        if (this.subSchemaManager == null || subSchemaManager.isEmpty()) {
+            return null;
+        }
+
+        for (StaticSchemaManager subManager : subSchemaManager) {
+            meta = subManager.getTable(tableName);
+
+            if (meta != null) return meta;
+        }
+
+        return null;
     }
 
+    @Override
     public void putTable(String tableName, TableMeta tableMeta) {
         ss.put(tableName.toUpperCase(), tableMeta);
     }
 
+    @Override
     public Collection<TableMeta> getAllTables() {
         return ss.values();
     }
@@ -204,7 +256,7 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
         try {
             StaticSchemaManager schemaManager = new StaticSchemaManager();
             schemaManager.init();
-            List<TableMeta> schemaList = TableMetaParser.parse(in);
+            List<TableMeta> schemaList = parser.parse(in);
             for (TableMeta t : schemaList) {
                 schemaManager.putTable(t.getTableName(), t);
             }
@@ -215,6 +267,7 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
     }
 
+    @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this, TddlToStringStyle.DEFAULT_STYLE);
     }

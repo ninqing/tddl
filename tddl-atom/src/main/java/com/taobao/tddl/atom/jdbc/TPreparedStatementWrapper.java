@@ -23,7 +23,7 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 
 import com.taobao.tddl.common.jdbc.SqlTypeParser;
-import com.taobao.tddl.monitor.unit.UnitDeployProtect;
+import com.taobao.tddl.monitor.unit.RouterHelper;
 
 /**
  * preparedStatement 包装类
@@ -64,7 +64,6 @@ public class TPreparedStatementWrapper extends TStatementWrapper implements TPre
         ensureResultSetIsEmpty();
         recordReadTimes();
         increaseConcurrentRead();
-        long time0 = System.currentTimeMillis();
         Exception e0 = null;
 
         startRpc(QUERY);
@@ -77,7 +76,6 @@ public class TPreparedStatementWrapper extends TStatementWrapper implements TPre
             throw e;
         } finally {
             endRpc(sql, e0);
-            recordSql(sql, System.currentTimeMillis() - time0, e0);
         }
     }
 
@@ -87,12 +85,11 @@ public class TPreparedStatementWrapper extends TStatementWrapper implements TPre
         ensureResultSetIsEmpty();
         recordWriteTimes();
         increaseConcurrentWrite();
-        long time0 = System.currentTimeMillis();
         Exception e0 = null;
 
         startRpc(UPDATE);
         try {
-            UnitDeployProtect.unitDeployProtect();
+            RouterHelper.unitDeployProtect();
             return ((PreparedStatement) targetStatement).executeUpdate();
         } catch (SQLException e) {
             e0 = e;
@@ -100,7 +97,6 @@ public class TPreparedStatementWrapper extends TStatementWrapper implements TPre
         } finally {
             endRpc(sql, e0);
             decreaseConcurrentWrite();
-            recordSql(sql, System.currentTimeMillis() - time0, e0);
         }
     }
 

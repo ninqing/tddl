@@ -5,12 +5,8 @@ import static com.taobao.tddl.optimizer.utils.OptimizerToString.appendln;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
-import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
@@ -19,19 +15,26 @@ import com.taobao.tddl.optimizer.core.plan.dml.IInsert;
 import com.taobao.tddl.optimizer.core.plan.dml.IReplace;
 import com.taobao.tddl.optimizer.core.plan.dml.IUpdate;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
+import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
-public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<RT> {
+public abstract class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<RT> {
 
-    protected IQueryTree                     queryTree;
-    protected List<ISelectable>              columns;
-    protected List<Object>                   values;
-    protected PUT_TYPE                       putType;
-    protected String                         tableName;        // 真实表名
-    protected String                         indexName;        // 逻辑索引信息
-    protected boolean                        ignore = false;
-    protected List<List<Object>>             multiValues;
-    protected boolean                        isMutiValues;
-    protected Map<Integer, ParameterContext> parameterSettings;
+    protected IQueryTree         queryTree;
+    protected List<ISelectable>  columns;
+    protected List<Object>       values;
+    protected PUT_TYPE           putType;
+    protected String             indexName;                      // 逻辑索引信息
+    protected String             tableName;                      // 真实表名
+
+    protected boolean            lowPriority  = false;
+    protected boolean            highPriority = false;
+    protected boolean            delayed      = false;
+    protected boolean            quick        = false;
+    protected boolean            ignore       = false;
+
+    protected List<List<Object>> multiValues;
+    protected boolean            isMultiValues;
+    private List<Integer>        batchIndexs  = new ArrayList(0);
 
     public Put(){
         putType = PUT_TYPE.REPLACE;
@@ -67,7 +70,7 @@ public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<R
 
     @Override
     public String getTableName() {
-        return tableName;
+        return this.tableName;
     }
 
     @Override
@@ -84,28 +87,6 @@ public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<R
     @Override
     public com.taobao.tddl.optimizer.core.plan.IPut.PUT_TYPE getPutType() {
         return putType;
-    }
-
-    @Override
-    public RT assignment(Map<Integer, ParameterContext> parameterSettings) {
-        IQueryTree qt = getQueryTree();
-        if (qt != null) {
-            qt.assignment(parameterSettings);
-        }
-
-        if (values != null) {
-            List<Object> comps = new ArrayList<Object>(values.size());
-            for (Object comp : values) {
-                if (comp instanceof IBindVal) {
-                    comps.add(((IBindVal) comp).assignment(parameterSettings));
-                } else {
-                    comps.add(comp);
-
-                }
-            }
-            this.setUpdateValues(comps);
-        }
-        return (RT) this;
     }
 
     @Override
@@ -142,37 +123,32 @@ public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<R
     }
 
     @Override
-    public boolean isMutiValues() {
-        return isMutiValues;
+    public boolean isMultiValues() {
+        return isMultiValues;
     }
 
     @Override
-    public RT setMutiValues(boolean isMutiValues) {
-        this.isMutiValues = isMutiValues;
+    public RT setMultiValues(boolean isMultiValues) {
+        this.isMultiValues = isMultiValues;
         return (RT) this;
     }
 
     @Override
-    public int getMuiltValuesSize() {
-        if (this.isMutiValues) {
+    public int getMultiValuesSize() {
+        if (this.isMultiValues) {
             return this.multiValues.size();
         } else {
             return 1;
         }
-
     }
 
     @Override
     public List<Object> getValues(int index) {
-        if (this.isMutiValues) {
+        if (this.isMultiValues) {
             return this.multiValues.get(index);
         }
 
-        if (index != 0) {
-            throw new NotSupportException("这不可能");
-        } else {
-            return this.values;
-        }
+        return this.values;
     }
 
     @Override
@@ -188,13 +164,28 @@ public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<R
         }
     }
 
-    @Override
-    public RT copy() {
-        return null;
-    }
+    public void copySelfTo(IPut put) {
+        put.setQueryTree((IQueryTree) this.queryTree.copy());
+        put.setUpdateColumns(OptimizerUtils.copySelectables(columns));
+        put.setUpdateValues(OptimizerUtils.copyValues(values));
+        put.setIndexName(this.indexName);
+        put.setTableName(this.tableName);
+        put.setLowPriority(lowPriority);
+        put.setHighPriority(highPriority);
+        put.setDelayed(delayed);
+        put.setQuick(quick);
+        put.setIgnore(ignore);
+        put.setMultiValues(isMultiValues);
+        if (multiValues != null) {
+            List<List<Object>> newMultiValues = new ArrayList<List<Object>>();
+            for (List<Object> values : multiValues) {
+                newMultiValues.add(OptimizerUtils.copyValues(values));
+            }
 
-    public void copySelfTo(RT executor) {
-        throw new IllegalArgumentException("should not be here");
+            put.setMultiValues(newMultiValues);
+        }
+
+        put.setBatchIndexs(new ArrayList(this.batchIndexs));
     }
 
     @Override
@@ -211,17 +202,73 @@ public class Put<RT extends IPut> extends DataNodeExecutor<RT> implements IPut<R
         appendField(sb, "tableName", this.getTableName(), tabContent);
         appendField(sb, "indexName", this.getIndexName(), tabContent);
         appendField(sb, "columns", this.getUpdateColumns(), tabContent);
-        appendField(sb, "values", this.getUpdateValues(), tabContent);
-        appendField(sb, "requestID", this.getRequestID(), tabContent);
-        appendField(sb, "subRequestID", this.getSubRequestID(), tabContent);
+        if (this.isMultiValues()) {
+            appendField(sb, "multiValues", this.getMultiValues(), tabContent);
+        } else {
+            appendField(sb, "values", this.getUpdateValues(), tabContent);
+        }
+        appendField(sb, "requestId", this.getRequestId(), tabContent);
+        appendField(sb, "subRequestId", this.getSubRequestId(), tabContent);
         appendField(sb, "thread", this.getThread(), tabContent);
         appendField(sb, "hostname", this.getRequestHostName(), tabContent);
-
+        appendField(sb, "batchIndexs", this.getBatchIndexs(), tabContent);
         if (this.getQueryTree() != null) {
             appendln(sb, tabContent + "query:");
             sb.append(this.getQueryTree().toStringWithInden(inden + 2));
         }
 
         return sb.toString();
+    }
+
+    @Override
+    public List<Integer> getBatchIndexs() {
+        return this.batchIndexs;
+    }
+
+    @Override
+    public RT setBatchIndexs(List<Integer> batchIndexs) {
+        this.batchIndexs = batchIndexs;
+        return (RT) this;
+    }
+
+    @Override
+    public boolean isQuick() {
+        return this.quick;
+    }
+
+    @Override
+    public void setQuick(boolean quick) {
+        this.quick = quick;
+
+    }
+
+    @Override
+    public boolean isLowPriority() {
+        return lowPriority;
+    }
+
+    @Override
+    public void setLowPriority(boolean lowPriority) {
+        this.lowPriority = lowPriority;
+    }
+
+    @Override
+    public boolean isHighPriority() {
+        return highPriority;
+    }
+
+    @Override
+    public void setHighPriority(boolean highPriority) {
+        this.highPriority = highPriority;
+    }
+
+    @Override
+    public boolean isDelayed() {
+        return delayed;
+    }
+
+    @Override
+    public void setDelayed(boolean delayed) {
+        this.delayed = delayed;
     }
 }

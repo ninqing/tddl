@@ -22,7 +22,8 @@ public class Group {
     private String appName;
 
     public enum GroupType {
-        BDB_JE, MYSQL_JDBC, MYSQL_ASYNC_JDBC, JAVA_SKIPLIST, HBASE_CLIENT, TDHS_CLIENT, ORACLE_JDBC, OCEANBASE_JDBC;
+        BDB_JE, MYSQL_JDBC, MYSQL_ASYNC_JDBC, JAVA_SKIPLIST, HBASE_CLIENT, TDHS_CLIENT, ORACLE_JDBC, OCEANBASE_JDBC,
+        DEMO;
 
         public boolean isMysql() {
             return this == MYSQL_JDBC;
@@ -41,6 +42,8 @@ public class Group {
     private List<Atom>          atoms      = new ArrayList<Atom>();
 
     private Map<String, String> properties = new HashMap();
+
+    private String              unitName;
 
     public String getName() {
         return name;
@@ -90,6 +93,14 @@ public class Group {
 
     public void setAppName(String appName) {
         this.appName = appName;
+    }
+
+    public String getUnitName() {
+        return this.unitName;
+    }
+
+    public void setUnitName(String unitName) {
+        this.unitName = unitName;
     }
 
     @Override

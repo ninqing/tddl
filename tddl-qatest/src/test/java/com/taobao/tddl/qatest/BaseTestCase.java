@@ -14,7 +14,6 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 
 import com.taobao.diamond.mockserver.MockServer;
-import com.taobao.tddl.matrix.jdbc.TDataSource;
 import com.taobao.tddl.qatest.util.DateUtil;
 import com.taobao.tddl.qatest.util.Validator;
 
@@ -53,7 +52,7 @@ public class BaseTestCase extends Validator {
     protected static String           module_info;
     protected static String           module_host;
     // datasource为static，一个测试类只启动一次
-    protected static TDataSource      us;
+    // protected static TDataSource us;
     protected ResultSet               rc            = null;
     protected ResultSet               rs            = null;
 

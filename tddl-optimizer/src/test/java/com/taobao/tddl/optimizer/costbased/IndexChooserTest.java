@@ -9,7 +9,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -30,7 +30,7 @@ public class IndexChooserTest extends BaseOptimizerTest {
 
     @Before
     public void setUp() {
-        extraCmd.put(ExtraCmd.CHOOSE_INDEX, true);
+        extraCmd.put(ConnectionProperties.CHOOSE_INDEX, true);
     }
 
     @Test

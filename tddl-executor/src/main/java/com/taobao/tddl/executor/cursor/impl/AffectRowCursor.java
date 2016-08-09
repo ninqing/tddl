@@ -64,4 +64,5 @@ public class AffectRowCursor extends SchematicCursor implements IAffectRowCursor
     public String toString() {
         return toStringWithInden(0);
     }
+
 }

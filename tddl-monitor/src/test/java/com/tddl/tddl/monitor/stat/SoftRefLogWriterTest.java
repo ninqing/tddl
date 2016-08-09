@@ -13,6 +13,7 @@ import com.taobao.tddl.monitor.stat.SoftRefLogWriter;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 @Ignore
 public class SoftRefLogWriterTest {
 

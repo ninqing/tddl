@@ -11,8 +11,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 /**
  * Comment for InnerJoinTest
@@ -39,8 +39,6 @@ public class JoinWithFunctionTest extends BaseMatrixTestCase {
     }
 
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         hostinfoPrepare(0, 100);
         hostgroupInfoPrepare(50, 200);
         module_infoPrepare(0, 40);
@@ -49,7 +47,7 @@ public class JoinWithFunctionTest extends BaseMatrixTestCase {
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 

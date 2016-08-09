@@ -12,10 +12,12 @@ import com.taobao.tddl.executor.cursor.MockArrayCursor;
 import com.taobao.tddl.executor.cursor.SchematicCursor;
 import com.taobao.tddl.executor.cursor.impl.MergeCursor;
 import com.taobao.tddl.executor.rowset.IRowSet;
+import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.bean.Column;
 import com.taobao.tddl.optimizer.core.expression.bean.OrderBy;
+import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 
 public class MergeCursorTest {
 
@@ -25,23 +27,17 @@ public class MergeCursorTest {
         cursor.addColumn("name", DataType.StringType);
         cursor.addColumn("school", DataType.StringType);
         cursor.initMeta();
-
         for (Integer id : ids) {
             cursor.addRow(new Object[] { id, "name" + id, "school" + id });
-
         }
 
         cursor.init();
-
         return cursor;
-
     }
 
     @Test
     public void testMergeNormal() throws TddlException {
-
         MockArrayCursor mockCursor1 = this.getCursor("T1", new Integer[] { 1, 3, 5, 8, 8, 9, 10 });
-
         MockArrayCursor mockCursor2 = this.getCursor("T1", new Integer[] { 2, 2, 4, 5, 6, 7, 7, 9, 9, 10, 13 });
         IOrderBy order = new OrderBy();
         order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
@@ -52,13 +48,15 @@ public class MergeCursorTest {
         List<ISchematicCursor> cursors = new ArrayList();
         cursors.add(new SchematicCursor(mockCursor1, orderBys));
         cursors.add(new SchematicCursor(mockCursor2, orderBys));
-        MergeCursor c = new MergeCursor(cursors, null, null);
+
+        IMerge merge = ASTNodeFactory.getInstance().createMerge();
+        merge.setSharded(true);
+        MergeCursor c = new MergeCursor(cursors, merge, null);
         Object[] expected = new Object[] { 1, 3, 5, 8, 8, 9, 10, 2, 2, 4, 5, 6, 7, 7, 9, 9, 10, 13 };
         List actual = new ArrayList();
 
         IRowSet row = null;
         while ((row = c.next()) != null) {
-
             System.out.println(row);
             actual.add(row.getObject(0));
         }
@@ -69,9 +67,7 @@ public class MergeCursorTest {
 
     @Test
     public void testGetOrderBysBeforeNext() throws TddlException {
-
         MockArrayCursor mockCursor1 = this.getCursor("T1", new Integer[] { 1, 3, 5, 8, 8, 9, 10 });
-
         MockArrayCursor mockCursor2 = this.getCursor("T1", new Integer[] { 2, 2, 4, 5, 6, 7, 7, 9, 9, 10, 13 });
         IOrderBy order = new OrderBy();
         order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
@@ -82,7 +78,9 @@ public class MergeCursorTest {
         List<ISchematicCursor> cursors = new ArrayList();
         cursors.add(new SchematicCursor(mockCursor1, orderBys));
         cursors.add(new SchematicCursor(mockCursor2, orderBys));
-        MergeCursor c = new MergeCursor(cursors, null, null);
+        IMerge merge = ASTNodeFactory.getInstance().createMerge();
+        merge.setSharded(true);
+        MergeCursor c = new MergeCursor(cursors, merge, null);
 
         Assert.assertEquals("[T1.ID, T1.NAME, T1.SCHOOL]", c.getReturnColumns().toString());
         Assert.assertEquals("[OrderBy [columnName=T1.ID, direction=true]]", c.getOrderBy().toString());
@@ -91,9 +89,7 @@ public class MergeCursorTest {
 
     @Test
     public void testGetOrderBysAfterNext() throws TddlException {
-
         MockArrayCursor mockCursor1 = this.getCursor("T1", new Integer[] { 1, 3, 5, 8, 8, 9, 10 });
-
         MockArrayCursor mockCursor2 = this.getCursor("T1", new Integer[] { 2, 2, 4, 5, 6, 7, 7, 9, 9, 10, 13 });
         IOrderBy order = new OrderBy();
         order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
@@ -104,13 +100,14 @@ public class MergeCursorTest {
         List<ISchematicCursor> cursors = new ArrayList();
         cursors.add(new SchematicCursor(mockCursor1, orderBys));
         cursors.add(new SchematicCursor(mockCursor2, orderBys));
-        MergeCursor c = new MergeCursor(cursors, null, null);
+        IMerge merge = ASTNodeFactory.getInstance().createMerge();
+        merge.setSharded(true);
+        MergeCursor c = new MergeCursor(cursors, merge, null);
 
         c.next();
 
         Assert.assertEquals("[T1.ID, T1.NAME, T1.SCHOOL]", c.getReturnColumns().toString());
         Assert.assertEquals("[OrderBy [columnName=T1.ID, direction=true]]", c.getOrderBy().toString());
-
     }
 
 }

@@ -18,6 +18,7 @@ import com.taobao.tddl.common.model.Atom;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Group.GroupType;
 import com.taobao.tddl.common.model.Matrix;
+import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.XmlHelper;
 
 /**
@@ -36,8 +37,7 @@ public class MatrixParser {
     }
 
     public static Matrix parse(InputStream in) {
-        Document doc = XmlHelper.createDocument(in,
-            Thread.currentThread().getContextClassLoader().getResourceAsStream(XSD_SCHEMA));
+        Document doc = XmlHelper.createDocument(in, GeneralUtil.getInputStream(XSD_SCHEMA));
         Element root = doc.getDocumentElement();
         return parseMatrix(root);
     }
@@ -149,9 +149,9 @@ public class MatrixParser {
     }
 
     private static GroupType getGroupType(String type) {
-        if ("MYSQL_JDBC".equalsIgnoreCase(type)) {
+        if ("MYSQL_JDBC".equalsIgnoreCase(type) || "MY_JDBC".equalsIgnoreCase(type)) {
             return GroupType.MYSQL_JDBC;
-        } else if ("MYSQL_ASYNC_JDBC".equalsIgnoreCase(type)) {
+        } else if ("MYSQL_ASYNC_JDBC".equalsIgnoreCase(type) || "MY_ASYNC_JDBC".equalsIgnoreCase(type)) {
             return GroupType.MYSQL_ASYNC_JDBC;
         } else if ("JAVA_SKIPLIST".equalsIgnoreCase(type)) {
             return GroupType.JAVA_SKIPLIST;
@@ -165,8 +165,10 @@ public class MatrixParser {
             return GroupType.BDB_JE;
         } else if ("OCEANBASE_JDBC".equalsIgnoreCase(type)) {
             return GroupType.OCEANBASE_JDBC;
+        } else if ("DEMO".equalsIgnoreCase(type)) {
+            return GroupType.DEMO;
         }
 
-        throw new NotSupportException();
+        throw new NotSupportException("type:" + type);
     }
 }

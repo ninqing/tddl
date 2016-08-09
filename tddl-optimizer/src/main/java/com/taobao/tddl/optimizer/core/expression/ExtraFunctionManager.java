@@ -51,7 +51,7 @@ public class ExtraFunctionManager {
      * @return
      */
     public static IExtraFunction getExtraFunction(String functionName) {
-        String name = buildKey(functionName);
+        String name = functionName;
         Class clazz = functionCaches.get(name);
         IExtraFunction result = null;
 
@@ -75,11 +75,20 @@ public class ExtraFunctionManager {
     }
 
     public static void addFuncion(Class clazz) {
-        String name = clazz.getSimpleName();
-        Class oldClazz = functionCaches.put(buildKey(name.toUpperCase()), clazz);
-        if (oldClazz != null) {
-            logger.warn(" dup function :" + name + ", old class : " + oldClazz.getName());
+
+        try {
+            IExtraFunction sample = (IExtraFunction) clazz.newInstance();
+            String[] names = sample.getFunctionNames();
+            for (String name : names) {
+                Class oldClazz = functionCaches.put(name.toUpperCase(), clazz);
+                if (oldClazz != null) {
+                    logger.warn(" dup function :" + name + ", old class : " + oldClazz.getName());
+                }
+            }
+        } catch (Exception e) {
+            throw new FunctionException("init function failed", e);
         }
+
     }
 
     private static void initFunctions() {
@@ -88,12 +97,14 @@ public class ExtraFunctionManager {
 
         ClassFilter filter = new ClassFilter() {
 
+            @Override
             public boolean filter(Class clazz) {
                 int mod = clazz.getModifiers();
                 return !Modifier.isAbstract(mod) && !Modifier.isInterface(mod)
                        && IExtraFunction.class.isAssignableFrom(clazz);
             }
 
+            @Override
             public boolean preFilter(String classFulName) {
                 return StringUtils.contains(classFulName, "function");// 包含function名字的类
             }
@@ -108,29 +119,4 @@ public class ExtraFunctionManager {
         }
     }
 
-    private static String buildKey(String name) {
-        if (IFunction.BuiltInFunction.ADD.equals(name)) {
-            return "ADD";
-        } else if (IFunction.BuiltInFunction.SUB.equals(name)) {
-            return "SUB";
-        } else if (IFunction.BuiltInFunction.MULTIPLY.equals(name)) {
-            return "MULTIPLY";
-        } else if (IFunction.BuiltInFunction.DIVISION.equals(name)) {
-            return "DIVISION";
-        } else if (IFunction.BuiltInFunction.MOD.equals(name)) {
-            return "MOD";
-        } else if (IFunction.BuiltInFunction.BITAND.equals(name)) {
-            return "BITAND";
-        } else if (IFunction.BuiltInFunction.BITOR.equals(name)) {
-            return "BITOR";
-        } else if (IFunction.BuiltInFunction.BITXOR.equals(name)) {
-            return "BITXOR";
-        } else if (IFunction.BuiltInFunction.BITLSHIFT.equals(name)) {
-            return "BITLSHIFT";
-        } else if (IFunction.BuiltInFunction.BITRSHIFT.equals(name)) {
-            return "BITRSHIFT";
-        }
-
-        return name;// 默认语法树中所有节点均为大写
-    }
 }

@@ -6,6 +6,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Matrix;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
@@ -35,10 +36,12 @@ public class RuleStatManager extends AbstractLifecycle implements StatManager {
         this.matrix = matrix;
     }
 
+    @Override
     protected void doInit() throws TddlException {
         super.doInit();
         repos = CacheBuilder.newBuilder().build(new CacheLoader<Group, RepoStatManager>() {
 
+            @Override
             public RepoStatManager load(Group group) throws Exception {
                 RepoStatManager repo = new RepoStatManager();
                 repo.setGroup(group);
@@ -50,14 +53,16 @@ public class RuleStatManager extends AbstractLifecycle implements StatManager {
         });
     }
 
-    protected void dodestroy() throws TddlException {
-        super.dodestroy();
+    @Override
+    protected void doDestroy() throws TddlException {
+        super.doDestroy();
 
         for (RepoStatManager repo : repos.asMap().values()) {
             repo.destroy();
         }
     }
 
+    @Override
     public KVIndexStat getKVIndex(String indexName) {
         TargetDB targetDB = rule.shardAny(indexName);
         if (targetDB.getDbIndex() == null) {
@@ -66,6 +71,10 @@ public class RuleStatManager extends AbstractLifecycle implements StatManager {
             return local.getKVIndex(indexName);
         } else {
             Group group = matrix.getGroup(targetDB.getDbIndex()); // 先找到group
+
+            if (group == null) {
+                throw new TddlRuntimeException("not found groupName : " + targetDB.getDbIndex());
+            }
             try {
                 return repos.get(group).getKVIndex(targetDB.getTableNames().iterator().next());
             } catch (ExecutionException e) {
@@ -74,6 +83,7 @@ public class RuleStatManager extends AbstractLifecycle implements StatManager {
         }
     }
 
+    @Override
     public TableStat getTable(String tableName) {
         TargetDB targetDB = rule.shardAny(tableName);
         if (targetDB.getDbIndex() == null) {

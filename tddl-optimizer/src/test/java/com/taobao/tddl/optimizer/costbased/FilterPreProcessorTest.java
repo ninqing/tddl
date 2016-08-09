@@ -13,7 +13,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
     @Test
     public void test_路径短化_永真() {
         TableNode table = new TableNode("TABLE1");
-        table.query("1=1 AND ID = 1");
+        table.query("1 AND ID = 1");
         table.build();
         FilterPreProcessor.optimize(table, true);
         Assert.assertEquals(table.getWhereFilter().toString(), "TABLE1.ID = 1");
@@ -22,7 +22,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
     @Test
     public void test_路径短化_永真_多路() {
         TableNode table = new TableNode("TABLE1");
-        table.query("(ID = 1 AND NAME = 'HELLO') OR (1=1) ");
+        table.query("(ID = 1 AND NAME = 'HELLO') OR (1) ");
         table.build();
         FilterPreProcessor.optimize(table, true);
         Assert.assertEquals(table.getWhereFilter().toString(), "1");
@@ -31,7 +31,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
     @Test
     public void test_路径短化_永假() {
         TableNode table = new TableNode("TABLE1");
-        table.query("0=1 AND ID = 1");
+        table.query("0 AND ID = 1");
         table.build();
         try {
             FilterPreProcessor.optimize(table, true);
@@ -44,7 +44,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
     @Test
     public void test_路径短化_永假_多路() {
         TableNode table = new TableNode("TABLE1");
-        table.query("(ID = 1 AND NAME = 'HELLO') OR (0=1) ");
+        table.query("(ID = 1 AND NAME = 'HELLO') OR (0) ");
         table.build();
         FilterPreProcessor.optimize(table, true);
         Assert.assertEquals(table.getWhereFilter().toString(), "(TABLE1.ID = 1 AND TABLE1.NAME = HELLO)");
@@ -53,7 +53,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
     @Test
     public void test_路径短化_组合() {
         TableNode table = new TableNode("TABLE1");
-        table.query("(1 = 1 AND (ID = 1 OR ID = 2) AND NAME = 'HELLO') OR (0=1 AND 1=1) OR (ID = 3)");
+        table.query("(1 AND (ID = 1 OR ID = 2) AND NAME = 'HELLO') OR (0 AND 1) OR (ID = 3)");
         table.build();
         FilterPreProcessor.optimize(table, true);
         System.out.println(FilterUtils.toDNFAndFlat(table.getWhereFilter()));
@@ -77,7 +77,7 @@ public class FilterPreProcessorTest extends BaseOptimizerTest {
         table.build();
         FilterPreProcessor.optimize(table, true);
         Assert.assertEquals(table.getWhereFilter().toString(),
-            "(TABLE1.ID = TABLE1.NAME AND TABLE1.NAME = TABLE1.ID AND TABLE1.NAME = HELLO)");
+            "(TABLE1.ID = TABLE1.NAME AND TABLE1.NAME = HELLO AND TABLE1.NAME = TABLE1.ID)");
     }
 
     @Test

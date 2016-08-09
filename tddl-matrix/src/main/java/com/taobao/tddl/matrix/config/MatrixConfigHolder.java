@@ -7,10 +7,11 @@ import java.util.Map;
 
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Group.GroupType;
 import com.taobao.tddl.common.model.Matrix;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.config.impl.holder.AbstractConfigDataHolder;
 import com.taobao.tddl.config.impl.holder.ConfigHolderFactory;
@@ -39,11 +40,12 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
 
     private static final String GROUP_CONFIG_HOLDER_NAME = "com.taobao.tddl.group.config.GroupConfigHolder";
     private String              appName;
+    private String              unitName;
     private String              ruleFilePath;
     private boolean             dynamicRule;
+    private boolean             sharding                 = true;
     private String              schemaFilePath;
     private String              topologyFilePath;
-    private String              unitName;
     private OptimizerRule       optimizerRule;
     private TopologyHandler     topologyHandler;
     private TopologyExecutor    topologyExecutor;
@@ -55,7 +57,8 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     private StatManager         statManager;
     private Matrix              matrix;
     private Map<String, Object> connectionProperties;
-    private boolean             createGroupExecutor      = true;
+    private final boolean       createGroupExecutor      = true;
+    private List<App>           subApps;
 
     @Override
     public void doInit() throws TddlException {
@@ -84,7 +87,6 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
         oc.setOptimizer(this.optimizer);
         oc.setStatManager(this.statManager);
 
-        matrix = topologyHandler.getMatrix();
         // 添加matrix参数
         addDatas(matrix.getProperties());
         initSonHolder();
@@ -100,7 +102,7 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     }
 
     @Override
-    protected void dodestroy() throws TddlException {
+    protected void doDestroy() throws TddlException {
         schemaManager.destroy();
         optimizerRule.destroy();
         optimizer.destroy();
@@ -110,20 +112,36 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     }
 
     public void topologyInit() throws TddlException {
-        topologyHandler = new TopologyHandler(appName, unitName, topologyFilePath);
+        topologyHandler = new TopologyHandler(appName, unitName, topologyFilePath, this.connectionProperties);
+        topologyHandler.setSubApps(this.subApps);
         topologyHandler.init();
 
         topologyExecutor = new TopologyExecutor();
         topologyExecutor.init();
+
+        matrix = topologyHandler.getMatrix();
     }
 
     public void ruleInit() throws TddlException {
-        TddlRule rule = new TddlRule();
-        rule.setAppName(appName);
-        rule.setAppRuleFile(ruleFilePath);
-        rule.init();
+        TddlRule rule = null;
+        if (sharding) {
+            rule = new TddlRule();
+            rule.setAppName(appName);
+            rule.setSubApps(this.subApps);
+            rule.setUnitName(this.unitName);
 
-        optimizerRule = new OptimizerRule(rule);
+            rule.setAppRuleFile(ruleFilePath);
+            rule.init();
+            optimizerRule = new OptimizerRule(rule, null);
+        } else {
+            if (matrix.getGroups() != null && matrix.getGroups().size() == 1) {
+                String singleDbIndex = matrix.getGroups().get(0).getName();
+                optimizerRule = new OptimizerRule(null, singleDbIndex);
+            } else {
+                throw new TddlException("非sharding模式group列表为空或则存在多个值,请配置为单group");
+            }
+        }
+
         optimizerRule.init();
     }
 
@@ -131,9 +149,12 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
         RuleSchemaManager ruleSchemaManager = new RuleSchemaManager(optimizerRule,
             topologyHandler.getMatrix(),
             GeneralUtil.getExtraCmdLong(this.connectionProperties,
-                ExtraCmd.TABLE_META_CACHE_EXPIRE_TIME,
+                ConnectionProperties.TABLE_META_CACHE_EXPIRE_TIME,
                 TddlConstants.DEFAULT_TABLE_META_EXPIRE_TIME));
         StaticSchemaManager staticSchemaManager = new StaticSchemaManager(schemaFilePath, appName, unitName);
+
+        staticSchemaManager.setSubApps(subApps);
+
         ruleSchemaManager.setLocal(staticSchemaManager);
 
         this.schemaManager = ruleSchemaManager;
@@ -145,10 +166,13 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     }
 
     public void optimizerInit() throws TddlException {
-        CostBasedOptimizer optimizer = new CostBasedOptimizer();
+        CostBasedOptimizer optimizer = new CostBasedOptimizer(optimizerRule);
         optimizer.setExpireTime(GeneralUtil.getExtraCmdLong(this.connectionProperties,
-            ExtraCmd.OPTIMIZER_CACHE_EXPIRE_TIME,
+            ConnectionProperties.OPTIMIZER_CACHE_EXPIRE_TIME,
             TddlConstants.DEFAULT_OPTIMIZER_EXPIRE_TIME));
+        optimizer.setCacheSize(GeneralUtil.getExtraCmdLong(this.connectionProperties,
+            ConnectionProperties.OPTIMIZER_CACHE_SIZE,
+            TddlConstants.DEFAULT_OPTIMIZER_CACHE_SIZE));
         optimizer.init();
 
         this.optimizer = optimizer;
@@ -257,6 +281,14 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
 
     public void setDynamicRule(boolean dynamicRule) {
         this.dynamicRule = dynamicRule;
+    }
+
+    public void setSharding(boolean sharding) {
+        this.sharding = sharding;
+    }
+
+    public void setSubApps(List<App> subApps) {
+        this.subApps = subApps;
     }
 
 }

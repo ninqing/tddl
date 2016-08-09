@@ -34,6 +34,7 @@ import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
 import com.taobao.tddl.optimizer.core.expression.bean.OrderBy;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 
@@ -287,6 +288,25 @@ public class ExecUtils {
         return _orderBys;
     }
 
+    public static List<IOrderBy> getOrderByFromSelectables(List<ISelectable> columns) {
+        return getOrderByFromColumnMetas(convertIColumnsToColumnMeta(columns));
+    }
+
+    public static List<IOrderBy> getOrderByFromColumnMetas(List<ColumnMeta> columns) {
+        if (GeneralUtil.isEmpty(columns)) return new ArrayList<IOrderBy>(0);
+        List<IOrderBy> _orderBys = new ArrayList<IOrderBy>();
+        for (ColumnMeta c : columns) {
+            IColumn column = ASTNodeFactory.getInstance().createColumn();
+            column.setTableName(c.getTableName())
+                .setColumnName(c.getName())
+                .setDataType(c.getDataType())
+                .setAlias(c.getAlias());
+            IOrderBy orderBy = new OrderBy().setColumn(column).setDirection(true);
+            _orderBys.add(orderBy);
+        }
+        return _orderBys;
+    }
+
     public static String getRealTableName(String indexName) {
         if (indexName == null) {
             return null;
@@ -355,23 +375,26 @@ public class ExecUtils {
      * @return
      */
     public static Object getValueByColumnMeta(IRowSet from_kv, ColumnMeta columnMeta) {
-        return getValueByTableAndName(from_kv, columnMeta.getTableName(), columnMeta.getName());
+        return getValueByTableAndName(from_kv, columnMeta.getTableName(), columnMeta.getName(), columnMeta.getAlias());
     }
 
     public static Object getValueByIColumn(IRowSet from_kv, ISelectable c) {
+
+        Integer index = null;
         if (from_kv == null) return null;
-        Integer index = from_kv.getParentCursorMeta().getIndex(c.getTableName(), c.getColumnName());
+
+        index = from_kv.getParentCursorMeta().getIndex(c.getTableName(), c.getColumnName(), c.getAlias());
+
         if (index == null) return null;
         Object v = from_kv.getObject(index);
         return v;
     }
 
-    public static Object getValueByTableAndName(IRowSet from_kv, String tableName, String columnName) {
-        Integer index = from_kv.getParentCursorMeta().getIndex(tableName, columnName);
+    public static Object getValueByTableAndName(IRowSet from_kv, String tableName, String columnName, String columnAlias) {
+        Integer index = from_kv.getParentCursorMeta().getIndex(tableName, columnName, columnAlias);
 
         if (index == null) {
-            // throw new
-            // RuntimeException(tableName+"."+columnName+" is not in "+from_kv);
+
             return null;
         }
         Object v = from_kv.getObject(index);
@@ -473,7 +496,7 @@ public class ExecUtils {
         return (agg + "(" + columnName + ")").replace("MERGE", "");
     }
 
-    public static List<ColumnMeta> convertIColumnsToColumnMeta(List<Object> targetCOlumn) {
+    public static List<ColumnMeta> convertIColumnsToColumnMeta(List targetCOlumn) {
         List<ColumnMeta> colMetas = new ArrayList<ColumnMeta>(targetCOlumn.size());
         for (Object icolObj : targetCOlumn) {
             colMetas.add(getColumnMeta(icolObj));
@@ -690,8 +713,9 @@ public class ExecUtils {
         }
     }
 
-    public static Object getObject(final ICursorMeta meta, IRowSet rowSet, String tableName, String columnName) {
-        Integer index = meta.getIndex(tableName, columnName);
+    public static Object getObject(final ICursorMeta meta, IRowSet rowSet, String tableName, String columnName,
+                                   String columnAlias) {
+        Integer index = meta.getIndex(tableName, columnName, columnAlias);
         if (index == null) {
             throw new RuntimeException("在meta中没找到该列:" + tableName + "." + columnName + " ICursorMeta:" + meta);
         }
@@ -707,5 +731,12 @@ public class ExecUtils {
         }
 
         return news;
+    }
+
+    public static boolean isNull(Object o) {
+        if (o == null) return true;
+        if (o instanceof NullValue) return true;
+
+        return false;
     }
 }

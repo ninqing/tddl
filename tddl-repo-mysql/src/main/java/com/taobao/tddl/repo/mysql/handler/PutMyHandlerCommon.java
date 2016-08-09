@@ -22,7 +22,7 @@ import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.repo.mysql.spi.DatasourceMySQLImplement;
 import com.taobao.tddl.repo.mysql.spi.My_JdbcHandler;
-import com.taobao.tddl.repo.mysql.utils.MysqlRepoUtils;
+import com.taobao.tddl.repo.mysql.spi.My_Repository;
 
 public abstract class PutMyHandlerCommon extends HandlerCommon {
 
@@ -39,54 +39,26 @@ public abstract class PutMyHandlerCommon extends HandlerCommon {
     public ISchematicCursor handle(IDataNodeExecutor executor, ExecutionContext executionContext) throws TddlException {
         long time = System.currentTimeMillis();
         IPut put = (IPut) executor;
-        My_JdbcHandler jdbcHandler = MysqlRepoUtils.getJdbcHandler(dsGetter, executor, executionContext);
+        My_JdbcHandler jdbcHandler = ((My_Repository) executionContext.getCurrentRepository()).getJdbcHandler(dsGetter,
+            executor,
+            executionContext);
+        TableAndIndex ti = new TableAndIndex();
 
-        // 用于测试终止任务 Thread.sleep(1000000000l);
-        buildTableAndMeta(put, executionContext);
-        ITransaction transaction = executionContext.getTransaction();
-        ITable table = executionContext.getTable();
-        IndexMeta meta = executionContext.getMeta();
+        buildTableAndMeta(put, ti, executionContext);
+        ITable table = ti.table;
+        IndexMeta meta = ti.index;
 
-        boolean autoCommit = false;
         ISchematicCursor result = null;
         try {
             result = executePut(executionContext, put, table, meta, jdbcHandler);
-            if (autoCommit) {
-                commit(executionContext, transaction);
-            }
-        } catch (Exception e) {
-            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.ServerPut, Monitor.Key3Fail, time);
-            if (autoCommit) {
 
-                rollback(executionContext, transaction);
-            }
+        } catch (Exception e) {
+            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Fail, time);
             throw new TddlException(e);
         }
-        time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.ServerPut, Monitor.Key3Success, time);
+        time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Success, time);
         return result;
 
-    }
-
-    // move to JE_Transaction
-    protected void rollback(ExecutionContext executionContext, ITransaction transaction) {
-        try {
-            // if (historyLog.get() != null) {
-            // historyLog.get().rollback(transaction);
-            // }
-            transaction.rollback();
-            executionContext.setTransaction(null);
-        } catch (Exception ex) {
-            logger.error("", ex);
-        }
-    }
-
-    protected void commit(ExecutionContext executionContext, ITransaction transaction) throws TddlException {
-        // if (historyLog.get() != null) {
-        // historyLog.get().commit(transaction);
-        // }
-        if (transaction != null) transaction.commit();
-        // 清空当前事务运行状态
-        executionContext.setTransaction(null);
     }
 
     protected abstract ISchematicCursor executePut(ExecutionContext executionContext, IPut put, ITable table,

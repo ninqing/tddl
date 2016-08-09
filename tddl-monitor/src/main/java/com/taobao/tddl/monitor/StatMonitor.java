@@ -1,18 +1,14 @@
 package com.taobao.tddl.monitor;
 
-import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.monitor.logger.LoggerInit;
 import com.taobao.tddl.monitor.stat.BufferedLogWriter;
 import com.taobao.tddl.monitor.stat.LoggerLogWriter;
-import com.taobao.tddl.monitor.stat.NagiosLogWriter;
 import com.taobao.tddl.monitor.stat.StatLogWriter;
-import com.taobao.tddl.monitor.utils.NagiosUtils;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
@@ -26,13 +22,42 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  */
 public class StatMonitor extends BufferedLogWriter implements StatMonitorMBean {
 
-    private static final Logger      logger   = LoggerFactory.getLogger(StatMonitor.class);
+    private static final Logger        logger          = LoggerFactory.getLogger(StatMonitor.class);
 
-    private static final StatMonitor instance = new StatMonitor();
+    private static final StatMonitor   instance        = new StatMonitor();
+    /**
+     * 将内存数据输出到日志中 SELECT xxx
+     * #@#my065037_cm4_feel_25#@#EXECUTE_A_SQL_SUCCESS#@#1
+     * #@#1#@#1#@#1#@#10-12-27 13:58:35:224 SELECT sss
+     * #@#my065026_cm4_feel_03#@#EXECUTE_A_SQL_SUCCESS
+     * #@#1#@#1#@#1#@#1#@#10-12-27 13:58:35:224
+     */
+    private final static StatLogWriter TDDL_Log_Writer = new LoggerLogWriter(LoggerInit.TDDL_STAT_LOG) {
+
+                                                           // XXX: 输出中首先写数据,
+                                                           // 然后写信息,
+                                                           // 最后写时间
+                                                           protected StringBuffer format(StringBuffer buf,
+                                                                                         Object[] fields, Date time,
+                                                                                         long... values) {
+                                                               // LoggerInit.TDDL_Snapshot_LOG.warn(new
+                                                               // StringBuilder().append(values.value1).append(
+                                                               // BufferedStatLogWriter.logFieldSep).append(values.value2).append(
+                                                               // BufferedStatLogWriter.logFieldSep).append(key).append(BufferedStatLogWriter.logFieldSep)
+                                                               // .append(time).append(BufferedStatLogWriter.linesep));
+                                                               for (long value : values) {
+                                                                   buf.append(value).append(fieldSeperator);
+                                                               }
+                                                               for (Object field : fields) {
+                                                                   buf.append(field).append(fieldSeperator);
+                                                               }
+                                                               return buf.append(df.format(time)).append(lineSeperator);
+                                                           }
+                                                       };
 
     private StatMonitor(){
         // XXX: 日志内容是行复制和 SQL 解析, Key 量与 SQL 相同数量级
-        super(5 * 60, 1000, 4000, new NagiosLogWriter());
+        super(5 * 60, 1000, 4000, TDDL_Log_Writer);
         lastStatMap = map;
     }
 
@@ -73,7 +98,7 @@ public class StatMonitor extends BufferedLogWriter implements StatMonitorMBean {
             duration = System.currentTimeMillis() - lastResetTime;
             lastResetTime = System.currentTimeMillis();
             // 刷出所有统计日志
-            super.flushAll();
+            // super.flushAll();
             // 拉取自定义日志内容并打印
             writeCallBackLog();
         } catch (Throwable e) {
@@ -172,64 +197,4 @@ public class StatMonitor extends BufferedLogWriter implements StatMonitorMBean {
         }
     }
 
-    /**
-     * 将内存数据输出到日志中
-     */
-    @SuppressWarnings("unused")
-    private final StatLogWriter Nagios_Log_Writer = new StatLogWriter() {
-
-                                                      public void write(Object[] keys, Object[] fields, long... values) {
-                                                          if (values.length < 2) {
-                                                              throw new IllegalArgumentException("At least given 2 values");
-                                                          }
-                                                          fields = Arrays.copyOf((fields == null) ? keys : fields, 3);
-                                                          long count = values[0];
-                                                          long value = values[1];
-                                                          String averageValueStr = "invalid";
-                                                          if (count != 0) {
-                                                              double averageValue = (double) value / count;
-                                                              averageValueStr = String.valueOf(averageValue);
-                                                          }
-                                                          // String key = new
-                                                          // StringBuilder(entry.getKey()).append("||").toString();
-                                                          // String value = new
-                                                          // StringBuilder().append(values.value1).append("|").append(values.value2).append("|")
-                                                          // .append(values.value2).append((double)
-                                                          // values.value1.get()
-                                                          // /
-                                                          // values.value2.get()).toString();
-                                                          // NagiosUtils.addNagiosLog(key,
-                                                          // value);
-                                                          NagiosUtils.addNagiosLog(TStringUtil.join(fields, "|"), // NL
-                                                              count + "|" + value + "|" + averageValueStr);
-                                                      }
-                                                  };
-
-    /**
-     * 将内存数据输出到日志中 SELECT xxx
-     * #@#my065037_cm4_feel_25#@#EXECUTE_A_SQL_SUCCESS#@#1
-     * #@#1#@#1#@#1#@#10-12-27 13:58:35:224 SELECT sss
-     * #@#my065026_cm4_feel_03#@#EXECUTE_A_SQL_SUCCESS
-     * #@#1#@#1#@#1#@#1#@#10-12-27 13:58:35:224
-     */
-    private final StatLogWriter TDDL_Log_Writer   = new LoggerLogWriter(LoggerInit.TDDL_Snapshot_LOG) {
-
-                                                      // XXX: 输出中首先写数据, 然后写信息,
-                                                      // 最后写时间
-                                                      protected StringBuffer format(StringBuffer buf, Object[] fields,
-                                                                                    Date time, long... values) {
-                                                          // LoggerInit.TDDL_Snapshot_LOG.warn(new
-                                                          // StringBuilder().append(values.value1).append(
-                                                          // BufferedStatLogWriter.logFieldSep).append(values.value2).append(
-                                                          // BufferedStatLogWriter.logFieldSep).append(key).append(BufferedStatLogWriter.logFieldSep)
-                                                          // .append(time).append(BufferedStatLogWriter.linesep));
-                                                          for (long value : values) {
-                                                              buf.append(value).append(fieldSeperator);
-                                                          }
-                                                          for (Object field : fields) {
-                                                              buf.append(field).append(fieldSeperator);
-                                                          }
-                                                          return buf.append(df.format(time)).append(lineSeperator);
-                                                      }
-                                                  };
 }

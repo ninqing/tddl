@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor.function.aggregate;
 
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
@@ -15,13 +16,13 @@ public class Min extends AggregateFunction {
     }
 
     @Override
-    public void serverMap(Object[] args) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
         doMin(args);
 
     }
 
     @Override
-    public void serverReduce(Object[] args) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
         doMin(args);
     }
 
@@ -29,6 +30,13 @@ public class Min extends AggregateFunction {
         Object o = args[0];
 
         DataType type = this.getReturnType();
+
+        if (type == null) {
+            if (o != null) {
+                type = DataTypeUtil.getTypeOfObject(o);
+            }
+        }
+
         if (o != null) {
             if (result == null) {
                 result = o;
@@ -51,16 +59,19 @@ public class Min extends AggregateFunction {
 
     @Override
     public DataType getMapReturnType() {
-        Object[] args = function.getArgs().toArray();
-
         DataType type = null;
-        if (args[0] instanceof ISelectable) {
-            type = ((ISelectable) args[0]).getDataType();
+        if (function.getArgs().get(0) instanceof ISelectable) {
+            type = ((ISelectable) function.getArgs().get(0)).getDataType();
         }
+
         if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(args[0]);
+            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
         }
         return type;
     }
 
+    @Override
+    public String[] getFunctionNames() {
+        return new String[] { "MIN" };
+    }
 }

@@ -45,7 +45,7 @@ public class BaseSqlOptimizerTest {
         tddlRule.setAppName(APPNAME);
         tddlRule.init();
 
-        rule = new OptimizerRule(tddlRule);
+        rule = new OptimizerRule(tddlRule, null);
 
         StaticSchemaManager localSchemaManager = StaticSchemaManager.parseSchema(Thread.currentThread()
             .getContextClassLoader()
@@ -71,7 +71,7 @@ public class BaseSqlOptimizerTest {
 
         OptimizerContext.setContext(context);
 
-        optimizer = new CostBasedOptimizer();
+        optimizer = new CostBasedOptimizer(rule);
         optimizer.setSqlParseManager(parser);
         optimizer.init();
     }

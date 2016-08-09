@@ -31,7 +31,7 @@ import com.taobao.tddl.optimizer.core.datatype.DataType;
  */
 public class TableMetaParser {
 
-    private static final String XSD_SCHEMA = "META-INF/table.xsd";
+    public static final String XSD_SCHEMA = "META-INF/table.xsd";
 
     /**
      * 基于数据流创建TableMeta对象
@@ -39,16 +39,14 @@ public class TableMetaParser {
      * @param in
      * @return
      */
-    public static List<TableMeta> parse(InputStream in) {
-        Document doc = XmlHelper.createDocument(in,
-            Thread.currentThread().getContextClassLoader().getResourceAsStream(XSD_SCHEMA));
+    public List<TableMeta> parse(InputStream in) {
+        Document doc = XmlHelper.createDocument(in, null);
         Element root = doc.getDocumentElement();
         NodeList tableNodeList = root.getElementsByTagName("table");
         List<TableMeta> tables = Lists.newArrayList();
         for (int i = 0; i < tableNodeList.getLength(); i++) {
             tables.add(parseTable(tableNodeList.item(i)));
         }
-
         return tables;
     }
 
@@ -58,14 +56,14 @@ public class TableMetaParser {
      * @param data
      * @return
      */
-    public static List<TableMeta> parse(String data) {
+    public List<TableMeta> parse(String data) {
         InputStream is = new ByteArrayInputStream(data.getBytes());
         return parse(is);
     }
 
     // ================== helper method ================
 
-    private static TableMeta parseTable(Node node) {
+    private TableMeta parseTable(Node node) {
         Node nameNode = node.getAttributes().getNamedItem("name");
         String tableName = null;
         if (nameNode != null) {
@@ -135,10 +133,15 @@ public class TableMetaParser {
             true,
             toColumnMeta(partitionColumns, columnMetas, tableName));
 
+        return newTableMeta(tableName, columns, primaryIndex, indexs);
+    }
+
+    protected TableMeta newTableMeta(String tableName, List<ColumnMeta> columns, IndexMeta primaryIndex,
+                                     List<IndexMeta> indexs) {
         return new TableMeta(tableName, columns, primaryIndex, indexs);
     }
 
-    private static ColumnMeta parseColumn(String tableName, Node node) {
+    private ColumnMeta parseColumn(String tableName, Node node) {
         Node nameNode = node.getAttributes().getNamedItem("name");
         Node typeNode = node.getAttributes().getNamedItem("type");
         Node aliasNode = node.getAttributes().getNamedItem("alias");
@@ -164,7 +167,7 @@ public class TableMetaParser {
         return new ColumnMeta(tableName, name, getDataType(type), alias, nullable);
     }
 
-    private static IndexMeta parseIndex(String tableName, Map<String, ColumnMeta> columnMetas, Node node) {
+    private IndexMeta parseIndex(String tableName, Map<String, ColumnMeta> columnMetas, Node node) {
         // Node nameNode = node.getAttributes().getNamedItem("name");
         Node typeNode = node.getAttributes().getNamedItem("type");
         Node relNode = node.getAttributes().getNamedItem("rel");
@@ -212,7 +215,7 @@ public class TableMetaParser {
             toColumnMeta(partitionColumns, columnMetas, tableName));
     }
 
-    private static List<ColumnMeta> toColumnMeta(String[] columns, Map<String, ColumnMeta> columnMetas, String tableName) {
+    private List<ColumnMeta> toColumnMeta(String[] columns, Map<String, ColumnMeta> columnMetas, String tableName) {
         List<ColumnMeta> metas = Lists.newArrayList();
         for (int i = 0; i < columns.length; i++) {
 

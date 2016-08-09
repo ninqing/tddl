@@ -17,14 +17,14 @@ import com.taobao.tddl.common.jdbc.sorter.MySQLExceptionSorter;
 import com.taobao.tddl.common.jdbc.sorter.OracleExceptionSorter;
 import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.utils.TStringUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.group.config.GroupExtraConfig;
 import com.taobao.tddl.group.config.GroupIndex;
 import com.taobao.tddl.group.exception.NoMoreDataSourceException;
 import com.taobao.tddl.group.exception.SqlForbidException;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
-import com.taobao.tddl.monitor.utils.NagiosUtils;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author linxuan
@@ -136,8 +136,6 @@ public abstract class AbstractDBSelector implements DBSelector {
             }
         } catch (SQLException e) {
             if (exceptionSorter.isExceptionFatal(e)) {
-                NagiosUtils.addNagiosLog(NagiosUtils.KEY_DB_NOT_AVAILABLE + "|" + dsHolder.dsw.getDataSourceKey(),
-                    e.getMessage());
                 dsHolder.isNotAvailable = true;
             }
             exceptions.add(e);
@@ -197,8 +195,6 @@ public abstract class AbstractDBSelector implements DBSelector {
             }
         } catch (SQLException e) {
             if (exceptionSorter.isExceptionFatal(e)) {
-                NagiosUtils.addNagiosLog(NagiosUtils.KEY_DB_NOT_AVAILABLE + "|" + dsHolder.dsw.getDataSourceKey(),
-                    e.getMessage());
                 dsHolder.isNotAvailable = true;
             }
             exceptions.add(e);

@@ -3,6 +3,9 @@ package com.taobao.tddl.common.utils.convertor;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+
 /**
  * @author jianghang 2011-7-12 下午01:04:33
  */

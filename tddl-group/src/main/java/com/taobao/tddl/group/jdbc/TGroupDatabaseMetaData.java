@@ -6,6 +6,10 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
+import javax.sql.DataSource;
+
+import com.taobao.tddl.group.exception.NoMoreDataSourceException;
+
 /**
  * @author linxuan
  */
@@ -26,7 +30,12 @@ public class TGroupDatabaseMetaData implements DatabaseMetaData {
         try {
             // conn = tGroupConnection.createNewConnection(wBaseDsWrapper,
             // false);
-            conn = tGroupDataSource.getDBSelector(false).select().getConnection();
+            DataSource dataSource = tGroupDataSource.getDBSelector(false).select();
+            if (dataSource == null) {
+                throw new NoMoreDataSourceException("groupKey:" + tGroupDataSource.getDbGroupKey()
+                                                    + " has not Available Atom DataSource");
+            }
+            conn = dataSource.getConnection();
             dbMa = conn.getMetaData();
         } finally {
             if (conn != null) {

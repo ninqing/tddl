@@ -1,5 +1,7 @@
 package com.taobao.tddl.executor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -50,7 +52,9 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
     }
 
     private IExecutor getGroupExecutor(IDataNodeExecutor qc, ExecutionContext executionContext) {
-        if (executionContext == null) executionContext = new ExecutionContext();
+        if (executionContext == null) {
+            throw new TddlRuntimeException("execution context is null");
+        }
 
         String group = qc.getDataNode();
         if (group == null) {
@@ -61,6 +65,14 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
     }
 
     private IExecutor getGroupExecutor(String group, ExecutionContext executionContext) {
+        if (IDataNodeExecutor.USE_LAST_DATA_NODE.equals(group)) {
+            group = executionContext.getConnectionHolder().getRecentAccessGroup();
+
+            if (group == null) {
+                throw new TddlRuntimeException("recent access group is null, you cannot execute this sql");
+            }
+        }
+
         IExecutor executor = null;
         executor = ExecutorContext.getContext().getTopologyHandler().get(group);
         if (executor == null) {
@@ -68,14 +80,17 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
                                        + ExecutorContext.getContext().getTopologyHandler());
         }
 
-        if (!executionContext.isAutoCommit()) {
-            // sql不在同一个节点上，是跨机事务，报错。
-            if (executionContext.getTransactionGroup() != null && !executionContext.getTransactionGroup().equals(group)) {
-                throw new TddlRuntimeException("transaction across group is not supported, aim group is:" + group
-                                               + ", current transaction group is:"
-                                               + executionContext.getTransactionGroup());
-            }
-        }
+        // if (!executionContext.isAutoCommit()) {
+        // // sql不在同一个节点上，是跨机事务，报错。
+        // if (executionContext.getTransactionGroup() != null &&
+        // !executionContext.getTransactionGroup().equals(group)) {
+        // throw new
+        // TddlRuntimeException("transaction across group is not supported, aim group is:"
+        // + group
+        // + ", current transaction group is:"
+        // + executionContext.getTransactionGroup());
+        // }
+        // }
 
         return executor;
     }
@@ -156,4 +171,31 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
         this.dataNode = dataNode;
     }
 
+    @Override
+    public Future<List<ISchematicCursor>> execByExecPlanNodesFuture(final List<IDataNodeExecutor> qcs,
+                                                                    final ExecutionContext executionContext)
+                                                                                                            throws TddlException {
+        final ExecutorContext executorContext = ExecutorContext.getContext();
+        final OptimizerContext optimizerContext = OptimizerContext.getContext();
+        ExecutorService concurrentExecutors = executionContext.getExecutorService();
+        if (concurrentExecutors == null) {
+            throw new TddlRuntimeException("concurrentExecutors is null, cannot query parallelly");
+        }
+
+        Future<List<ISchematicCursor>> task = concurrentExecutors.submit(new Callable<List<ISchematicCursor>>() {
+
+            @Override
+            public List<ISchematicCursor> call() throws Exception {
+                List<ISchematicCursor> cursors = new ArrayList(qcs.size());
+                ExecutorContext.setContext(executorContext);
+                OptimizerContext.setContext(optimizerContext);
+                for (IDataNodeExecutor qc : qcs) {
+                    cursors.add(execByExecPlanNode(qc, executionContext));
+                }
+
+                return cursors;
+            }
+        });
+        return task;
+    }
 }

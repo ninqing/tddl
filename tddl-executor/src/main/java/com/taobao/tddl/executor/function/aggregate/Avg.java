@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor.function.aggregate;
 
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
@@ -18,7 +19,7 @@ public class Avg extends AggregateFunction {
     private Object total = null;
 
     @Override
-    public void serverMap(Object[] args) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
         count++;
         Object o = args[0];
 
@@ -33,7 +34,7 @@ public class Avg extends AggregateFunction {
     }
 
     @Override
-    public void serverReduce(Object[] args) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
         if (args[0] == null || args[1] == null) {
             return;
         }
@@ -111,19 +112,23 @@ public class Avg extends AggregateFunction {
     }
 
     public DataType getSumType() {
-        Object[] args = function.getArgs().toArray();
         DataType type = null;
-        if (args[0] instanceof ISelectable) {
-            type = ((ISelectable) args[0]).getDataType();
+        if (function.getArgs().get(0) instanceof ISelectable) {
+            type = ((ISelectable) function.getArgs().get(0)).getDataType();
         }
 
         if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(args[0]);
+            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
         }
         if (type == DataType.IntegerType || type == DataType.ShortType) {
             return DataType.LongType;
         } else {
             return type;
         }
+    }
+
+    @Override
+    public String[] getFunctionNames() {
+        return new String[] { "AVG" };
     }
 }

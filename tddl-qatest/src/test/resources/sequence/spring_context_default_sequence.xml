@@ -13,12 +13,12 @@
 		<property name="password" value="${mysql.normal0.password}" />
 	</bean>
 	
-	<bean id="sequence" class="com.taobao.tddl.sequence.impl.DefaultSequence">
+	<bean id="sequence" class="com.taobao.tddl.client.sequence.impl.DefaultSequence">
 		<property name="sequenceDao" ref="sequenceDao" />
 		<property name="name" value="ni" />
 	</bean>
 
-	<bean id="sequenceDao" class="com.taobao.tddl.sequence.impl.DefaultSequenceDao">
+	<bean id="sequenceDao" class="com.taobao.tddl.client.sequence.impl.DefaultSequenceDao">
 		<property name="dataSource">
 			<ref bean="normal_0" />
 		</property>

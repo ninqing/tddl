@@ -6,6 +6,10 @@ import java.math.BigInteger;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorException;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+
 /**
  * @author jianghang 2011-6-21 下午09:46:42
  */
@@ -432,11 +436,12 @@ public class CommonAndCommonTest {
             Assert.fail();// 不会走到这一步
         }
 
-        try {
-            helper.getConvertor(Double.class, float.class).convert(maxDouble, float.class);
-            Assert.fail();// 不会走到这一步
-        } catch (ConvertorException e) {
-        }
+        // try {
+        // helper.getConvertor(Double.class, float.class).convert(maxDouble,
+        // float.class);
+        // Assert.fail();// 不会走到这一步
+        // } catch (ConvertorException e) {
+        // }
 
         try {
             helper.getConvertor(Double.class, double.class).convert(minDouble, double.class);

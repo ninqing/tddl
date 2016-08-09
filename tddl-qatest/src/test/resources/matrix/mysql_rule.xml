@@ -5,8 +5,11 @@
 		init-method="init">
 		<property name="dbType" value="MYSQL" />
 		<property name="lazyInit" value="true" />
+		<property name="defaultDbIndex" value="andor_mysql_group_oneAtom"/>
 		<property name="tableRules">
 			<map>
+				<entry key="_tddl_" value-ref="_tddl_" />
+				
 				<!-- ===========================================mysql============================================= -->
 				<!--ibatis table-->
                 <entry key="mysql_ibatis_type" value-ref="mysql_ibatis_type" />
@@ -14,8 +17,10 @@
 				<entry key="mysql_student_oneGroup_oneAtom" value-ref="mysql_student_oneGroup_oneAtom" />
 				<entry key="mysql_student_oneGroup_mutilAtom" value-ref="mysql_student_oneGroup_mutilAtom" />
 				<entry key="mysql_student_mutilGroup" value-ref="mysql_student_mutilGroup" />
+				
+				<entry key="test_table_autoinc" value-ref="test_table_autoinc" />
+				
 
-				<entry key="mysql_normaltbl_oneGroup_oneAtom" value-ref="mysql_normaltbl_oneGroup_oneAtom" />
 				<entry key="mysql_normaltbl_oneGroup_oneAtom_Index" value-ref="mysql_normaltbl_oneGroup_oneAtom_Index" />
 				<entry key="mysql_normaltbl_oneGroup_oneAtom_Index._id" value-ref="mysql_normaltbl_oneGroup_oneAtom_Index._id" />
 
@@ -154,12 +159,19 @@
 			</map>
 		</property>
 	</bean>
-<!-- ===========================================mysql group============================================= -->
+<!-- ===========================================mysql group=============================================
 
 	<bean id="mysql_normaltbl_oneGroup_oneAtom" class="com.taobao.tddl.rule.TableRule">
 		<property name="allowFullTableScan" value="true" />
 		<property name="dbNamePattern" value="andor_mysql_group_oneAtom" />
 		<property name="tbNamePattern" value="mysql_normaltbl_oneGroup_oneAtom" />
+	</bean>
+	 -->
+	 
+	 	<bean id="test_table_autoinc" class="com.taobao.tddl.rule.TableRule">
+		<property name="allowFullTableScan" value="true" />
+		<property name="dbNamePattern" value="andor_mysql_group_0" />
+		<property name="tbNamePattern" value="test_table_autoinc" />
 	</bean>
 	<bean id="mysql_normaltbl_oneGroup_oneAtom_Index" class="com.taobao.tddl.rule.TableRule">
 		<property name="allowFullTableScan" value="true" />
@@ -1100,5 +1112,13 @@
 		<property name="allowFullTableScan" value="true" />
 		<property name="dbNamePattern" value="ob_group_oneAtom" />
 		<property name="tbNamePattern" value="ob_host_info_onegroup_oneatom" />
+	</bean>
+	
+	
+	<bean id="_tddl_" class="com.taobao.tddl.rule.TableRule">
+		<property name="allowFullTableScan" value="true" />
+		<property name="dbNamePattern" value="demo_group" />
+		<property name="tbNamePattern" value="_tddl_{0000}" />
+		<property name="tbRules" value="Math.abs(Long.valueOf(#id,1,4#)) % 4" />
 	</bean>
 </beans>

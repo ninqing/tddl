@@ -97,7 +97,7 @@ public class JoinRowSet extends AbstractRowSet implements IRowSet {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (ColumnMeta cm : this.getParentCursorMeta().getColumns()) {
-            Integer index = this.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName());
+            Integer index = this.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName(), cm.getAlias());
             sb.append(cm.getName() + ":" + this.getValues().get(index) + " ");
         }
         return sb.toString();

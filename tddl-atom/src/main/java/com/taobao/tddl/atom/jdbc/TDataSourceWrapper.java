@@ -3,16 +3,15 @@ package com.taobao.tddl.atom.jdbc;
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.logging.Logger;
 
 import javax.sql.DataSource;
-
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.logging.Logger;
 import com.alibaba.druid.support.logging.Log;
 import com.alibaba.druid.support.logging.LogFactory;
 import com.taobao.tddl.atom.TAtomDbStatusEnum;

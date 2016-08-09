@@ -1,10 +1,8 @@
 package com.taobao.tddl.optimizer.core.ast.build;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
@@ -18,25 +16,26 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 
 /**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
  * @since 5.0.0
  */
 public class JoinNodeBuilder extends QueryTreeNodeBuilder {
-
-    private Set<IColumn> columnInAggregate = new HashSet();
 
     public JoinNodeBuilder(JoinNode joinNode){
         this.setNode(joinNode);
     }
 
+    @Override
     public JoinNode getNode() {
         return (JoinNode) super.getNode();
     }
 
+    @Override
     public void build() {
         if (this.getNode().isUedForIndexJoinPK()) {
             return;
         }
-        this.columnInAggregate.clear();
         this.buildSelected();
         this.buildJoinKeys();
         this.buildWhere();
@@ -64,13 +63,6 @@ public class JoinNodeBuilder extends QueryTreeNodeBuilder {
             }
         }
 
-        for (IColumn c : this.columnInAggregate) {
-            if (!columnRefered.contains(c)) {
-                columnRefered.add(c);
-            }
-        }
-
-        this.getNode().setColumnsRefered(columnRefered);
     }
 
     private void buildJoinKeys() {
@@ -167,7 +159,7 @@ public class JoinNodeBuilder extends QueryTreeNodeBuilder {
                             // b. SELECT * FROM TABLE1 A INNER JOIN TABLE2 B
                             if (selected.getTableName() != null
                                 && !selected.getTableName().equals(selectedFromChild.getTableName())) {
-                                break;
+                                continue;
                             }
 
                             IColumn newS = ASTNodeFactory.getInstance().createColumn();
@@ -201,6 +193,7 @@ public class JoinNodeBuilder extends QueryTreeNodeBuilder {
 
     }
 
+    @Override
     public ISelectable getSelectableFromChild(ISelectable c) {
         if (c instanceof IFunction) {
             return c;
@@ -248,11 +241,11 @@ public class JoinNodeBuilder extends QueryTreeNodeBuilder {
         for (int i = 0; i < args.size(); i++) {
             if (args.get(i) instanceof ISelectable) {
                 args.set(i, this.buildSelectable((ISelectable) args.get(i)));
-
-                if (IFunction.FunctionType.Aggregate.equals(f.getFunctionType()) && (args.get(i) instanceof IColumn)) {
-                    this.columnInAggregate.add((IColumn) args.get(i));
-                }
             }
         }
+    }
+
+    public void pusherFunction(IFunction f) {
+
     }
 }

@@ -51,7 +51,7 @@ public class SimpleHintParserTest {
 
     @Test
     public void testCondition() {
-        String sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"vtabxxx\",\"params\":[{\"relation\":\"and\",\"expr\":[\"pk>4\",\"pk<10\"],\"paramtype\":\"int\"}],\"skip\":10,\"max\":20,\"orderby\":\"col1\",\"asc\":\"true\"})*/";
+        String sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"vtabxxx\",\"params\":[{\"relation\":\"and\",\"expr\":[\"pk>4\",\"pk<10\"],\"paramtype\":\"int\"}]})*/";
         RuleRouteCondition route = (RuleRouteCondition) SimpleHintParser.convertHint2RouteCondition(sql, null);
         System.out.println(route);
         Assert.assertEquals("vtabxxx", route.getVirtualTableName());

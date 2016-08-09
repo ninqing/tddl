@@ -29,13 +29,11 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
 
     @Before
     public void prepare() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         normaltblPrepare(0, 20);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
@@ -287,6 +285,45 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
         if (!normaltblTableName.startsWith("ob")) {
             String sql = "select ADDTIME(gmt_create,'1 1:1:1.000002')  as da from " + normaltblTableName
                          + " where pk=1";
+
+            rs = mysqlQueryData(sql, null);
+            rc = andorQueryData(sql, null);
+
+            String[] columnParam1 = { "da" };
+            assertContentSame(rs, rc, columnParam1);
+        }
+    }
+
+    @Test
+    public void timestampdiffTest() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = "select timestampdiff(second,now(),1)  as da from " + normaltblTableName + " where pk=1";
+
+            rs = mysqlQueryData(sql, null);
+            rc = andorQueryData(sql, null);
+
+            String[] columnParam1 = { "da" };
+            assertContentSame(rs, rc, columnParam1);
+        }
+    }
+
+    @Test
+    public void timestampAddTest() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = "select timestampadd(second,now(),1)  as da from " + normaltblTableName + " where pk=1";
+
+            rs = mysqlQueryData(sql, null);
+            rc = andorQueryData(sql, null);
+
+            String[] columnParam1 = { "da" };
+            assertContentSame(rs, rc, columnParam1);
+        }
+    }
+
+    @Test
+    public void getFromatTest() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = "select get_format(time,'usa') as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
             rc = andorQueryData(sql, null);

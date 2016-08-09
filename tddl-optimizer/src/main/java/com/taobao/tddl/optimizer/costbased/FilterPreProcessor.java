@@ -4,9 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.commons.lang.BooleanUtils;
 import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
@@ -139,12 +137,24 @@ public class FilterPreProcessor {
                     if (((IBooleanFilter) one).getColumn() instanceof ISelectable) {// 可能是个not函数
                         newAndDNFfilter.add(one);// 不能丢弃
                     } else {
-                        String value = ((IBooleanFilter) one).getColumn().toString();
-                        if (StringUtils.isNumeric(value)) {
-                            flag = BooleanUtils.toBoolean(Integer.valueOf(value));
+                        Object value = ((IBooleanFilter) one).getColumn();
+                        if (value == null) {
+                            flag = false;
+                        } else if (value.getClass() == Boolean.class || value.getClass() == boolean.class) {
+                            flag = (Boolean) value;
                         } else {
-                            flag = BooleanUtils.toBoolean(((IBooleanFilter) one).getColumn().toString());
+                            // mysql中字符串'true'会被当作0处理
+                            flag = (DataType.LongType.convertFrom(value) != 0);
                         }
+
+                        // if (StringUtils.isNumeric(value)) {
+                        // flag =
+                        // BooleanUtils.toBoolean(Integer.valueOf(value));
+                        // } else {
+                        // flag = BooleanUtils.toBoolean(((IBooleanFilter)
+                        // one).getColumn().toString());
+                        // }
+
                         if (!flag) {
                             isShortest = true;
                             break;

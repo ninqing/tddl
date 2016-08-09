@@ -1,6 +1,9 @@
 package com.taobao.tddl.executor.handler;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.KVPair;
 import com.taobao.tddl.executor.common.TransactionConfig;
@@ -18,9 +21,6 @@ import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
-
 /**
  * CUD操作基类
  * 
@@ -34,35 +34,38 @@ public abstract class PutHandlerCommon extends HandlerCommon {
         super();
     }
 
+    @Override
     public ISchematicCursor handle(IDataNodeExecutor executor, ExecutionContext executionContext) throws TddlException {
+
+        if (executionContext.getParams() != null && executionContext.getParams().isBatch()) {
+            throw new TddlRuntimeException("batch is not supported for :"
+                                           + executionContext.getCurrentRepository().getClass());
+        }
+
         long time = System.currentTimeMillis();
         IPut put = (IPut) executor;
+        TableAndIndex ti = new TableAndIndex();
 
-        buildTableAndMeta(put, executionContext);
+        buildTableAndMeta(put, ti, executionContext);
 
         int affect_rows = 0;
         ITransaction transaction = executionContext.getTransaction();
-        ITable table = executionContext.getTable();
-        IndexMeta meta = executionContext.getMeta();
+
+        ITable table = ti.table;
+
+        IndexMeta meta = ti.index;
+
         boolean autoCommit = false;
         try {
             if (transaction == null) {// 客户端没有用事务，这里手动加上。
-                IRepository repo = executionContext.getCurrentRepository();
-                if ("True".equalsIgnoreCase(repo.getRepoConfig().getProperty(RepositoryConfig.IS_TRANSACTIONAL))) {
-                    transaction = repo.beginTransaction(getDefalutTransactionConfig(repo));
-                    executionContext.setTransaction(transaction);
-                    autoCommit = true;
-                }
+
+                throw new IllegalAccessError("txn is null");
+
             }
             affect_rows = executePut(executionContext, put, table, meta);
-            if (autoCommit) {
-                commit(executionContext, transaction);
-            }
         } catch (Exception e) {
-            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.ServerPut, Monitor.Key3Fail, time);
-            if (autoCommit) {
-                rollback(executionContext, transaction);
-            }
+            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Fail, time);
+
             throw new TddlException(e);
         }
 
@@ -71,28 +74,9 @@ public abstract class PutHandlerCommon extends HandlerCommon {
             .getCursorFactory()
             .affectRowCursor(executionContext, affect_rows);
 
-        time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.ServerPut, Monitor.Key3Success, time);
+        time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Success, time);
         return affectrowCursor;
 
-    }
-
-    // move to JE_Transaction
-    protected void rollback(ExecutionContext executionContext, ITransaction transaction) {
-        try {
-            // if (historyLog.get() != null) {
-            // historyLog.get().rollback(transaction);
-            // }
-            transaction.rollback();
-            executionContext.setTransaction(null);
-        } catch (Exception ex) {
-            logger.error("", ex);
-        }
-    }
-
-    protected void commit(ExecutionContext executionContext, ITransaction transaction) throws TddlException {
-        transaction.commit();
-        // 清空当前事务运行状态
-        executionContext.setTransaction(null);
     }
 
     protected abstract int executePut(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)

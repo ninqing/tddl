@@ -42,8 +42,6 @@ public class InnerJoinTest extends BaseMatrixTestCase {
     }
 
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
 
         hostinfoPrepare(0, 3);
         hostgroupPrepare(0, 2);
@@ -53,7 +51,7 @@ public class InnerJoinTest extends BaseMatrixTestCase {
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
@@ -67,6 +65,15 @@ public class InnerJoinTest extends BaseMatrixTestCase {
     }
 
     @Test
+    public void innerJoinWithMultiOnTest() throws Exception {
+        String sql = "select " + host_info + ".host_id," + host_info + ".host_name," + host_info + ".hostgroup_id,"
+                     + hostgroup + ".hostgroup_name from " + host_info + " inner join " + hostgroup + "  " + "on "
+                     + host_info + ".hostgroup_id=" + hostgroup + ".hostgroup_id and " + host_info + ".host_name="
+                     + hostgroup + ".hostgroup_name";
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
     public void InnerJoinWithMutilValueTest() throws Exception {
         // bdb数据库join根据desc排序抛出空指针异常,暂时忽略
         if (host_info.contains("mysql")) {
@@ -76,7 +83,7 @@ public class InnerJoinTest extends BaseMatrixTestCase {
                 param.clear();
                 param.add(i);
                 param.add(0l);
-                andorUpdateData(sql, param);
+                tddlUpdateData(sql, param);
                 mysqlUpdateData(sql, param);
             }
             sql = "select * from " + hostgroup + " inner join " + host_info + "  " + "on " + host_info
@@ -87,8 +94,8 @@ public class InnerJoinTest extends BaseMatrixTestCase {
 
     @Test
     public void InnerJoinWithAndTest() throws Exception {
-        String sql = "select " + host_info + ".host_id," + "" + host_info + ".host_name," + host_info
-                     + ".hostgroup_id," + hostgroup + ".hostgroup_name " + "from " + hostgroup + " inner join "
+        String sql = "select " + host_info + ".host_id," + "" + host_info + ".hostgroup_id," + host_info
+                     + ".host_name," + hostgroup + ".hostgroup_name " + "from " + hostgroup + " inner join "
                      + host_info + "  " + "on " + host_info + ".hostgroup_id=" + hostgroup + ".hostgroup_id where "
                      + host_info + ".host_name='hostname0'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
@@ -159,7 +166,7 @@ public class InnerJoinTest extends BaseMatrixTestCase {
             param.clear();
             param.add(i);
             param.add(0l);
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             mysqlUpdateData(sql, param);
             // rc.close();
         }
@@ -221,7 +228,7 @@ public class InnerJoinTest extends BaseMatrixTestCase {
             param.clear();
             param.add(i);
             param.add(0l);
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             mysqlUpdateData(sql, param);
         }
         sql = "SELECT * FROM " + host_info + " inner JOIN " + hostgroup + " ON " + host_info + ".hostgroup_id="

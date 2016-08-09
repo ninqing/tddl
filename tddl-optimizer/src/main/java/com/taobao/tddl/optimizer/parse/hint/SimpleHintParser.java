@@ -13,7 +13,8 @@ import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 import com.taobao.tddl.rule.model.sqljep.ComparativeAND;
@@ -37,7 +38,7 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  *    a. relation取值是and和or,可以不用，但是expr里面元素必须为一个。（即where pk>4）
  *    b. expr对应为分库条件
  *    c. paramtype对应分库子段类型
- * 4. extra取值是针对{@linkplain ExtraCmd}中定义的扩展参数，比如ALLOW_TEMPORARY_TABLE=true代表开启临时表
+ * 4. extra取值是针对{@linkplain ConnectionProperties}中定义的扩展参数，比如ALLOW_TEMPORARY_TABLE=true代表开启临时表
  * 
  * type为direct时
  * a. \/*+TDDL({"type":"direct","vtab":"real_tab","dbid":"xxx_group","realtabs":["real_tab_0","real_tab_1"]})*\/select * from real_tab;
@@ -64,8 +65,18 @@ public class SimpleHintParser {
     private static final String EXTRACMD  = "extra";
 
     public static RouteCondition convertHint2RouteCondition(String sql, Map<Integer, ParameterContext> parameterSettings) {
+        // 检查下thread local hint
+        OldHintParser.checkOldThreadLocalHint();
         String tddlHint = extractHint(sql, parameterSettings);
         if (StringUtils.isNotEmpty(tddlHint)) {
+            if (tddlHint.contains("type:executeBy") || tddlHint.contains("type:'executeBy")) {
+                // 使用老hint
+                RouteCondition routeCondition = OldHintParser.extractHint(tddlHint);
+                if (routeCondition != null) {
+                    return routeCondition;
+                }
+            }
+
             try {
                 JSONObject jsonObject = JSON.parseObject(tddlHint);
                 String type = jsonObject.getString("type");
@@ -146,6 +157,7 @@ public class SimpleHintParser {
         RuleRouteCondition sc = new RuleRouteCondition();
         decodeVtab(sc, jsonObject);
         decodeExtra(sc, jsonObject);
+        decodeSpecifyInfo(sc, jsonObject);
         String paramsStr = containsKvNotBlank(jsonObject, PARAMS);
         if (paramsStr != null) {
             JSONArray params = JSON.parseArray(paramsStr);
@@ -197,6 +209,15 @@ public class SimpleHintParser {
         return sc;
     }
 
+    protected static void decodeSpecifyInfo(RouteCondition condition, JSONObject jsonObject) throws JSONException {
+        String skip = containsKvNotBlank(jsonObject, "skip");
+        String max = containsKvNotBlank(jsonObject, "max");
+        String orderby = containsKvNotBlank(jsonObject, "orderby");
+        if (skip != null || max != null || orderby != null) {
+            throw new TddlRuntimeException("不支持的tddl3.3.x的hint特殊参数");
+        }
+    }
+
     /**
      * 从sql中解出hint,并且将hint里面的?替换为参数的String形式
      * 
@@ -221,15 +242,21 @@ public class SimpleHintParser {
                 }
 
                 ParameterContext param = parameterSettings.get(parameters);
-                sb.append(param.getArgs()[1]);
-                // if (param.getParameterMethod() == ParameterMethod.setString)
-                // {
-                // sb.append("'");
-                // sb.append(parameterSettings.get(parameters).getArgs()[1]);
-                // sb.append("'");
-                // } else {
-                // sb.append(parameterSettings.get(parameters).getArgs()[1]);
-                // }
+                if (param == null) {
+                    throw new TddlRuntimeException("Parameter index out of range (" + parameters
+                                                   + " > number of parameters, which is " + parameterSettings.size()
+                                                   + ").");
+                }
+
+                Object arg = param.getArgs()[1];
+                if ((param.getParameterMethod() == ParameterMethod.setString || arg instanceof String)
+                    && !isQuoteSurround(tddlHint, i)) {
+                    sb.append('\'');
+                    sb.append(arg);
+                    sb.append('\'');
+                } else {
+                    sb.append(arg);
+                }
                 parameters++;
             } else {
                 sb.append(tddlHint.charAt(i));
@@ -279,6 +306,22 @@ public class SimpleHintParser {
         parameterSettings.clear();
         parameterSettings.putAll(newParameterSettings);
         return sql;
+    }
+
+    private static boolean isQuoteSurround(String tddlHint, int index) {
+        for (int i = index - 1; i >= 0; i--) {
+            char ch = tddlHint.charAt(i);
+            // 找到之前的第一个非空白的字符，判断是否为引号
+            if (!Character.isWhitespace(ch)) {
+                if (ch == '\'' || ch == '"') {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static String containsKvNotBlank(JSONObject jsonObject, String key) throws JSONException {

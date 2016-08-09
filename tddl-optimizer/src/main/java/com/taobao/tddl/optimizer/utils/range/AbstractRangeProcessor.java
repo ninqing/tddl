@@ -35,6 +35,11 @@ public abstract class AbstractRangeProcessor {
             type = DataTypeUtil.getTypeOfObject(f.getValue());
         }
 
+        if (!isNumberType(type)) {
+            // 只处理数字类型，避免时间戳类型的合并
+            return null;
+        }
+
         switch (f.getOperation()) {
             case EQ:
                 return new Range(null, type, getValue(f), getValue(f));
@@ -50,6 +55,19 @@ public abstract class AbstractRangeProcessor {
                 return null;
         }
 
+    }
+
+    protected boolean isNumberType(DataType type) {
+        if (type == null) {
+            return false;
+        }
+        if (type == DataType.IntegerType || type == DataType.LongType || type == DataType.ShortType
+            || type == DataType.BigIntegerType || type == DataType.BigDecimalType) {
+
+            return true;
+        } else {
+            return false;
+        }
     }
 
     protected Comparable getValue(IBooleanFilter f) {

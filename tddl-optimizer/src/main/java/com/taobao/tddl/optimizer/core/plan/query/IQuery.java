@@ -6,7 +6,7 @@ import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 /**
  * @since 5.0.0
  */
-public interface IQuery extends IParallelizableQueryTree<IQueryTree> {
+public interface IQuery extends IQueryTree<IQueryTree> {
 
     /**
      * key 过滤器。 最重要的过滤器哦。 用来使用kv中的key进行查找。
@@ -27,12 +27,10 @@ public interface IQuery extends IParallelizableQueryTree<IQueryTree> {
 
     /**
      * 锁模式。 目前没用
-     * 
-     * @return
      */
-    public LOCK_MODEL getLockModel();
+    public LOCK_MODE getLockMode();
 
-    public IQuery setLockModel(LOCK_MODEL lockModel);
+    public IQuery setLockMode(LOCK_MODE lockModel);
 
     public IQuery setTableName(String actualTableName);
 
@@ -50,12 +48,6 @@ public interface IQuery extends IParallelizableQueryTree<IQueryTree> {
      */
     public String getIndexName();
 
-    /**
-     * TABLENAME._IDXNAME
-     * 
-     * @param actualTable
-     * @return
-     */
     public IQuery setIndexName(String indexName);
 
     /**

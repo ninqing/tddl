@@ -14,9 +14,6 @@ public class NamedRecord extends CloneableRecord {
     String          name;
     CloneableRecord record;
 
-    public NamedRecord(){
-    }
-
     public NamedRecord(String name, CloneableRecord record){
         this.name = name;
         this.record = record;

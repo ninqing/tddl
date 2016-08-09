@@ -118,6 +118,11 @@
 				<artifactId>groovy-all</artifactId>
 				<version>${groovy_version}</version>
 			</dependency>
+			<dependency>
+				<groupId>cglib</groupId>
+				<artifactId>cglib-nodep</artifactId>
+				<version>3.1</version>
+			</dependency>
 			<!-- spring libs -->
 			<dependency>
 				<groupId>org.springframework</groupId>

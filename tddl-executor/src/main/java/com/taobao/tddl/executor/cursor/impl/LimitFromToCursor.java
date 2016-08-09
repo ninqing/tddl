@@ -16,7 +16,7 @@ import com.taobao.tddl.executor.utils.ExecUtils;
  */
 public class LimitFromToCursor extends SchematicCursor implements ILimitFromToCursor {
 
-    public LimitFromToCursor(ISchematicCursor cursor, Long limitFrom, Long offset){
+    public LimitFromToCursor(ISchematicCursor cursor, Long limitFrom, Long offset) throws TddlException{
         super(cursor, null, cursor.getOrderBy());
         this.limitFrom = limitFrom;
         this.offset = offset;
@@ -81,9 +81,11 @@ public class LimitFromToCursor extends SchematicCursor implements ILimitFromToCu
     }
 
     @Override
-    public void beforeFirst() {
+    public void beforeFirst() throws TddlException {
         inited = false;
         count = 0;
+
+        super.beforeFirst();
     }
 
 }

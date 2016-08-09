@@ -2,6 +2,8 @@ package com.taobao.tddl.common.jdbc;
 
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.common.utils.TStringUtil;
@@ -20,15 +22,24 @@ public class SqlTypeParser {
     private static final Pattern SELECT_FOR_UPDATE_PATTERN = Pattern.compile("^select\\s+.*\\s+for\\s+update.*$",
                                                                Pattern.CASE_INSENSITIVE);
 
+    private static final Pattern CALL_PATTERN              = Pattern.compile("^\\{\\s*call.*$",
+                                                               Pattern.CASE_INSENSITIVE);
+
     public static boolean isQuerySql(String sql) {
         SqlType sqlType = getSqlType(sql);
+        return isQuerySqlType(sqlType);
+    }
+
+    public static boolean isQuerySqlType(SqlType sqlType) {
         if (sqlType == SqlType.SELECT || sqlType == SqlType.SELECT_FOR_UPDATE || sqlType == SqlType.SHOW
-            || sqlType == SqlType.DUMP || sqlType == SqlType.DEBUG || sqlType == SqlType.EXPLAIN) {
+            || sqlType == SqlType.DESC || sqlType == SqlType.DUMP || sqlType == SqlType.DEBUG
+            || sqlType == SqlType.EXPLAIN || sqlType == SqlType.SELECT_LAST_INSERT_ID
+            || sqlType == SqlType.SELECT_WITHOUT_TABLE) {
             return true;
         } else if (sqlType == SqlType.INSERT || sqlType == SqlType.UPDATE || sqlType == SqlType.DELETE
                    || sqlType == SqlType.REPLACE || sqlType == SqlType.TRUNCATE || sqlType == SqlType.CREATE
                    || sqlType == SqlType.DROP || sqlType == SqlType.LOAD || sqlType == SqlType.MERGE
-                   || sqlType == SqlType.ALTER || sqlType == SqlType.RENAME) {
+                   || sqlType == SqlType.ALTER || sqlType == SqlType.RENAME || sqlType == SqlType.PROCEDURE) {
             return false;
         } else {
             return throwNotSupportSqlTypeException();
@@ -95,6 +106,11 @@ public class SqlTypeParser {
             sqlType = SqlType.DEBUG;
         } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "explain")) {
             sqlType = SqlType.EXPLAIN;
+        } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "desc")) {
+            sqlType = SqlType.DESC;
+        } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "call")
+                   || CALL_PATTERN.matcher(noCommentsSql).matches()) {
+            sqlType = SqlType.PROCEDURE;
         } else {
             throwNotSupportSqlTypeException();
         }
@@ -102,6 +118,6 @@ public class SqlTypeParser {
     }
 
     public static boolean throwNotSupportSqlTypeException() {
-        throw new TddlRuntimeException("only select, insert, update, delete, replace, show, truncate, create, drop, load, merge, dump sql is supported");
+        throw new TddlRuntimeException("only " + StringUtils.join(SqlType.values(), ',') + " sql is supported");
     }
 }

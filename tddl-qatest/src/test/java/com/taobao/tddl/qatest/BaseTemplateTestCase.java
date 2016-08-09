@@ -20,10 +20,10 @@ public class BaseTemplateTestCase extends BaseMatrixTestCase {
     @BeforeClass
     public static void IEnvInitTemplate() throws Exception {
         normaltblTableName = "mysql_normaltbl_oneGroup_oneAtom";
-        if (us == null) {
+        if (tddlDatasource == null) {
             andorJT = JdbcTemplateClient("mysql");
         } else {
-            andorJT = new JdbcTemplate(us);
+            andorJT = new JdbcTemplate(tddlDatasource);
         }
     }
 

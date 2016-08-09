@@ -2,9 +2,9 @@ package com.taobao.tddl.optimizer.parse;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -12,12 +12,14 @@ import org.junit.Test;
 
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.dml.DeleteNode;
 import com.taobao.tddl.optimizer.core.ast.dml.InsertNode;
+import com.taobao.tddl.optimizer.core.ast.dml.PutNode;
 import com.taobao.tddl.optimizer.core.ast.dml.UpdateNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
@@ -32,16 +34,11 @@ import com.taobao.tddl.optimizer.core.expression.bean.BindVal;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.exceptions.SqlParserException;
 
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
-
 /**
  * @author jianghang 2013-11-15 下午3:55:47
  * @since 5.0.0
  */
 public class SqlParserTest extends BaseOptimizerTest {
-
-    private static final Logger logger = LoggerFactory.getLogger(SqlParserTest.class);
 
     @Test
     public void testQuery_简单主键查询() throws SqlParserException, QueryException {
@@ -724,6 +721,38 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
+    public void testInsert_多字段_多记录() throws SqlParserException, QueryException {
+        String sql = "INSERT INTO TABLE1(ID, NAME, SCHOOL) VALUES (1, 'sun', 'sysu'),(2, 'sun', 'sysu'),(3, 'sun', 'sysu')";
+
+        InsertNode in = insert(sql);
+        in.build();
+
+        TableNode table1 = new TableNode("TABLE1");
+        InsertNode inExpected = table1.insert("ID NAME SCHOOL",
+            new Object[] { Arrays.asList(1, "sun", "sysu"), Arrays.asList(2, "sun", "sysu"),
+                    Arrays.asList(3, "sun", "sysu") });
+        inExpected.build();
+
+        assertEquals(in, inExpected);
+    }
+
+    @Test
+    public void testReplace_多字段_多记录() throws SqlParserException, QueryException {
+        String sql = "REPLACE INTO TABLE1(ID, NAME, SCHOOL) VALUES (1, 'sun', 'sysu'),(2, 'sun', 'sysu'),(3, 'sun', 'sysu')";
+
+        PutNode in = put(sql);
+        in.build();
+
+        TableNode table1 = new TableNode("TABLE1");
+        PutNode inExpected = table1.put("ID NAME SCHOOL",
+            new Object[] { Arrays.asList(1, "sun", "sysu"), Arrays.asList(2, "sun", "sysu"),
+                    Arrays.asList(3, "sun", "sysu") });
+        inExpected.build();
+
+        assertEquals(in, inExpected);
+    }
+
+    @Test
     public void testLimit() throws SqlParserException, QueryException {
         String sql = "SELECT * FROM TABLE1 LIMIT 1,10";
         QueryTreeNode qn = query(sql);
@@ -789,14 +818,14 @@ public class SqlParserTest extends BaseOptimizerTest {
     public void testPreparedInsertSql() throws SqlParserException, QueryException {
         String sql = "INSERT INTO TABLE1(ID,NAME,SCHOOL) VALUES (?, ?, ?)";
         InsertNode in = insert(sql);
-        Map<Integer, ParameterContext> parameterSettings = null;
-        parameterSettings = new TreeMap<Integer, ParameterContext>();
+        Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
         ParameterContext p1 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 0, 2 });
         ParameterContext p2 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 1, "sun" });
         ParameterContext p3 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 2, "sysu" });
-        parameterSettings.put(1, p1);
-        parameterSettings.put(2, p2);
-        parameterSettings.put(3, p3);
+        currentParameter.put(1, p1);
+        currentParameter.put(2, p2);
+        currentParameter.put(3, p3);
+        Parameters parameterSettings = new Parameters(currentParameter, false);
 
         in.assignment(parameterSettings);
         in.build();
@@ -812,15 +841,15 @@ public class SqlParserTest extends BaseOptimizerTest {
         String sql = "UPDATE TABLE1 SET ID=? WHERE ID>=? AND ID<=?";
         UpdateNode un = update(sql);
 
-        Map<Integer, ParameterContext> parameterSettings = null;
-        parameterSettings = new TreeMap<Integer, ParameterContext>();
+        Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
         ParameterContext p1 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 0, 2 });
         ParameterContext p2 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 1, 3 });
         ParameterContext p3 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 2, 5 });
-        parameterSettings.put(1, p1);
-        parameterSettings.put(2, p2);
-        parameterSettings.put(3, p3);
+        currentParameter.put(1, p1);
+        currentParameter.put(2, p2);
+        currentParameter.put(3, p3);
 
+        Parameters parameterSettings = new Parameters(currentParameter, false);
         un.assignment(parameterSettings);
         un.build();
 
@@ -837,13 +866,13 @@ public class SqlParserTest extends BaseOptimizerTest {
         String sql = "DELETE FROM TABLE1 WHERE ID>=? AND ID<=?";
         DeleteNode dn = delete(sql);
 
-        Map<Integer, ParameterContext> parameterSettings = null;
-        parameterSettings = new TreeMap<Integer, ParameterContext>();
+        Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
         ParameterContext p1 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 0, 3 });
         ParameterContext p2 = new ParameterContext(ParameterMethod.setObject1, new Object[] { 1, 5 });
-        parameterSettings.put(1, p1);
-        parameterSettings.put(2, p2);
+        currentParameter.put(1, p1);
+        currentParameter.put(2, p2);
 
+        Parameters parameterSettings = new Parameters(currentParameter, false);
         dn.assignment(parameterSettings);
         dn.build();
 
@@ -972,29 +1001,32 @@ public class SqlParserTest extends BaseOptimizerTest {
         QueryTreeNode qn = query(sql);
         qn.build();
 
-        TableNode table1 = new TableNode("TABLE1");
-        QueryTreeNode qnExpected = table1.select("NAME");
-
-        TableNode table2 = new TableNode("TABLE2");
-        table2.alias("C").setSubAlias("B").select("*").query("B.ID=1");
-        table2.groupBy("SCHOOL");
-        table2.having("COUNT(*) > 1");
-        table2.orderBy("ID", false);
-        table2.limit(0, 1);
-        table2.setSubQuery(true);
-
-        QueryNode subQuery = new QueryNode(table2);
-        subQuery.select("C.NAME");
-
-        IColumn column = ASTNodeFactory.getInstance().createColumn().setColumnName("NAME");
-        IBooleanFilter filter = ASTNodeFactory.getInstance()
-            .createBooleanFilter()
-            .setColumn(column)
-            .setValue(subQuery)
-            .setOperation(OPERATION.EQ);
-        table1.query(filter);
-        qnExpected.build();
-        assertEquals(qn, qnExpected);
+        System.out.println(qn);
+        //
+        // TableNode table1 = new TableNode("TABLE1");
+        // QueryTreeNode qnExpected = table1.select("NAME");
+        //
+        // TableNode table2 = new TableNode("TABLE2");
+        // table2.alias("C").setSubAlias("B").select("*").query("B.ID=1");
+        // table2.groupBy("SCHOOL");
+        // table2.having("COUNT(*) > 1");
+        // table2.orderBy("ID", false);
+        // table2.limit(0, 1);
+        // table2.setSubQuery(true);
+        //
+        // QueryNode subQuery = new QueryNode(table2);
+        // subQuery.select("C.NAME");
+        //
+        // IColumn column =
+        // ASTNodeFactory.getInstance().createColumn().setColumnName("NAME");
+        // IBooleanFilter filter = ASTNodeFactory.getInstance()
+        // .createBooleanFilter()
+        // .setColumn(column)
+        // .setValue(subQuery)
+        // .setOperation(OPERATION.EQ);
+        // table1.query(filter);
+        // qnExpected.build();
+        // assertEquals(qn, qnExpected);
     }
 
     @Test
@@ -1072,45 +1104,90 @@ public class SqlParserTest extends BaseOptimizerTest {
         System.out.println(qn);
     }
 
-    public void testQuery_join_子查询_in模式() throws SqlParserException, QueryException {
-        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2)";
+    @Test
+    public void testQuery_子查询_in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
         System.out.println(qn);
     }
 
-    // @Test
-    public void testQuery_join_子查询_exist模式() throws SqlParserException, QueryException {
-        // ExistsPrimary
-        String sql = "SELECT * FROM TABLE1 WHERE EXISTS (SELECT ID FROM TABLE2)";
+    @Test
+    public void testQuery_子查询_多字段in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE (ID,NAME) IN (SELECT ID,NAME FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
         System.out.println(qn);
     }
 
-    // @Test
-    public void testQuery_join_子查询_all模式() throws SqlParserException, QueryException {
+    @Test
+    public void testQuery_子查询_not_in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID NOT IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
+        System.out.println(qn);
+    }
+
+    @Test
+    public void testQuery_子查询correlated_in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
+        System.out.println(qn);
+    }
+
+    @Test
+    public void testQuery_子查询_exist模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE  EXISTS (SELECT ID FROM TABLE2)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
+        System.out.println(qn);
+    }
+
+    @Test
+    public void testQuery_子查询_not_exist模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE NOT EXISTS (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
+        System.out.println(qn);
+    }
+
+    @Test
+    public void testQuery_子查询_all模式() throws SqlParserException, QueryException {
         // SubqueryAllExpression
-        String sql = "SELECT * FROM TABLE1 WHERE ID > ALL (SELECT ID FROM TABLE2)";
+        String sql = "SELECT * FROM TABLE1 WHERE ID > ALL (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
         System.out.println(qn);
     }
 
-    // @Test
-    public void testQuery_join_子查询_any模式() throws SqlParserException, QueryException {
+    @Test
+    public void testQuery_子查询_any模式() throws SqlParserException, QueryException {
         // SubqueryAnyExpression
-        String sql = "SELECT * FROM TABLE1 WHERE ID > ANY (SELECT ID FROM TABLE2)";
+        String sql = "SELECT * FROM TABLE1 WHERE ID <= ANY (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
         System.out.println(qn);
     }
 
-    // @Test
+    @Test
     public void testQuery_不带表() throws SqlParserException, QueryException {
-        String sql = "SELECT 1";
+        String sql = "SELECT last_insert_id()";
         QueryTreeNode qn = query(sql);
-        qn.build();
+        Assert.assertTrue(qn.getSql() != null);
+    }
+
+    @Test
+    public void testQuery_subquery_不带表() throws SqlParserException, QueryException {
+        String sql = "SELECT (SELECT MAX(ID) FROM TABLE2)";
+        QueryTreeNode qn = query(sql);
+        Assert.assertTrue(qn.getSql() != null);
+    }
+
+    @Test
+    public void testQuery_addDate() throws SqlParserException, QueryException {
+        String sql = "SELECT DATE_ADD('2008-01-02', INTERVAL 1 MONTH ) FROM  TABLE1";
+        QueryTreeNode qn = query(sql);
         System.out.println(qn);
     }
 
@@ -1120,7 +1197,7 @@ public class SqlParserTest extends BaseOptimizerTest {
         SqlAnalysisResult sm = parser.parse(sql, false);
         QueryTreeNode qn = null;
         if (sm.getSqlType() == SqlType.SELECT) {
-            qn = sm.getQueryTreeNode(null);
+            qn = sm.getQueryTreeNode();
         } else {
             qn = new KVIndexNode(null);
             qn.setSql(sql);
@@ -1132,7 +1209,7 @@ public class SqlParserTest extends BaseOptimizerTest {
         SqlAnalysisResult sm = parser.parse(sql, false);
         QueryTreeNode qn = null;
         if (sm.getSqlType() == SqlType.SELECT) {
-            qn = sm.getQueryTreeNode(convert(args));
+            qn = sm.getQueryTreeNode();
         } else {
             qn = new KVIndexNode(null);
             qn.setSql(sql);
@@ -1144,7 +1221,7 @@ public class SqlParserTest extends BaseOptimizerTest {
         SqlAnalysisResult sm = parser.parse(sql, false);
         UpdateNode qn = null;
         if (sm.getSqlType() == SqlType.UPDATE) {
-            qn = sm.getUpdateNode(null);
+            qn = sm.getUpdateNode();
         }
 
         return qn;
@@ -1154,7 +1231,7 @@ public class SqlParserTest extends BaseOptimizerTest {
         SqlAnalysisResult sm = parser.parse(sql, false);
         DeleteNode qn = null;
         if (sm.getSqlType() == SqlType.DELETE) {
-            qn = sm.getDeleteNode(null);
+            qn = sm.getDeleteNode();
         }
 
         return qn;
@@ -1164,29 +1241,44 @@ public class SqlParserTest extends BaseOptimizerTest {
         SqlAnalysisResult sm = parser.parse(sql, false);
         InsertNode qn = null;
         if (sm.getSqlType() == SqlType.INSERT) {
-            qn = sm.getInsertNode(null);
+            qn = sm.getInsertNode();
+        }
+
+        return qn;
+    }
+
+    private PutNode put(String sql) throws SqlParserException {
+        SqlAnalysisResult sm = parser.parse(sql, false);
+        PutNode qn = null;
+        if (sm.getSqlType() == SqlType.REPLACE) {
+            qn = sm.getReplaceNode();
         }
 
         return qn;
     }
 
     private void assertEquals(QueryTreeNode qn, QueryTreeNode qnExpected) {
-        logger.debug(qn.toString());
+        // logger.debug(qn.toString());
         Assert.assertEquals(qnExpected.toString(), qn.toString());
     }
 
     private void assertEquals(UpdateNode un, UpdateNode unExpected) {
-        logger.debug(un.toString());
+        // logger.debug(un.toString());
         Assert.assertEquals(unExpected.toString(), un.toString());
     }
 
     private void assertEquals(DeleteNode dn, DeleteNode dnExpected) {
-        logger.debug(dn.toString());
+        // logger.debug(dn.toString());
         Assert.assertEquals(dnExpected.toString(), dn.toString());
     }
 
     private void assertEquals(InsertNode in, InsertNode inExpected) {
-        logger.debug(in.toString());
+        // logger.debug(in.toString());
+        Assert.assertEquals(inExpected.toString(), in.toString());
+    }
+
+    private void assertEquals(PutNode in, PutNode inExpected) {
+        // logger.debug(in.toString());
         Assert.assertEquals(inExpected.toString(), in.toString());
     }
 }

@@ -1,9 +1,13 @@
 package com.taobao.tddl.optimizer.core.ast;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
+import com.taobao.tddl.optimizer.core.ast.delegate.ShareDelegate;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 
@@ -14,10 +18,14 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
  */
 public abstract class ASTNode<RT extends ASTNode> implements Comparable {
 
-    protected String  dataNode  = null; // 数据处理节点,比如group name
-    protected Object  extra;            // 比如唯一标识，join merge join中使用
-    protected boolean broadcast = false; // 是否为广播表
-    protected String  sql;
+    private List<String> dataNodes = new ArrayList<String>(); // 数据处理节点,比如groupName
+    private List<Object> extras    = new ArrayList<Object>(); // 比如唯一标识，joinMergeJoin中使用
+    protected boolean    broadcast = false;                  // 是否为广播表
+    protected String     sql;
+
+    public ASTNode(){
+
+    }
 
     /**
      * <pre>
@@ -30,21 +38,62 @@ public abstract class ASTNode<RT extends ASTNode> implements Comparable {
     /**
      * 需要预先执行build.构造执行计划
      */
-    public abstract IDataNodeExecutor toDataNodeExecutor() throws QueryException;
+    @ShareDelegate
+    public IDataNodeExecutor toDataNodeExecutor() throws QueryException {
+        return toDataNodeExecutor(0);
+    }
+
+    /**
+     * 需要预先执行build.构造执行计划
+     */
+    public abstract IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException;
 
     /**
      * 处理bind val
      */
-    public abstract void assignment(Map<Integer, ParameterContext> parameterSettings);
+    public abstract void assignment(Parameters parameterSettings);
 
     public abstract boolean isNeedBuild();
 
+    @ShareDelegate
     public String getDataNode() {
-        return dataNode;
+        return getDataNode(0);
     }
 
+    @ShareDelegate
     public RT executeOn(String dataNode) {
-        this.dataNode = dataNode;
+        return executeOn(dataNode, 0);
+    }
+
+    public String getDataNode(int shareIndex) {
+        ensureCapacity(dataNodes, shareIndex);
+        return dataNodes.get(shareIndex);
+    }
+
+    public RT executeOn(String dataNode, int shareIndex) {
+        ensureCapacity(dataNodes, shareIndex);
+        this.dataNodes.set(shareIndex, dataNode);
+        return (RT) this;
+    }
+
+    @ShareDelegate
+    public Object getExtra() {
+        return getExtra(0);
+    }
+
+    @ShareDelegate
+    public RT setExtra(Object obj) {
+        return setExtra(obj, 0);
+    }
+
+    public Object getExtra(int shareIndex) {
+        ensureCapacity(extras, shareIndex);
+        return this.extras.get(shareIndex);
+    }
+
+    public RT setExtra(Object obj, int shareIndex) {
+        ensureCapacity(extras, shareIndex);
+        this.extras.set(shareIndex, obj);
         return (RT) this;
     }
 
@@ -55,14 +104,6 @@ public abstract class ASTNode<RT extends ASTNode> implements Comparable {
     public RT setSql(String sql) {
         this.sql = sql;
         return (RT) this;
-    }
-
-    public Object getExtra() {
-        return this.extra;
-    }
-
-    public void setExtra(Object obj) {
-        this.extra = obj;
     }
 
     public boolean isBroadcast() {
@@ -78,12 +119,51 @@ public abstract class ASTNode<RT extends ASTNode> implements Comparable {
         throw new NotSupportException();
     }
 
-    public abstract String toString(int inden);
+    @ShareDelegate
+    public String toString() {
+        return toString(0, 0);
+    }
+
+    @ShareDelegate
+    public String toString(int inden) {
+        return toString(inden, 0);
+    }
+
+    public abstract String toString(int inden, int shareIndex);
+
+    public boolean isShareNode() {
+        return dataNodes.size() > 1;
+    }
+
+    public int getShareSize() {
+        return dataNodes.size();
+    }
+
+    public void ensureCapacity(Collection collection, int minCapacity) {
+        while (collection.size() <= minCapacity) {
+            collection.add(null);
+        }
+    }
+
+    /**
+     * 获取对应的subquery filter,不包括correlate subquery
+     */
+    public abstract IFunction getNextSubqueryOnFilter();
 
     // ----------------- 复制 ----------------
 
-    public abstract RT deepCopy();
-
+    /**
+     * 复制当前节点和子节点，属性信息不做递归复制
+     */
     public abstract RT copy();
 
+    /**
+     * 只复制当前节点，不复制子节点
+     */
+    public abstract RT copySelf();
+
+    /**
+     * 复制当前节点和子节点，属性信息进行递归复制
+     */
+    public abstract RT deepCopy();
 }

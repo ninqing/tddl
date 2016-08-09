@@ -2,7 +2,7 @@ package com.taobao.tddl.optimizer.costbased.after;
 
 import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 
@@ -20,6 +20,6 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
  */
 public interface QueryPlanOptimizer {
 
-    IDataNodeExecutor optimize(IDataNodeExecutor dne, Map<Integer, ParameterContext> parameterSettings,
-                               Map<String, Object> extraCmd) throws QueryException;
+    IDataNodeExecutor optimize(IDataNodeExecutor dne, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                                 throws QueryException;
 }

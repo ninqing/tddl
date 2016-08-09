@@ -74,8 +74,8 @@ public class RepoStatManager extends AbstractLifecycle implements StatManager {
         }
     }
 
-    protected void dodestroy() throws TddlException {
-        super.dodestroy();
+    protected void doDestroy() throws TddlException {
+        super.doDestroy();
 
         if (local != null && local.isInited()) {
             local.destroy();

@@ -1,39 +1,46 @@
 package com.taobao.tddl.executor;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.model.ExtraCmd;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.AtomicNumberCreator;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.ResultCursor;
 import com.taobao.tddl.executor.cursor.impl.QueryPlanResultCursor;
+import com.taobao.tddl.executor.function.ScalarFunction;
+import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.monitor.Monitor;
+import com.taobao.tddl.optimizer.Optimizer;
 import com.taobao.tddl.optimizer.OptimizerContext;
+import com.taobao.tddl.optimizer.core.ast.ASTNode;
+import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
 
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
-
 public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
 
-    private final static Logger logger  = LoggerFactory.getLogger(MatrixExecutor.class);
-    private static final String EXPLAIN = "explain";
+    private final static Logger       logger  = LoggerFactory.getLogger(MatrixExecutor.class);
+    private static final String       EXPLAIN = "explain";
     /**
      * id 生成器
      */
-    private AtomicNumberCreator idGen   = AtomicNumberCreator.getNewInstance();
+    private final AtomicNumberCreator idGen   = AtomicNumberCreator.getNewInstance();
 
     /**
      * client端核心流程 解析 优化 执行
@@ -52,10 +59,10 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
 
             return execByExecPlanNode(qc, executionContext);
         } catch (EmptyResultFilterException e) {
-            return ResultCursor.EMPTY_RESULT_CURSOR;
+            return new ResultCursor.EmptyResultCursor(executionContext);
         } catch (Exception e) {
             if (ExceptionUtils.getCause(e) instanceof EmptyResultFilterException) {
-                return ResultCursor.EMPTY_RESULT_CURSOR;
+                return new ResultCursor.EmptyResultCursor(executionContext);
             } else {
                 throw new TddlException(e);
             }
@@ -89,12 +96,54 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
 
     public IDataNodeExecutor parseAndOptimize(String sql, ExecutionContext executionContext) throws TddlException {
         boolean cache = GeneralUtil.getExtraCmdBoolean(executionContext.getExtraCmds(),
-            ExtraCmd.OPTIMIZER_CACHE,
+            ConnectionProperties.OPTIMIZER_CACHE,
             true);
 
-        return OptimizerContext.getContext()
-            .getOptimizer()
-            .optimizeAndAssignment(sql, executionContext.getParams(), executionContext.getExtraCmds(), cache);
+        Optimizer op = OptimizerContext.getContext().getOptimizer();
+
+        Object astOrHint = op.optimizeAstOrHint(sql,
+            executionContext.getParams(),
+            cache,
+            executionContext.getExtraCmds());
+
+        if (astOrHint instanceof IDataNodeExecutor) {
+            return (IDataNodeExecutor) astOrHint;
+        }
+
+        ASTNode ast = (ASTNode) astOrHint;
+        boolean existSubquery = false;
+        IFunction subQueryFunction = ast.getNextSubqueryOnFilter();
+        while (true) {
+            if (subQueryFunction == null) {
+                break;
+            }
+
+            existSubquery = true;
+            QueryTreeNode query = (QueryTreeNode) subQueryFunction.getArgs().get(0);
+            IDataNodeExecutor subQueryPlan = op.optimizePlan(query,
+                executionContext.getParams(),
+                executionContext.getExtraCmds());
+
+            subQueryFunction.getArgs().set(0, subQueryPlan);
+
+            Object subQueryResult = ((ScalarFunction) subQueryFunction.getExtraFunction()).scalarCalucate((IRowSet) null,
+                executionContext);
+
+            Map<Long, Object> result = new HashMap();
+            result.put(query.getSubqueryOnFilterId(), subQueryResult);
+            subQueryFunction = op.assignmentSubquery(ast, result, executionContext.getExtraCmds());
+
+        }
+
+        if (existSubquery) {// 如果存在子查询,替换子查询数据后需要重新构建下语法树,子查询会移动为subqueryFilter
+            ast = op.optimizeAst(ast, executionContext.getParams(), executionContext.getExtraCmds());
+        }
+
+        IDataNodeExecutor queryPlan = op.optimizePlan(ast,
+            executionContext.getParams(),
+            executionContext.getExtraCmds());
+        return queryPlan;
+
     }
 
     @Override
@@ -113,7 +162,7 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
                 .execByExecPlanNode(qc, executionContext);
             ResultCursor rc = this.wrapResultCursor(qc, sc, executionContext);
             // 控制语句
-            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.TDDL_EXECUTE, Monitor.Key3Success, time);
+            time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Success, time);
             if (qc instanceof IQueryTree) {
                 // 做下表名替换
                 List columnsForResultSet = ((IQueryTree) qc).getColumns();
@@ -127,14 +176,21 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
             }
             return rc;
         } catch (EmptyResultFilterException e) {
-            return ResultCursor.EMPTY_RESULT_CURSOR;
+            return new ResultCursor.EmptyResultCursor(executionContext);
         } catch (Exception e) {
             if (ExceptionUtils.getCause(e) instanceof EmptyResultFilterException) {
-                return ResultCursor.EMPTY_RESULT_CURSOR;
+                return new ResultCursor.EmptyResultCursor(executionContext);
             } else {
                 throw new TddlException(e);
             }
         }
+    }
+
+    @Override
+    public Future<List<ISchematicCursor>> execByExecPlanNodesFuture(List<IDataNodeExecutor> qcs,
+                                                                    ExecutionContext executionContext)
+                                                                                                      throws TddlException {
+        return ExecutorContext.getContext().getTopologyExecutor().execByExecPlanNodesFuture(qcs, executionContext);
     }
 
     @Override

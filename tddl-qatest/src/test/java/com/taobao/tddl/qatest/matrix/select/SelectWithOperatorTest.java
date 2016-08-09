@@ -227,7 +227,7 @@ public class SelectWithOperatorTest extends BaseMatrixTestCase {
     @Ignore
     // 不支持这个符号
     public void equalsTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, null }));
         String sql = "select * from " + normaltblTableName + " where name <=> ?";
         List<Object> param = new ArrayList<Object>();
@@ -392,4 +392,69 @@ public class SelectWithOperatorTest extends BaseMatrixTestCase {
         selectContentSameAssert(sql, columnParam, param);
     }
 
+    /**
+     * case when操作
+     * 
+     * @throws Exception
+     */
+    @Test
+    public void caseWhen() throws Exception {
+        {
+            String sql = "select case pk when 500 then 600 else 700 end pk1 from " + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case pk when 500 then 600 when 1 then 3 else 700 end pk1 from " + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case pk when 500 then 600 when 1 then 3 end pk1 from " + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case  when pk=500 then 600 else 700 end pk1 from " + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case  when pk=500 then 600 when pk>700 then 900 else 700 end pk1 from "
+                         + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case  when pk=500 then 600 when pk>700 then 900 end pk1 from " + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+
+        {
+            String sql = "select case  when pk=500 then 600 when pk>700 then 900 else null end pk1 from "
+                         + normaltblTableName;
+            List<Object> param = new ArrayList<Object>();
+
+            String[] columnParam = { "PK1" };
+            selectContentSameAssert(sql, columnParam, param);
+        }
+    }
 }

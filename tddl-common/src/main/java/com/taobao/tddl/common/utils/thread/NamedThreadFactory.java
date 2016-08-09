@@ -3,6 +3,9 @@ package com.taobao.tddl.common.utils.thread;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
+
 /**
  * 可以产生命名的线程，方便查找问题
  * 
@@ -14,11 +17,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class NamedThreadFactory implements ThreadFactory {
 
-    static final AtomicInteger poolNumber   = new AtomicInteger();
-    final AtomicInteger        threadNumber = new AtomicInteger();
-    final ThreadGroup          group;
-    final String               namePrefix;
-    final boolean              isDaemon;
+    private static final Logger             logger       = LoggerFactory.getLogger(NamedThreadFactory.class);
+    private static final AtomicInteger      poolNumber   = new AtomicInteger();
+    private final AtomicInteger             threadNumber = new AtomicInteger();
+    private final ThreadGroup               group;
+    private final String                    namePrefix;
+    private final boolean                   isDaemon;
+    private Thread.UncaughtExceptionHandler handler      = new Thread.UncaughtExceptionHandler() {
+
+                                                             public void uncaughtException(Thread t, Throwable e) {
+                                                                 logger.error(e);
+                                                             }
+                                                         };
 
     public NamedThreadFactory(){
         this("pool");
@@ -42,6 +52,8 @@ public class NamedThreadFactory implements ThreadFactory {
         if (t.getPriority() != Thread.NORM_PRIORITY) {
             t.setPriority(Thread.NORM_PRIORITY);
         }
+
+        t.setUncaughtExceptionHandler(handler);
         return t;
     }
 }

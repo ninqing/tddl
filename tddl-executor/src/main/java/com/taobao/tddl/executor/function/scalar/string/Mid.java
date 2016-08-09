@@ -1,6 +1,7 @@
 package com.taobao.tddl.executor.function.scalar.string;
 
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * <pre>
@@ -21,7 +22,7 @@ public class Mid extends SubString {
 
     @SuppressWarnings("unused")
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) {
+    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
         Object a = args[2];
         return super.compute(args, ec);
     }

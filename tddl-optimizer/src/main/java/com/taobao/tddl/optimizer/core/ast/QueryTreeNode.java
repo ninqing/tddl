@@ -4,9 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
@@ -17,13 +16,14 @@ import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.core.plan.IQueryTree;
-import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODEL;
-import com.taobao.tddl.optimizer.core.plan.query.IParallelizableQueryTree.QUERY_CONCURRENCY;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree.QUERY_CONCURRENCY;
+import com.taobao.tddl.optimizer.costbased.SubQueryPreProcessor;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -58,27 +58,27 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
     /**
      * 包含所有子节点的filter，用于拼sql
      */
-    protected IFilter           allWhereFilter   = null;
+    protected IFilter           allWhereFilter     = null;
 
     /**
      * select查询中的列
      */
-    protected List<ISelectable> columnsSelected  = new ArrayList<ISelectable>();
+    protected List<ISelectable> columnsSelected    = new ArrayList<ISelectable>();
 
     /**
      * 依赖的所有列，可以理解为columnsSelected + implicitSelectable的总合
      */
-    protected List<ISelectable> columnsRefered   = new ArrayList<ISelectable>();
+    protected List<ISelectable> columnsRefered     = new ArrayList<ISelectable>();
 
     /**
      * 显式的由查询接口指定的orderBy，注意需要保证顺序
      */
-    protected List<IOrderBy>    orderBys         = new LinkedList<IOrderBy>();
+    protected List<IOrderBy>    orderBys           = new LinkedList<IOrderBy>();
 
     /**
      * 显式的由查询接口指定的group by，注意需要保证顺序
      */
-    protected List<IOrderBy>    groups           = new LinkedList<IOrderBy>();
+    protected List<IOrderBy>    groups             = new LinkedList<IOrderBy>();
 
     /**
      * having条件
@@ -89,27 +89,27 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
      * 上一层父节点，比如子查询会依赖父节点的字段信息
      * http://dev.mysql.com/doc/refman/5.0/en/correlated-subqueries.html
      */
-    protected ASTNode           parent           = null;
+    protected QueryTreeNode     parent             = null;
 
     /**
      * join的子节点
      */
-    protected List<ASTNode>     children         = new ArrayList<ASTNode>(2);
+    protected List<ASTNode>     children           = new ArrayList<ASTNode>(2);
 
     /**
      * 从哪里开始
      */
-    protected Comparable        limitFrom        = null;
+    protected Comparable        limitFrom          = null;
 
     /**
      * 到哪里结束
      */
-    protected Comparable        limitTo          = null;
+    protected Comparable        limitTo            = null;
 
     /**
      * filter in where
      */
-    protected IFilter           whereFilter      = null;
+    protected IFilter           whereFilter        = null;
 
     /**
      * 非column=column的join列
@@ -126,30 +126,52 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
      */
     protected String            subAlias;
 
-    protected boolean           consistent       = true;
+    protected boolean           consistent         = true;
 
-    protected LOCK_MODEL        lockModel        = LOCK_MODEL.SHARED_LOCK;
+    protected LOCK_MODE         lockMode           = LOCK_MODE.UNDEF;
 
     /**
      * 当前节点是否为子查询
      */
-    protected boolean           subQuery         = false;
-    protected boolean           needBuild        = true;
+    protected boolean           subQuery           = false;
+    protected boolean           needBuild          = true;
     protected QUERY_CONCURRENCY queryConcurrency;
 
     /**
      * 是否为存在聚合信息，比如出现limit/group by/count/max等，此节点就会被标记为true，不允许进行join merge
      * join的展开优化
      */
-    protected boolean           isExistAggregate = false;
+    protected boolean           isExistAggregate   = false;
+
+    /**
+     * 针对where id = (subquery), 给subquery设定一个唯一id，展开为merge后，可以避免执行器cache
+     * subquery结果，避免重复执行
+     */
+    protected Long              subqueryOnFilterId = 0l;
+
+    /**
+     * 标记一下是否为correlated subquery，此子查询不可提前计算，需要依赖外查询的当前计算值进行计算，比如exist查询
+     */
+    protected boolean           correlatedSubquery = false;
+
+    /**
+     * 在correlatedSubquery为true的情况下，记录对应的Correlated columns
+     */
+    protected List<ISelectable> columnsCorrelated  = new ArrayList<ISelectable>();
+
+    /**
+     * 专门针对子查询的filter
+     */
+    protected IFilter           subqueryFilter;
+
+    public QueryTreeNode(){
+        super();
+    }
 
     /**
      * 获取完整的order by列信息(包括隐藏，比如group by会转化为order by)
      */
     public abstract List<IOrderBy> getImplicitOrderBys();
-
-    @Override
-    public abstract IQueryTree toDataNodeExecutor() throws QueryException;
 
     /**
      * 获取builder对象
@@ -172,7 +194,7 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
     }
 
     @Override
-    public void assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public void assignment(Parameters parameterSettings) {
         for (ASTNode child : this.getChildren()) {
             child.assignment(parameterSettings);
         }
@@ -199,11 +221,6 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
 
     protected void setNeedBuild(boolean needBuild) {
         this.needBuild = needBuild;
-    }
-
-    @Override
-    public String toString() {
-        return this.toString(0);
     }
 
     // ======================= setter / getter ======================
@@ -375,6 +392,23 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
     }
 
     /**
+     * 添加一个不存在的字段
+     */
+    public void addColumnsCorrelate(ISelectable selected) {
+        boolean exist = false;
+        for (ISelectable column : columnsCorrelated) {
+            if (column.getCorrelateOnFilterId().equals(selected.getCorrelateOnFilterId())) {
+                exist = true;
+                break;
+            }
+        }
+
+        if (!exist) {
+            columnsCorrelated.add(selected);
+        }
+    }
+
+    /**
      * 判断一个字段是否存在于当前库
      */
     public boolean hasColumn(ISelectable c) {
@@ -405,6 +439,14 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
 
     public void setColumnsRefered(List<ISelectable> columnsRefered) {
         this.columnsRefered = columnsRefered;
+    }
+
+    public List<ISelectable> getColumnsCorrelated() {
+        return this.columnsCorrelated;
+    }
+
+    public void setColumnsCorrelated(List<ISelectable> columnsCorrelated) {
+        this.columnsCorrelated = columnsCorrelated;
     }
 
     /**
@@ -453,21 +495,6 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
             }
             return res;
         }
-    }
-
-    /**
-     * 列的tablename会设为表别名
-     * 
-     * @return
-     */
-    public boolean containsColumnsReferedForParent(ISelectable c) {
-        if (c instanceof IBooleanFilter) {
-            if (((IBooleanFilter) c).getOperation().equals(OPERATION.CONSTANT)) {
-                return true;
-            }
-        }
-
-        return this.getColumnsReferedForParent().contains(c);
     }
 
     /**
@@ -677,6 +704,15 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         return this;
     }
 
+    public Long getSubqueryOnFilterId() {
+        return subqueryOnFilterId;
+    }
+
+    public QueryTreeNode setSubqueryOnFilterId(Long subqueryOnFilterId) {
+        this.subqueryOnFilterId = subqueryOnFilterId;
+        return this;
+    }
+
     public IFilter getAllWhereFilter() {
         return allWhereFilter;
     }
@@ -686,8 +722,22 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         return this;
     }
 
-    public LOCK_MODEL getLockModel() {
-        return lockModel;
+    public IFilter getSubqueryFilter() {
+        return subqueryFilter;
+    }
+
+    public QueryTreeNode setSubqueryFilter(IFilter subqueryFilter) {
+        this.subqueryFilter = subqueryFilter;
+        return this;
+    }
+
+    public LOCK_MODE getLockMode() {
+        return lockMode;
+    }
+
+    public QueryTreeNode setLockMode(LOCK_MODE lockMode) {
+        this.lockMode = lockMode;
+        return this;
     }
 
     public boolean isExistAggregate() {
@@ -699,7 +749,49 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         return this;
     }
 
+    public QueryTreeNode getParent() {
+        return parent;
+    }
+
+    public QueryTreeNode setParent(QueryTreeNode parent) {
+        this.parent = parent;
+        return this;
+    }
+
+    public boolean isCorrelatedSubquery() {
+        return correlatedSubquery;
+    }
+
+    public QueryTreeNode setCorrelatedSubquery(boolean correlatedSubquery) {
+        this.correlatedSubquery = correlatedSubquery;
+        return this;
+    }
+
     // ==================== helper method =================
+
+    @Override
+    public IFunction getNextSubqueryOnFilter() {
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(this);
+        if (func != null) {
+            return (IFunction) func.copy();
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * filter中的subquery生成执行计划
+     */
+    protected void subquerytoDataNodeExecutor(int shareIndex) {
+        List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(this, true);
+        for (IFunction func : funcs) {
+            Object query = func.getArgs().get(0);
+            if (query instanceof QueryTreeNode) {
+                IDataNodeExecutor dne = ((QueryTreeNode) query).toDataNodeExecutor(shareIndex);
+                func.getArgs().set(0, dne);
+            }
+        }
+    }
 
     /**
      * <pre>
@@ -782,12 +874,18 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         to.resultFilter = (IFilter) (this.resultFilter == null ? null : this.resultFilter.copy());
         to.allWhereFilter = (IFilter) (this.allWhereFilter == null ? null : this.allWhereFilter.copy());
         to.otherJoinOnFilter = (IFilter) (this.otherJoinOnFilter == null ? null : this.otherJoinOnFilter.copy());
+        to.subqueryFilter = (IFilter) (this.subqueryFilter == null ? null : this.subqueryFilter.copy());
         to.setLimitFrom(this.limitFrom);
         to.setLimitTo(this.limitTo);
         to.setNeedBuild(this.needBuild);
         to.setSql(this.getSql());
         to.setSubQuery(subQuery);
         to.setExistAggregate(isExistAggregate);
+        to.setLockMode(this.lockMode);
+        to.setParent(this.parent);
+        to.setCorrelatedSubquery(this.correlatedSubquery);
+        to.setSubqueryOnFilterId(this.subqueryOnFilterId);
+        to.setNeedBuild(false);
     }
 
     /**
@@ -798,6 +896,7 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         to.setSubAlias(this.subAlias);
         to.columnsSelected = OptimizerUtils.copySelectables(this.getColumnsSelected());
         to.columnsRefered = OptimizerUtils.copySelectables(this.getColumnsRefered());
+        to.columnsCorrelated = OptimizerUtils.copySelectables(this.columnsCorrelated);
         to.groups = OptimizerUtils.copyOrderBys(new ArrayList<IOrderBy>(this.getGroupBys()));
         to.orderBys = OptimizerUtils.copyOrderBys(new ArrayList<IOrderBy>(this.getOrderBys()));
         to.whereFilter = (IFilter) (this.whereFilter == null ? null : this.whereFilter.copy());
@@ -806,12 +905,29 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         to.resultFilter = (IFilter) (this.resultFilter == null ? null : this.resultFilter.copy());
         to.allWhereFilter = (IFilter) (this.allWhereFilter == null ? null : this.allWhereFilter.copy());
         to.otherJoinOnFilter = (IFilter) (otherJoinOnFilter == null ? null : otherJoinOnFilter.copy());
-        to.setLimitFrom(this.getLimitFrom());
-        to.setLimitTo(this.getLimitTo());
+        to.subqueryFilter = (IFilter) (this.subqueryFilter == null ? null : this.subqueryFilter.copy());
+
+        if (this.getLimitFrom() instanceof IBindVal) {
+            to.setLimitFrom(((IBindVal) this.getLimitFrom()).copy());
+        } else {
+            to.setLimitFrom(this.getLimitFrom());
+        }
+
+        if (this.getLimitTo() instanceof IBindVal) {
+            to.setLimitTo(((IBindVal) this.getLimitTo()).copy());
+        } else {
+            to.setLimitTo(this.getLimitTo());
+        }
+
         to.setSql(this.getSql());
         to.setSubQuery(this.isSubQuery());
         to.setNeedBuild(this.isNeedBuild());
         to.setExistAggregate(isExistAggregate);
+        to.setLockMode(this.lockMode);
+        to.setParent(this.parent); // parent只是build的时候需要，只读，不会做修改
+        to.setCorrelatedSubquery(this.correlatedSubquery);
+        to.setSubqueryOnFilterId(this.subqueryOnFilterId);
+        to.setNeedBuild(false);
     }
 
 }

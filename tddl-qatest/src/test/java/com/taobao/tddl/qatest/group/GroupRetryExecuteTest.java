@@ -2,7 +2,10 @@ package com.taobao.tddl.qatest.group;
 
 import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.taobao.diamond.mockserver.MockServer;
@@ -13,9 +16,20 @@ import com.taobao.tddl.atom.common.TAtomConstants;
  * <p/>
  * Created Date: 2010-12-8 03:19:04
  */
+@Ignore("暂时屏蔽,手工跑")
 public class GroupRetryExecuteTest extends GroupTestCase {
 
     private String sql = "select * from normaltbl_0000 where pk = 0";
+
+    @Before
+    public void init() throws Exception {
+        super.setUp();
+    }
+
+    @After
+    public void destroy() {
+        // do nothing
+    }
 
     @Test
     public void oneOfAtomDssInGropuIsOkTest() throws Exception {
@@ -36,7 +50,7 @@ public class GroupRetryExecuteTest extends GroupTestCase {
         // qatest_normal_0状态改为只读(确保推送成功)
         for (int i = 0; i < 2; i++) {
             MockServer.setConfigInfo(TAtomConstants.getGlobalDataId(DBKEY_0),
-                "ip=127.0.0.1\r\nport=3306\r\ndbName=qatest_normal_0\r\ndbType=mysql\r\ndbStatus=NA");
+                "ip=10.232.31.154\r\nport=3306\r\ndbName=qatest_normal_0\r\ndbType=mysql\r\ndbStatus=NA");
             MockServer.setConfigInfo(tds.getFullDbGroupKey(),
                 "qatest_normal_0:wr,qatest_normal_0_bac:r,qatest_normal_1_bac:r");
             TimeUnit.SECONDS.sleep(SLEEP_TIME);
@@ -70,11 +84,11 @@ public class GroupRetryExecuteTest extends GroupTestCase {
         // 改变atomDs的状态(确保推送成功)
         for (int i = 0; i < 2; i++) {
             MockServer.setConfigInfo(TAtomConstants.getGlobalDataId(DBKEY_0),
-                "ip=127.0.0.1\r\nport=3306\r\ndbName=qatest_normal_0\r\ndbType=mysql\r\ndbStatus=NA");
+                "ip=10.232.31.154\r\nport=3306\r\ndbName=qatest_normal_0\r\ndbType=mysql\r\ndbStatus=NA");
             MockServer.setConfigInfo(TAtomConstants.getGlobalDataId(DBKEY_0_BAC),
-                "ip=127.0.0.1\r\nport=3306\r\ndbName=qatest_normal_0_bac\r\ndbType=mysql\r\ndbStatus=NA");
+                "ip=10.232.31.154\r\nport=3306\r\ndbName=qatest_normal_0_bac\r\ndbType=mysql\r\ndbStatus=NA");
             MockServer.setConfigInfo(TAtomConstants.getGlobalDataId(DBKEY_1_BAC),
-                "ip=127.0.0.1\r\nport=3306\r\ndbName=qatest_normal_1_bac\r\ndbType=mysql\r\ndbStatus=NA");
+                "ip=10.232.31.154\r\nport=3306\r\ndbName=qatest_normal_1_bac\r\ndbType=mysql\r\ndbStatus=NA");
             MockServer.setConfigInfo(tds.getFullDbGroupKey(),
                 "qatest_normal_0:wr,qatest_normal_0_bac:r,qatest_normal_1_bac:r");
             TimeUnit.SECONDS.sleep(SLEEP_TIME);

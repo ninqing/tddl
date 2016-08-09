@@ -1,17 +1,18 @@
 package com.taobao.tddl.optimizer.parse.cobar;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import com.alibaba.cobar.parser.ast.expression.Expression;
-import com.alibaba.cobar.parser.ast.expression.primary.SysVarPrimary;
+import com.alibaba.cobar.parser.ast.expression.primary.function.info.LastInsertId;
+import com.alibaba.cobar.parser.ast.fragment.tableref.Dual;
+import com.alibaba.cobar.parser.ast.fragment.tableref.TableReference;
 import com.alibaba.cobar.parser.ast.fragment.tableref.TableReferences;
 import com.alibaba.cobar.parser.ast.stmt.SQLStatement;
-import com.alibaba.cobar.parser.ast.stmt.dal.ShowColumns;
-import com.alibaba.cobar.parser.ast.stmt.dal.ShowCreate;
-import com.alibaba.cobar.parser.ast.stmt.dal.ShowCreate.Type;
-import com.alibaba.cobar.parser.ast.stmt.dal.ShowIndex;
+import com.alibaba.cobar.parser.ast.stmt.dal.DALShowStatement;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLStatement;
+import com.alibaba.cobar.parser.ast.stmt.ddl.DescTableStatement;
+import com.alibaba.cobar.parser.ast.stmt.dml.DMLCallStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLDeleteStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLInsertStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLReplaceStatement;
@@ -20,7 +21,6 @@ import com.alibaba.cobar.parser.ast.stmt.dml.DMLUpdateStatement;
 import com.alibaba.cobar.parser.util.Pair;
 import com.alibaba.cobar.parser.visitor.SQLASTVisitor;
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -28,13 +28,13 @@ import com.taobao.tddl.optimizer.core.ast.dml.DeleteNode;
 import com.taobao.tddl.optimizer.core.ast.dml.InsertNode;
 import com.taobao.tddl.optimizer.core.ast.dml.PutNode;
 import com.taobao.tddl.optimizer.core.ast.dml.UpdateNode;
-import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlDeleteVisitor;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlInsertVisitor;
-import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlReplaceIntoVisitor;
+import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlReplaceVisitor;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlSelectVisitor;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlUpdateVisitor;
+import com.taobao.tddl.optimizer.parse.cobar.visitor.MysqlTableVisitor;
 
 /**
  * 基于cobar构造的parse结果
@@ -43,7 +43,6 @@ public class CobarSqlAnalysisResult implements SqlAnalysisResult {
 
     private SqlType       sqlType;
     private SQLASTVisitor visitor;
-    private QueryTreeNode dalQueryTreeNode;
     private SQLStatement  statement;
     private boolean       hasVisited;
     private String        sql;
@@ -53,13 +52,19 @@ public class CobarSqlAnalysisResult implements SqlAnalysisResult {
             this.sql = sql;
             this.statement = statement;
             if (statement instanceof DMLSelectStatement) {
-                if (isSysSelectStatement((DMLSelectStatement) statement, sql)) {
-                    sqlType = SqlType.SHOW_WITHOUT_TABLE;
+                if (isDualOrEmptyTable((DMLSelectStatement) statement)) {
+                    List<Pair<Expression, String>> items = ((DMLSelectStatement) statement).getSelectExprList();
+                    if (items != null && items.get(0).getKey() instanceof LastInsertId) {
+                        sqlType = SqlType.SELECT_LAST_INSERT_ID;
+                    } else {
+                        sqlType = SqlType.SELECT_WITHOUT_TABLE;
+                    }
+                    // 单库sql查询
                     return;
+                } else {
+                    sqlType = SqlType.SELECT;
+                    visitor = new MySqlSelectVisitor();
                 }
-
-                sqlType = SqlType.SELECT;
-                visitor = new MySqlSelectVisitor();
             } else if (statement instanceof DMLUpdateStatement) {
                 sqlType = SqlType.UPDATE;
                 visitor = new MySqlUpdateVisitor();
@@ -71,24 +76,15 @@ public class CobarSqlAnalysisResult implements SqlAnalysisResult {
                 visitor = new MySqlInsertVisitor();
             } else if (statement instanceof DMLReplaceStatement) {
                 sqlType = SqlType.REPLACE;
-                visitor = new MySqlReplaceIntoVisitor();
+                visitor = new MySqlReplaceVisitor();
+            } else if (statement instanceof DMLCallStatement) {
+                sqlType = SqlType.PROCEDURE;
+            } else if (statement instanceof DALShowStatement || statement instanceof DescTableStatement) {
+                sqlType = SqlType.SHOW;
             } else if (statement instanceof DDLStatement) {
                 throw new IllegalArgumentException("tddl not support DDL statement:'" + sql + "'");
-            } else if (statement instanceof ShowCreate) {
-                if (((ShowCreate) statement).getType() == Type.TABLE) {
-                    dalQueryTreeNode = new TableNode(((ShowCreate) statement).getId().getIdTextUpUnescape());
-                    sqlType = SqlType.SHOW_WITH_TABLE;
-                } else {
-                    sqlType = SqlType.SHOW_WITHOUT_TABLE;
-                }
-            } else if (statement instanceof ShowColumns) {
-                dalQueryTreeNode = new TableNode(((ShowColumns) statement).getTable().getIdTextUpUnescape());
-                sqlType = SqlType.SHOW_WITH_TABLE;
-            } else if (statement instanceof ShowIndex) {
-                dalQueryTreeNode = new TableNode(((ShowIndex) statement).getTable().getIdTextUpUnescape());
-                sqlType = SqlType.SHOW_WITH_TABLE;
             } else {
-                sqlType = SqlType.SHOW_WITHOUT_TABLE;
+                throw new IllegalArgumentException("not support  statement:'" + sql + "'");
             }
         }
     }
@@ -100,76 +96,46 @@ public class CobarSqlAnalysisResult implements SqlAnalysisResult {
         }
     }
 
-    private boolean isSysSelectStatement(DMLSelectStatement statement, String sql) {
-        TableReferences tables = statement.getTables();
-        if (tables == null) {
-            List<Pair<Expression, String>> exprs = statement.getSelectExprList();
-            if (exprs != null && exprs.size() == 1) {
-                if (exprs.get(0).getKey() instanceof SysVarPrimary) {
-                    SysVarPrimary pri = (SysVarPrimary) exprs.get(0).getKey();
-                    if ("AUTOCOMMIT".equals(pri.getVarTextUp()) || "LASTINSERTID".equals(pri.getVarTextUp())) {
-                        throw new IllegalArgumentException("not support such SysVarPrimary:'" + pri.getVarTextUp()
-                                                           + "'");
-                    } else {
-                        return true;
-                    }
-                } else {
-                    return true;
-                }
-            } else if (exprs != null && exprs.size() > 1) {
-                throw new IllegalArgumentException("not support multi SysVarPrimary:'" + sql + "'");
-            } else {
-                throw new IllegalArgumentException("not supported sql:'" + sql + "'");
-            }
-        } else {
-            return false;
-        }
-    }
-
     public SqlType getSqlType() {
         return sqlType;
     }
 
-    public QueryTreeNode getQueryTreeNode(Map<Integer, ParameterContext> parameterSettings) {
+    public QueryTreeNode getQueryTreeNode() {
         visited();
-        if (dalQueryTreeNode == null) {
-            return ((MySqlSelectVisitor) visitor).getTableNode();
-        } else {
-            return this.dalQueryTreeNode;
-        }
+        return ((MySqlSelectVisitor) visitor).getTableNode();
     }
 
-    public UpdateNode getUpdateNode(Map<Integer, ParameterContext> parameterSettings) {
+    public UpdateNode getUpdateNode() {
         visited();
-        return (UpdateNode) ((MySqlUpdateVisitor) visitor).getUpdateNode().setParameterSettings(parameterSettings);
+        return (UpdateNode) ((MySqlUpdateVisitor) visitor).getUpdateNode();
     }
 
-    public InsertNode getInsertNode(Map<Integer, ParameterContext> parameterSettings) {
+    public InsertNode getInsertNode() {
         visited();
-        return (InsertNode) ((MySqlInsertVisitor) visitor).getInsertNode().setParameterSettings(parameterSettings);
+        return (InsertNode) ((MySqlInsertVisitor) visitor).getInsertNode();
     }
 
-    public PutNode getReplaceNode(Map<Integer, ParameterContext> parameterSettings) {
+    public PutNode getReplaceNode() {
         visited();
-        return (PutNode) ((MySqlReplaceIntoVisitor) visitor).getReplaceNode().setParameterSettings(parameterSettings);
+        return (PutNode) ((MySqlReplaceVisitor) visitor).getReplaceNode();
     }
 
-    public DeleteNode getDeleteNode(Map<Integer, ParameterContext> parameterSettings) {
+    public DeleteNode getDeleteNode() {
         visited();
-        return (DeleteNode) ((MySqlDeleteVisitor) visitor).getDeleteNode().setParameterSettings(parameterSettings);
+        return (DeleteNode) ((MySqlDeleteVisitor) visitor).getDeleteNode();
     }
 
-    public ASTNode getAstNode(Map<Integer, ParameterContext> parameterSettings) {
-        if (sqlType == SqlType.SELECT || sqlType == SqlType.SHOW_WITH_TABLE) {
-            return getQueryTreeNode(parameterSettings);
+    public ASTNode getAstNode() {
+        if (sqlType == SqlType.SELECT) {
+            return getQueryTreeNode();
         } else if (sqlType == SqlType.UPDATE) {
-            return getUpdateNode(parameterSettings);
+            return getUpdateNode();
         } else if (sqlType == SqlType.INSERT) {
-            return getInsertNode(parameterSettings);
+            return getInsertNode();
         } else if (sqlType == SqlType.REPLACE) {
-            return getReplaceNode(parameterSettings);
+            return getReplaceNode();
         } else if (sqlType == SqlType.DELETE) {
-            return getDeleteNode(parameterSettings);
+            return getDeleteNode();
         }
 
         throw new NotSupportException(sqlType.toString());
@@ -181,6 +147,35 @@ public class CobarSqlAnalysisResult implements SqlAnalysisResult {
 
     public String getSql() {
         return this.sql;
+    }
+
+    @Override
+    public boolean isAstNode() {
+        return !(sqlType == SqlType.PROCEDURE || sqlType == SqlType.SHOW || sqlType == SqlType.SELECT_LAST_INSERT_ID || sqlType == SqlType.SELECT_WITHOUT_TABLE);
+    }
+
+    @Override
+    public Set<String> getTableNames() {
+        MysqlTableVisitor visitor = new MysqlTableVisitor();
+        statement.accept(visitor);
+        return visitor.getTablesWithoutSchema();
+    }
+
+    private boolean isDualOrEmptyTable(DMLSelectStatement statement) {
+        TableReferences tables = statement.getTables();
+        if (tables == null) {
+            return true;
+        } else {
+            List<TableReference> trs = tables.getTableReferenceList();
+            for (int i = 0; i < trs.size(); i++) {
+                TableReference tr = trs.get(i);
+                if (tr instanceof Dual) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
 }

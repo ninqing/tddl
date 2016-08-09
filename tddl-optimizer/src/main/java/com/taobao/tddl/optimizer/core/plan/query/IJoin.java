@@ -12,7 +12,7 @@ import com.taobao.tddl.optimizer.core.plan.IQueryTree;
  * @author Dreamond
  * @since 5.0.0
  */
-public interface IJoin extends IParallelizableQueryTree<IQueryTree> {
+public interface IJoin extends IQueryTree<IQueryTree> {
 
     public enum JoinStrategy {
         HASH_JOIN, NEST_LOOP_JOIN, INDEX_NEST_LOOP, SORT_MERGE_JOIN;
@@ -140,15 +140,6 @@ public interface IJoin extends IParallelizableQueryTree<IQueryTree> {
      * @return
      */
     IJoin setRightOuter(boolean on_off);
-
-    /**
-     * 非column=column的join on中的条件
-     * 
-     * @return
-     */
-    public IFilter getOtherJoinOnFilter();
-
-    public IJoin setOtherJoinOnFilter(IFilter otherJoinOnFilter);
 
     /**
      * 包含where后的所有条件，仅用于拼sql

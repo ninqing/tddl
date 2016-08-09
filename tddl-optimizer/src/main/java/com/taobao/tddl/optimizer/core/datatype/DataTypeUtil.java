@@ -9,11 +9,13 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
 
 public class DataTypeUtil {
 
     public static DataType getTypeOfObject(Object v) {
-        if (v == null) {
+        if (v == null || v instanceof NullValue) {
             return DataType.NullType;
         }
         Class clazz = v.getClass();
@@ -63,6 +65,11 @@ public class DataTypeUtil {
             return DataType.StringType;
         }
 
+        if (v instanceof ISelectable) {
+            return ((ISelectable) v).getDataType();
+        }
+
         throw new TddlRuntimeException("type: " + v.getClass().getSimpleName() + " is not supported");
     }
+
 }

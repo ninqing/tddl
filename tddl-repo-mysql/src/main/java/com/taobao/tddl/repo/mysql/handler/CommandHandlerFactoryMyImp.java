@@ -14,7 +14,6 @@ import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.core.plan.query.IShow;
 
 /**
  * @author mengshi.sunmengshi 2013-12-5 下午6:18:33
@@ -33,9 +32,6 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
         NEST_LOOP_JOIN_HANDLER = new NestedLoopJoinHandler();
         SORT_MERGE_JOIN_HANDLER = new SortMergeJoinHandler();
         CONDENSABLE_JOIN_HANDLER = new QueryMyHandler();
-        SHOW_TABLES_HANDLER = new ShowTablesMyHandler();
-        SHOW_DIRECT_HANDLER = new ShowDirectMyHandler();
-        SHOW_CREATE_TABLE_HANDLER = new ShowCreateTableMyHandler();
     }
 
     protected QueryMyHandler  CONDENSABLE_JOIN_HANDLER;
@@ -48,9 +44,6 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
     protected ICommandHandler INDEX_NEST_LOOP_JOIN_HANDLER;
     protected ICommandHandler NEST_LOOP_JOIN_HANDLER;
     protected ICommandHandler SORT_MERGE_JOIN_HANDLER;
-    protected ICommandHandler SHOW_TABLES_HANDLER;
-    protected ICommandHandler SHOW_DIRECT_HANDLER;
-    protected ICommandHandler SHOW_CREATE_TABLE_HANDLER;
 
     @Override
     public ICommandHandler getCommandHandler(IDataNodeExecutor executor, ExecutionContext executionContext) {
@@ -93,21 +86,6 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
                     return DELETE_HANDLER;
                 case UPDATE:
                     return UPDATE_HANDLER;
-                default:
-                    throw new IllegalArgumentException("should not be here");
-            }
-        } else if (executor instanceof IShow) {
-            switch (((IShow) executor).getType()) {
-                case TABLES:
-                    return SHOW_TABLES_HANDLER;
-                case CREATE_TABLE:
-                    return SHOW_CREATE_TABLE_HANDLER;
-                case DESC:
-                case INDEX:
-                case INDEXES:
-                case KEYS:
-                case COLUMNS:
-                    return SHOW_DIRECT_HANDLER;
                 default:
                     throw new IllegalArgumentException("should not be here");
             }

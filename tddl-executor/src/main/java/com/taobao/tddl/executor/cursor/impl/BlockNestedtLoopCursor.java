@@ -30,7 +30,6 @@ public class BlockNestedtLoopCursor extends IndexNestedLoopMgetImpCursor impleme
 
     ICursorFactory      cursorFactory    = null;
     ExecutionContext    executionContext = null;
-    // ICursorMeta rightCursorMeta = null;
     private final IJoin join;
     private RecordCodec leftCodec;
 
@@ -38,33 +37,22 @@ public class BlockNestedtLoopCursor extends IndexNestedLoopMgetImpCursor impleme
                                   List rightColumns, List columns, ICursorFactory cursorFactory, IJoin join,
                                   ExecutionContext executionContext, List leftRetColumns, List rightRetColumns)
                                                                                                                throws Exception{
-        super(leftCursor, rightCursor, leftColumns, rightColumns, columns, leftRetColumns, rightRetColumns, join);
-        this.cursorFactory = cursorFactory;
-        this.leftCodec = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
-            .getCodec(ExecUtils.getColumnMetas(rightColumns));
-        this.left_key = leftCodec.newEmptyRecord();
-        this.executionContext = executionContext;
-        // rightCursorMeta =
-        // CursorMetaImp.buildNew(ExecUtils.convertISelectablesToColumnMeta(rightRetColumns,
-        // join.getRightNode().getAlias(),
-        // join.isSubQuery()));
-        this.join = join;
-    }
-
-    public BlockNestedtLoopCursor(ISchematicCursor leftCursor, ISchematicCursor rightCursor, List leftColumns,
-                                  List rightColumns, List columns, boolean prefix, ICursorFactory cursorFactory,
-                                  List leftRetColumns, List rightRetColumns, IJoin join) throws Exception{
         super(leftCursor,
             rightCursor,
             leftColumns,
             rightColumns,
             columns,
-            prefix,
             leftRetColumns,
             rightRetColumns,
-            join);
-        this.join = join;
+            join,
+            executionContext);
         this.cursorFactory = cursorFactory;
+        this.leftCodec = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
+            .getCodec(ExecUtils.getColumnMetas(rightColumns));
+        this.left_key = leftCodec.newEmptyRecord();
+        this.executionContext = executionContext;
+
+        this.join = join;
     }
 
     protected Map<CloneableRecord, DuplicateKVPair> getRecordFromRightByValueFilter(List<CloneableRecord> leftJoinOnColumnCache)
@@ -125,42 +113,6 @@ public class BlockNestedtLoopCursor extends IndexNestedLoopMgetImpCursor impleme
             return right_cursor.mgetWithDuplicate(leftJoinOnColumnCache, false, false);
         }
     }
-
-    // private void leftOutJoin(List<CloneableRecord> leftJoinOnColumnCache,
-    // IColumn rightColumn, IValueFilterCursor vfc,
-    // Map<CloneableRecord, DuplicateKVPair> records) throws TddlException {
-    // Map<Comparable, CloneableRecord> leftMap = new HashMap<Comparable,
-    // CloneableRecord>();
-    // Map<Comparable, CloneableRecord> tempMap = new HashMap<Comparable,
-    // CloneableRecord>();
-    // for (CloneableRecord record : leftJoinOnColumnCache) {
-    // // 去重
-    // Comparable comp = (Comparable)
-    // record.getMap().values().iterator().next();
-    // leftMap.put(comp, record);
-    // tempMap.put(comp, record);
-    // }
-    //
-    // IRowSet kv = ExecUtils.fromIRowSetToArrayRowSet(vfc.next());
-    // if (kv != null) {
-    // do {
-    // kv = ExecUtils.fromIRowSetToArrayRowSet(kv);
-    // Object rightValue = ExecUtils.getValueByIColumn(kv, rightColumn);
-    // if (leftMap.containsKey(rightValue)) {
-    // tempMap.remove(rightValue);
-    // CloneableRecord record = leftMap.get(rightValue);
-    // buildDuplicate(records, kv, record);
-    // }
-    // } while ((kv = vfc.next()) != null);
-    // }
-    // if (!tempMap.isEmpty() && !leftJoinOnColumnCache.isEmpty()) {
-    // kv = new ArrayRowSet(rightCursorMeta, new
-    // Object[rightCursorMeta.getColumns().size()]);
-    // for (CloneableRecord record : tempMap.values()) {
-    // buildDuplicate(records, kv, record);
-    // }
-    // }
-    // }
 
     private void blockNestedLoopJoin(List<CloneableRecord> leftJoinOnColumnCache, IColumn rightColumn,
                                      IValueFilterCursor vfc, Map<CloneableRecord, DuplicateKVPair> records)

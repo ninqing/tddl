@@ -15,6 +15,8 @@ import com.taobao.tddl.optimizer.exceptions.OptimizerException;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 /**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
  * @since 5.0.0
  */
 public class KVIndexNodeBuilder extends QueryTreeNodeBuilder {

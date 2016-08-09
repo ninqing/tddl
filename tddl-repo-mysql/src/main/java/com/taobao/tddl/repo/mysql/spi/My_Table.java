@@ -63,7 +63,9 @@ public class My_Table implements ITable {
     @Override
     public ISchematicCursor getCursor(ExecutionContext executionContext, IndexMeta indexName, IQuery executor)
                                                                                                               throws TddlException {
-        My_JdbcHandler jdbcHandler = MysqlRepoUtils.getJdbcHandler(this.dsGetter, executor, executionContext);
+        My_JdbcHandler jdbcHandler = ((My_Repository) executionContext.getCurrentRepository()).getJdbcHandler(this.dsGetter,
+            executor,
+            executionContext);
         ICursorMeta meta = ExecUtils.convertToICursorMeta(indexName);
         My_Cursor my_cursor = new My_Cursor(jdbcHandler, meta, executor, executor.isStreaming());
         return new SchematicMyCursor(my_cursor, meta, MysqlRepoUtils.buildOrderBy(executor, indexName));

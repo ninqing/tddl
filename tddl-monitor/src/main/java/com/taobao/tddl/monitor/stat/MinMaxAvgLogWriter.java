@@ -5,7 +5,7 @@ import java.util.Date;
 import com.taobao.tddl.common.utils.logger.Logger;
 
 /**
- * 扩展 Log4j Logger 的统计日志输出类, 唯一的区别是在输出 count/sum/min/max 后增加平均值。
+ * 扩展 Logger 的统计日志输出类, 唯一的区别是在输出 count/sum/min/max 后增加平均值。
  * 
  * @author changyuan.lh
  */

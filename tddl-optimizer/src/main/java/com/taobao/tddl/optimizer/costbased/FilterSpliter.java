@@ -7,7 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -67,6 +67,8 @@ public class FilterSpliter {
                 subQuery.useIndex(index);
                 if (index == null) {// 如果无主键进行全表扫描
                     subQuery.setFullTableScan(true);
+                } else {
+                    subQuery.query((IFilter) null);// 清空where
                 }
 
                 Map<FilterType, IFilter> filters = splitByIndex(DNFNode, subQuery);
@@ -157,6 +159,6 @@ public class FilterSpliter {
     }
 
     private static boolean isOptimizeIndexMerge(Map<String, Object> extraCmd) {
-        return GeneralUtil.getExtraCmdBoolean(extraCmd, ExtraCmd.CHOOSE_INDEX_MERGE, false);
+        return GeneralUtil.getExtraCmdBoolean(extraCmd, ConnectionProperties.CHOOSE_INDEX_MERGE, false);
     }
 }

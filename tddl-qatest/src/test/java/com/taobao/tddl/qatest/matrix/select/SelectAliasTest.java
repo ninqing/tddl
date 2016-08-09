@@ -12,8 +12,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 /**
  * Comment for AliasTest
@@ -50,6 +50,13 @@ public class SelectAliasTest extends BaseMatrixTestCase {
         param.add(pk);
         String[] columnParam = { "PK", "NAME", "ID" };
         assertAlias(sql, columnParam, "nor", param);
+    }
+
+    @Test
+    public void aliasScalarTest() throws Exception {
+        String sql = "select 1 as id from  " + normaltblTableName + " nor limit 1";
+        String[] columnParam = { "ID" };
+        assertAlias(sql, columnParam, "nor", null);
     }
 
     @Test

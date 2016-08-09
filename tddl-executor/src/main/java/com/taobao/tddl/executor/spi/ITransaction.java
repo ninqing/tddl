@@ -1,6 +1,7 @@
 package com.taobao.tddl.executor.spi;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.executor.common.ExecutionContext;
 
 /**
  * 事务对象
@@ -23,5 +24,9 @@ public interface ITransaction {
     public void close() throws TddlException;
 
     public void setAutoCommit(boolean autoCommit);
+
+    void setExecutionContext(ExecutionContext executionContext);
+
+    void beginTransaction() throws TddlException;
 
 }

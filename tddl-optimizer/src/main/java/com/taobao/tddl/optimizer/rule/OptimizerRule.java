@@ -1,6 +1,8 @@
 package com.taobao.tddl.optimizer.rule;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +15,7 @@ import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -20,6 +23,8 @@ import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
+import com.taobao.tddl.optimizer.exceptions.OptimizerException;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 import com.taobao.tddl.rule.TableRule;
 import com.taobao.tddl.rule.TddlRule;
@@ -42,99 +47,89 @@ public class OptimizerRule extends AbstractLifecycle {
 
     private final static int DEFAULT_OPERATION_COMP = -1000;
     private final TddlRule   tddlRule;
+    private final String     singleDbIndex;                 // 单库的dbIndex
 
-    public OptimizerRule(TddlRule tddlRule){
+    public OptimizerRule(TddlRule tddlRule, String singleDbIndex){
         this.tddlRule = tddlRule;
+        if (this.tddlRule == null) {
+            this.singleDbIndex = singleDbIndex;
+        } else {
+            this.singleDbIndex = null; // 如果针对规则，单库配置为null
+        }
     }
 
     @Override
     protected void doInit() throws TddlException {
-        if (!tddlRule.isInited()) {
+        if (tddlRule != null && !tddlRule.isInited()) {
             tddlRule.init();
         }
     }
 
     @Override
-    protected void dodestroy() throws TddlException {
-        if (tddlRule.isInited()) {
+    protected void doDestroy() throws TddlException {
+        if (tddlRule != null && tddlRule.isInited()) {
             tddlRule.destroy();
         }
     }
 
     public List<TargetDB> shard(String logicTable, ComparativeMapChoicer choicer, boolean isWrite) {
-        MatcherResult result;
-        try {
-            result = tddlRule.routeMverAndCompare(!isWrite, logicTable, choicer, Lists.newArrayList());
-        } catch (RouteCompareDiffException e) {
-            throw new TddlRuntimeException(e);
-        }
+        if (singleDbIndex != null) {
+            return buildSingleDb(logicTable);
+        } else {
+            MatcherResult result;
+            try {
+                result = tddlRule.routeMverAndCompare(!isWrite, logicTable, choicer, Lists.newArrayList());
+            } catch (RouteCompareDiffException e) {
+                throw new TddlRuntimeException(e);
+            }
 
-        List<TargetDB> targetDbs = result.getCalculationResult();
-        if (targetDbs == null || targetDbs.isEmpty()) {
-            throw new IllegalArgumentException("can't find target db. table is " + logicTable + ".");
-        }
+            List<TargetDB> targetDbs = result.getCalculationResult();
+            if (targetDbs == null || targetDbs.isEmpty()) {
+                throw new IllegalArgumentException("can't find target db. table is " + logicTable + ".");
+            }
 
-        return targetDbs;
+            return targetDbs;
+        }
     }
 
     /**
      * 根据逻辑表和条件，计算一下目标库
      */
     public List<TargetDB> shard(String logicTable, final IFilter ifilter, boolean isWrite) {
-        MatcherResult result;
-        try {
-            result = tddlRule.routeMverAndCompare(!isWrite, logicTable, new ComparativeMapChoicer() {
+        if (singleDbIndex != null) {
+            return buildSingleDb(logicTable);
+        } else {
+            MatcherResult result;
+            try {
+                result = tddlRule.routeMverAndCompare(!isWrite, logicTable, new ComparativeMapChoicer() {
 
-                @Override
-                public Map<String, Comparative> getColumnsMap(List<Object> arguments, Set<String> partnationSet) {
-                    Map<String, Comparative> map = new HashMap<String, Comparative>();
-                    for (String str : partnationSet) {
-                        map.put(str, getColumnComparative(arguments, str));
+                    @Override
+                    public Map<String, Comparative> getColumnsMap(List<Object> arguments, Set<String> partnationSet) {
+                        Map<String, Comparative> map = new HashMap<String, Comparative>();
+                        for (String str : partnationSet) {
+                            map.put(str, getColumnComparative(arguments, str));
+                        }
+
+                        return map;
                     }
 
-                    return map;
-                }
-
-                @Override
-                public Comparative getColumnComparative(List<Object> arguments, String colName) {
-                    return getComparative(ifilter, colName);
-                }
-            }, Lists.newArrayList());
-        } catch (RouteCompareDiffException e) {
-            throw new TddlRuntimeException(e);
-        }
-
-        List<TargetDB> targetDbs = result.getCalculationResult();
-        if (targetDbs == null || targetDbs.isEmpty()) {
-            throw new IllegalArgumentException("can't find target db. table is " + logicTable + ". filter is "
-                                               + ifilter);
-        }
-
-        return targetDbs;
-    }
-
-    /**
-     * 允许定义期望的expectedGroups，如果broadcast的逻辑表的物理拓扑结构包含了该节点，那说明可以做本地节点join，下推sql
-     */
-    public List<TargetDB> shardBroadCast(String logicTable, final IFilter ifilter, boolean isWrite,
-                                         List<String> expectedGroups) {
-        if (expectedGroups == null) {
-            return this.shard(logicTable, ifilter, isWrite);
-        }
-
-        if (!isBroadCast(logicTable)) {
-            throw new TddlRuntimeException(logicTable + "不是broadCast的表");
-        }
-
-        List<TargetDB> targets = this.shard(logicTable, (IFilter) null, isWrite);
-        List<TargetDB> targetsMatched = new ArrayList<TargetDB>();
-        for (TargetDB target : targets) {
-            if (expectedGroups.contains(target.getDbIndex())) {
-                targetsMatched.add(target);
+                    @Override
+                    public Comparative getColumnComparative(List<Object> arguments, String colName) {
+                        return getComparative(ifilter, colName);
+                    }
+                }, Lists.newArrayList());
+            } catch (RouteCompareDiffException e) {
+                throw new TddlRuntimeException(e);
             }
-        }
 
-        return targetsMatched;
+            List<TargetDB> targetDbs = result.getCalculationResult();
+            if (targetDbs == null || targetDbs.isEmpty()) {
+                throw new IllegalArgumentException("can't find target db. table is " + logicTable + ". filter is "
+                                                   + ifilter);
+            }
+
+            return targetDbs;
+        }
     }
 
     /**
@@ -144,32 +139,54 @@ public class OptimizerRule extends AbstractLifecycle {
      * @return
      */
     public TargetDB shardAny(String logicTable) {
-        TableRule tableRule = getTableRule(logicTable);
-        if (tableRule == null) {
-            // 设置为同名，同名不做转化
-            TargetDB target = new TargetDB();
-            target.setDbIndex(getDefaultDbIndex(logicTable, tddlRule.getCurrentRule()));
-            target.addOneTable(logicTable);
-            return target;
+        if (singleDbIndex != null) {
+            return buildSingleDb(logicTable).get(0);
         } else {
-            for (String group : tableRule.getActualTopology().keySet()) {
-                Set<String> tableNames = tableRule.getActualTopology().get(group);
-                if (tableNames == null || tableNames.isEmpty()) {
-                    continue;
-                }
-
+            TableRule tableRule = getTableRule(logicTable);
+            if (tableRule == null) {
+                // 设置为同名，同名不做转化
                 TargetDB target = new TargetDB();
-                target.setDbIndex(group);
-                target.addOneTable(tableNames.iterator().next());
+                target.setDbIndex(getDefaultDbIndex(logicTable));
+                target.addOneTable(logicTable);
                 return target;
+            } else {
+                for (String group : tableRule.getActualTopology().keySet()) {
+                    Set<String> tableNames = tableRule.getActualTopology().get(group);
+                    if (tableNames == null || tableNames.isEmpty()) {
+                        continue;
+                    }
+
+                    TargetDB target = new TargetDB();
+                    target.setDbIndex(group);
+                    target.addOneTable(tableNames.iterator().next());
+                    return target;
+                }
             }
+            throw new IllegalArgumentException("can't find any target db. table is " + logicTable + ". ");
         }
-        throw new IllegalArgumentException("can't find any target db. table is " + logicTable + ". ");
     }
 
-    public String getDefaultGroup() {
-        VirtualTableRoot root = tddlRule.getCurrentRule();
-        return root.getDefaultDbIndex();
+    public String getSingleDbIndex() {
+        return singleDbIndex;
+    }
+
+    public String getDefaultDbIndex(String logicTable) {
+        if (singleDbIndex != null) {
+            return singleDbIndex;
+        } else {
+            VirtualTableRoot root = tddlRule.getCurrentRule();
+            Map<String, String> dbIndexMap = root.getDbIndexMap();
+            if (dbIndexMap != null && dbIndexMap.get(logicTable) != null) {
+                return dbIndexMap.get(logicTable);
+            } else {
+                String defaultDb = root.getDefaultDbIndex();
+                if (defaultDb == null) {
+                    throw new OptimizerException("规则中defaultDbIndex未配置");
+                }
+
+                return defaultDb;
+            }
+        }
     }
 
     public String getJoinGroup(String logicTable) {
@@ -187,18 +204,20 @@ public class OptimizerRule extends AbstractLifecycle {
         return table != null ? table.getShardColumns() : new ArrayList<String>();// 没找到表规则，默认为单库
     }
 
-    private TableRule getTableRule(String logicTable) {
-        VirtualTableRoot root = tddlRule.getCurrentRule();
-        TableRule table = root.getVirtualTable(logicTable);
-        return table;
+    public TableRule getTableRule(String logicTable) {
+        if (singleDbIndex != null) {
+            return null;
+        } else {
+            TableRule table = tddlRule.getTable(logicTable);
+            return table;
+        }
     }
 
-    private String getDefaultDbIndex(String vtab, VirtualTableRoot vtrCurrent) {
-        Map<String, String> dbIndexMap = vtrCurrent.getDbIndexMap();
-        if (dbIndexMap != null && dbIndexMap.get(vtab) != null) {
-            return dbIndexMap.get(vtab);
-        }
-        return vtrCurrent.getDefaultDbIndex();
+    private List<TargetDB> buildSingleDb(String tableName) {
+        TargetDB targetDb = new TargetDB();
+        targetDb.setDbIndex(this.singleDbIndex);
+        targetDb.addOneTable(tableName);
+        return Arrays.asList(targetDb);
     }
 
     /**
@@ -260,8 +279,8 @@ public class OptimizerRule extends AbstractLifecycle {
             IBooleanFilter booleanFilter = (IBooleanFilter) ifilter;
 
             // 判断非空
-            if (booleanFilter.getColumn() == null
-                || (booleanFilter.getValue() == null && booleanFilter.getValues() == null)) {
+            if (isNull(booleanFilter.getColumn())
+                || (isNull(booleanFilter.getValue()) && isNull(booleanFilter.getValues()))) {
                 return null;
             }
 
@@ -290,7 +309,7 @@ public class OptimizerRule extends AbstractLifecycle {
                     IBooleanFilter ef = ASTNodeFactory.getInstance().createBooleanFilter();
                     ef.setOperation(OPERATION.EQ);
                     ef.setColumn(booleanFilter.getColumn());
-                    ef.setValue(value);
+                    ef.setValue(getValue(value));
 
                     Comparative subComp = getComparative(ef, colName);
                     if (subComp != null) {
@@ -329,10 +348,10 @@ public class OptimizerRule extends AbstractLifecycle {
                 Object value = null;
                 if (booleanFilter.getColumn() instanceof IColumn) {
                     column = OptimizerUtils.getColumn(booleanFilter.getColumn());
-                    value = getComparableWhenTypeIsNowReturnDate(booleanFilter.getValue());
+                    value = getValue(booleanFilter.getValue());
                 } else {// 出现 1 = id 的写法
                     column = OptimizerUtils.getColumn(booleanFilter.getValue());
-                    value = getComparableWhenTypeIsNowReturnDate(booleanFilter.getColumn());
+                    value = getValue(booleanFilter.getColumn());
                     operationComp = Comparative.exchangeComparison(operationComp); // 反转一下
                 }
 
@@ -352,14 +371,35 @@ public class OptimizerRule extends AbstractLifecycle {
         }
     }
 
-    private static Object getComparableWhenTypeIsNowReturnDate(Object val) {
+    private static boolean isNull(Object val) {
+        if (val == null) {
+            return true;
+        } else if (val instanceof NullValue) {
+            return true;
+        } else if (val instanceof Collection) {
+            boolean isn = true;
+            for (Object obj : (Collection) val) {
+                isn &= isNull(obj);
+            }
+
+            return isn;
+        }
+
+        return false;
+    }
+
+    private static Object getValue(Object val) {
         if (val instanceof IFunction) {
             IFunction func = (IFunction) val;
             if ("NOW".equalsIgnoreCase(func.getFunctionName())) {
                 return new Date();
             }
+        } else if (val instanceof IBindVal) {
+            // 针对batch时，不替换BindVal
+            return ((IBindVal) val).getValue();
         }
 
         return val;
     }
+
 }

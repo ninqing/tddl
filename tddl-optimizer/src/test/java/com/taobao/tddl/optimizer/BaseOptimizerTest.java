@@ -12,7 +12,9 @@ import org.junit.Ignore;
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.model.Matrix;
+import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.optimizer.config.table.RepoSchemaManager;
 import com.taobao.tddl.optimizer.config.table.StaticSchemaManager;
 import com.taobao.tddl.optimizer.config.table.parse.MatrixParser;
@@ -51,7 +53,7 @@ public class BaseOptimizerTest {
         tddlRule.setAppName(APPNAME);
         tddlRule.init();
 
-        rule = new OptimizerRule(tddlRule);
+        rule = new OptimizerRule(tddlRule, null);
 
         StaticSchemaManager localSchemaManager = StaticSchemaManager.parseSchema(Thread.currentThread()
             .getContextClassLoader()
@@ -66,10 +68,8 @@ public class BaseOptimizerTest {
         schemaManager.setGroup(matrix.getGroup("andor_group_0"));
         schemaManager.init();
 
-        statManager = LocalStatManager.parseConfig(Thread.currentThread()
-            .getContextClassLoader()
-            .getResourceAsStream(table_stat_file),
-            Thread.currentThread().getContextClassLoader().getResourceAsStream(table_index_stat_file));
+        statManager = LocalStatManager.parseConfig(GeneralUtil.getInputStream(table_stat_file),
+            GeneralUtil.getInputStream(table_index_stat_file));
 
         // statManager = new RepoStatManager();
         // statManager.setLocal(local);
@@ -85,7 +85,7 @@ public class BaseOptimizerTest {
 
         OptimizerContext.setContext(context);
 
-        optimizer = new CostBasedOptimizer();
+        optimizer = new CostBasedOptimizer(rule);
         optimizer.setSqlParseManager(parser);
         optimizer.init();
     }
@@ -98,7 +98,7 @@ public class BaseOptimizerTest {
         optimizer.destroy();
     }
 
-    protected Map<Integer, ParameterContext> convert(List<Object> args) {
+    protected Parameters convert(List<Object> args) {
         Map<Integer, ParameterContext> map = new HashMap<Integer, ParameterContext>(args.size());
         int index = 1;
         for (Object obj : args) {
@@ -106,10 +106,10 @@ public class BaseOptimizerTest {
             map.put(index, context);
             index++;
         }
-        return map;
+        return new Parameters(map, false);
     }
 
-    protected Map<Integer, ParameterContext> convert(Object[] args) {
+    protected Parameters convert(Object[] args) {
         return convert(Arrays.asList(args));
     }
 

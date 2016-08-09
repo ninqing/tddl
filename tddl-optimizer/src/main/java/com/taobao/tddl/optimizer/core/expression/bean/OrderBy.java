@@ -1,8 +1,6 @@
 package com.taobao.tddl.optimizer.core.expression.bean;
 
-import java.util.Map;
-
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
@@ -45,11 +43,11 @@ public class OrderBy implements IOrderBy {
     }
 
     @Override
-    public IOrderBy assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public IOrderBy assignment(Parameters parameterSettings) {
         IOrderBy newOrderBy = ASTNodeFactory.getInstance().createOrderBy();
         newOrderBy.setDirection(this.getDirection());
         if (this.getColumn() instanceof ISelectable) {
-            newOrderBy.setColumn(this.getColumn().assignment(parameterSettings));
+            newOrderBy.setColumn((ISelectable) this.getColumn().assignment(parameterSettings));
         } else {
             newOrderBy.setColumn(this.getColumn());
         }

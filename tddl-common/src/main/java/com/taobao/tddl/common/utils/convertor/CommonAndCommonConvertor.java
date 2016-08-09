@@ -153,7 +153,7 @@ public class CommonAndCommonConvertor {
                 return toCommon(srcClass, targetClass, value.doubleValue());
             } else {
                 // 其他数字类型，不带小数，则转化为BigInteger
-                return toCommon(srcClass, targetClass, value.longValueExact());
+                return toCommon(srcClass, targetClass, value.longValue());
             }
         }
 
@@ -164,7 +164,7 @@ public class CommonAndCommonConvertor {
             }
 
             if (targetClass == BigDecimal.class) {
-                return new BigDecimal((BigInteger) value);
+                return new BigDecimal(value);
             }
 
             // 其他数字类型，不带小数，则转化为longValue
@@ -213,7 +213,7 @@ public class CommonAndCommonConvertor {
 
             if (srcClass == Character.class || srcClass == char.class) {
                 Character charvalue = (Character) src;
-                return toCommon(srcClass, targetClass, Integer.valueOf((int) charvalue));
+                return toCommon(srcClass, targetClass, Integer.valueOf(charvalue));
             }
 
             throw new ConvertorException("Unsupported convert: [" + src + "," + targetClass.getName() + "]");

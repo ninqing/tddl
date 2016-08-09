@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor.function;
 
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IExtraFunction;
 import com.taobao.tddl.optimizer.exceptions.FunctionException;
@@ -17,8 +18,13 @@ public class Dummy extends ScalarFunction implements IExtraFunction {
     }
 
     @Override
-    public void compute(Object[] args) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+        throw new UnsupportedOperationException("该函数还没实现" + this.function.getFunctionName());
+    }
 
+    @Override
+    public String[] getFunctionNames() {
+        return new String[] { "dummy" };
     }
 
 }

@@ -31,17 +31,19 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
 
     @Before
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
-        andorUpdateData("DELETE FROM " + studentTableName, null);
+        tddlUpdateData("DELETE FROM " + studentTableName, null);
         mysqlUpdateData("DELETE FROM " + studentTableName, null);
-        andorUpdateData("DELETE FROM " + normaltblTableName, null);
+        tddlUpdateData("DELETE FROM " + normaltblTableName, null);
         mysqlUpdateData("DELETE FROM " + normaltblTableName, null);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
+
+        tddlConnection.setAutoCommit(true);
+
+        mysqlConnection.setAutoCommit(true);
     }
 
     @Test
@@ -52,14 +54,12 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             return;
         }
         String sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + "," + RANDOM_INT + ")";
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            int andorAffectRow = andorUpdateDataTranscation(sql, null);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             sql = "insert into " + studentTableName + " (id,name,school) values (?,?,?)";
@@ -69,15 +69,15 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             param.add(school);
 
             mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            andorAffectRow = andorUpdateDataTranscation(sql, param);
+            andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception e) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -97,14 +97,12 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             return;
         }
         String sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + "," + RANDOM_INT + ")";
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            int andorAffectRow = andorUpdateDataTranscation(sql, null);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             sql = "insert into " + studentTableName + " (id,name,school) values (?,?,?)";
@@ -114,15 +112,15 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             param.add(school);
 
             mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            andorAffectRow = andorUpdateDataTranscation(sql, param);
+            andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
-            con.rollback();
-            andorCon.rollback();
+            mysqlConnection.rollback();
+            tddlConnection.rollback();
         } catch (Exception e) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -143,15 +141,13 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             return;
         }
         String sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + "," + RANDOM_INT + ")";
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
         String[] columnParam1 = { "ID" };
         String[] columnParam = { "NAME", "SCHOOL" };
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            int andorAffectRow = andorUpdateDataTranscation(sql, null);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             sql = "insert into " + studentTableName + " (id,name,school) values (?,?,?)";
@@ -161,7 +157,7 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             param.add(school);
 
             mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            andorAffectRow = andorUpdateDataTranscation(sql, param);
+            andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
             sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID;
 
@@ -169,12 +165,12 @@ public class TransactionMultiTableTest extends BaseMatrixTestCase {
             sql = "select * from " + studentTableName + " where id=" + RANDOM_ID;
 
             selectOrderAssertTranscation(sql, columnParam, null);
-            con.rollback();
-            andorCon.rollback();
+            mysqlConnection.rollback();
+            tddlConnection.rollback();
         } catch (Exception e) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }

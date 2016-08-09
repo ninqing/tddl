@@ -70,11 +70,38 @@ public class AdvancedParameter extends RuleColumn {
                 for (int i = ro.start; i <= ro.end; i++) {
                     values.add(evalTime(c, i));
                 }
+
+                // 特别处理下，如果补偿不为1的情况
+                if (atomicIncreateValue instanceof Number && ((Number) atomicIncreateValue).longValue() > 1) {
+                    long incV = ((Number) atomicIncreateValue).longValue();
+                    for (int i = ro.start; i <= ro.end; i++) {
+                        values.add(evalTime(c, (int) (i * incV)));
+                    }
+                }
+            }
+        } else if (AtomIncreaseType.STRING.equals(atomicIncreateType)) {
+            // 以前string类型，常见的写法会是 #name,1,1024#.toString().hashcode() % 1024
+            // 问题就处在toString()方法，如果是只添加Integer类型的数字，toString之后的hashcode就不是联系了.
+            // 要么去掉.toString(),要么就是改为1_string类型
+            for (Range ro : rangeArray) {
+                for (int i = ro.start; i <= ro.end; i++) {
+                    // Character.MAX_VALUE , 16位,最大值为65536，一般很少有这么多分表数
+                    // 如果真出现了>65536，那范围枚举的值可能就不准了
+                    values.add(String.valueOf((char) i));
+                }
             }
         } else {
             for (Range ro : rangeArray) {
                 for (int i = ro.start; i <= ro.end; i++) {
                     values.add(i);
+                }
+
+                // 特别处理下，如果补偿不为1的情况
+                if (atomicIncreateValue instanceof Number && ((Number) atomicIncreateValue).longValue() > 1) {
+                    long incV = ((Number) atomicIncreateValue).longValue();
+                    for (int i = ro.start; i <= ro.end; i++) {
+                        values.add(i * incV);
+                    }
                 }
             }
         }
@@ -90,6 +117,9 @@ public class AdvancedParameter extends RuleColumn {
     public Set<Object> enumerateRange(Object basepoint) {
         if (basepoint instanceof Number) {
             return enumerateRange(((Number) basepoint).intValue());
+        } else if (basepoint instanceof String) {
+            // 目前该方法只是在初始化拓扑的时候会用到，如果出现string，一定是配置了1_string，拿第一个char进行处理
+            return enumerateRange(((String) basepoint).charAt(0));
         } else if (basepoint instanceof Calendar) {
             return enumerateRange((Calendar) basepoint);
         } else if (basepoint instanceof Date) {
@@ -115,6 +145,12 @@ public class AdvancedParameter extends RuleColumn {
             int end = start + this.cumulativeTimes;
             for (int i = start; i <= end; i++) {
                 values.add(i);
+            }
+        } else if (AtomIncreaseType.STRING.equals(atomicIncreateType)) {
+            int start = basepoint;
+            int end = start + this.cumulativeTimes;
+            for (int i = start; i <= end; i++) {
+                values.add(String.valueOf((char) i));
             }
         } else {
             throw new IllegalArgumentException("Number applies on atomicIncreateType: " + atomicIncreateType);
@@ -162,7 +198,7 @@ public class AdvancedParameter extends RuleColumn {
      * 参数自增类型，现在支持4种(#2011-12-5,modify by junyu,add HOUR type)
      */
     public static enum AtomIncreaseType {
-        HOUR, DATE, MONTH, YEAR, NUMBER;
+        HOUR, DATE, MONTH, YEAR, NUMBER, STRING;
 
         public boolean isTime() {
             return this.ordinal() < NUMBER.ordinal();

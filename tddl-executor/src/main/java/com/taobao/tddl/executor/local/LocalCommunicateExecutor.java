@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor.local;
 
+import java.util.List;
 import java.util.concurrent.Future;
 
 import com.taobao.tddl.common.exception.TddlException;
@@ -46,6 +47,14 @@ public class LocalCommunicateExecutor extends AbstractLifecycle implements Commu
 
     @Override
     public Future<ResultCursor> rollbackFuture(ExecutionContext executionContext) throws TddlException {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public Future<List<ISchematicCursor>> execByExecPlanNodesFuture(List<IDataNodeExecutor> qcs,
+                                                                    ExecutionContext executionContext)
+                                                                                                      throws TddlException {
         // TODO Auto-generated method stub
         return null;
     }

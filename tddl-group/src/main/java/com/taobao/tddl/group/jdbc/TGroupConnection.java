@@ -30,25 +30,34 @@ import com.taobao.tddl.group.dbselector.DBSelector;
 import com.taobao.tddl.group.dbselector.DBSelector.AbstractDataSourceTryer;
 import com.taobao.tddl.group.dbselector.DBSelector.DataSourceTryer;
 import com.taobao.tddl.group.utils.GroupHintParser;
-import com.taobao.tddl.monitor.unit.UnitDeployProtect;
+import com.taobao.tddl.monitor.unit.RouterHelper;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
- * 相关的JDBC规范： 1.
- * Connection关闭，在其上打开的statement自动关闭。这就要求Connection持有其上打开的所有statement的引用 2.
- * 重试的场景1：在第一个statement上执行查询，路由到db1成功。再创建一个statement查询在db1上失败： stmt1 =
- * TGroupConnection.createStatement rs1 = stmt1.executeQuery --create connection
- * on db1 and execute success stmt2 = conn..createStatement rs2 =
- * stmt2..executeQuery --db1 failed then... 这时如果重试到db2库，db1的connection要不要关？
- * a：如果关，其上的实际stmt和rs就都会关掉。这样db2成功后
- * 用户会看不到exception，对用户来说，stms1和rs1都是正常的。但实际上已经是坏掉的了。 b:
- * 如果不关，也就是TGroupConnection持有多个baseConnection，。。。 由以上场景的考虑，提炼出一个原则： 重试的原则：
- * 一个TGroupConnection中，只在第一次与真正与数据库交互时，也就是不得不返回db结果给用户时，才在DBGroup上进行重试。
- * 一旦在某个库上重试成功，后续在这个TGroupConnection上执行的所有操作，都只到这个库上，不再重试，出错直接抛出异常。
- * 第一次建立真正连接的重试过程中，baseConnection有可能会发生变化被替换。一旦重试成功，baseConnection则保持不再改变。
+ * <pre>
+ * 相关的JDBC规范： 
+ * 1. Connection关闭，在其上打开的statement自动关闭。这就要求Connection持有其上打开的所有statement的引用 
+ * 2. 重试的场景
+ *    1：在第一个statement上执行查询，路由到db1成功。再创建一个statement查询在db1上失败： 
+ *    stmt1 = TGroupConnection.createStatement 
+ *    rs1 = stmt1.executeQuery 
+ *    --create connection on db1 and execute success 
+ *    stmt2 = conn..createStatement 
+ *    rs2 = stmt2..executeQuery 
+ *    --db1 failed then... 
+ *    这时如果重试到db2库，db1的connection要不要关？
+ *    a：如果关，其上的实际stmt和rs就都会关掉。这样db2成功后用户会看不到exception，对用户来说，stms1和rs1都是正常的。但实际上已经是坏掉的了。
+ *    b: 如果不关，也就是TGroupConnection持有多个baseConnection，。。。 
+ *    
+ *    由以上场景的考虑，提炼出一个重试的原则： 
+ *    a. 一个TGroupConnection中，只在第一次与真正与数据库交互时，也就是不得不返回db结果给用户时，才在DBGroup上进行重试。
+ *    b. 一旦在某个库上重试成功，后续在这个TGroupConnection上执行的所有操作，都只到这个库上，不再重试，出错直接抛出异常。
+ *    c. 第一次建立真正连接的重试过程中，baseConnection有可能会发生变化被替换。一旦重试成功，baseConnection则保持不再改变。
+ *    
  * 这样可以简化很多事情，但同时不会对功能造成本质影响。同时避免了对状态处理不当，可能会给用户造成的诡异现象。
+ * </pre>
  * 
  * @author linxuan
  * @author yangzhu
@@ -87,7 +96,7 @@ public class TGroupConnection implements Connection {
     // private int wBaseDataSourceIndex = -2; // wBaseConnection对应的数据源Index
     private DataSourceWrapper      rBaseDsWrapper;
     private DataSourceWrapper      wBaseDsWrapper;
-    private Set<TGroupStatement>   openedStatements     = new HashSet<TGroupStatement>(2);
+    private Set<TGroupStatement>   openedStatements     = Collections.synchronizedSet(new HashSet<TGroupStatement>(2));
     // TODO: 以后让这个值真正的起作用
     private int                    transactionIsolation = -1;
 
@@ -295,7 +304,7 @@ public class TGroupConnection implements Connection {
             wBaseConnection = null;
 
             ThreadLocalDataSourceIndex.clearIndex();
-            UnitDeployProtect.clearUnitValidThreadLocal();
+            RouterHelper.clearUnitValidThreadLocal();
         }
         TExceptionUtils.throwSQLException(exceptions, "close tconnection", Collections.EMPTY_LIST);
     }

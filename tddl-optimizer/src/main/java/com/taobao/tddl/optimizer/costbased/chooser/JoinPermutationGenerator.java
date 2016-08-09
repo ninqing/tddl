@@ -45,6 +45,7 @@ public final class JoinPermutationGenerator {
     private List<QueryTreeNode>                                queryNodes           = new ArrayList();
     private List<ISelectable>                                  columns;
     private IFilter                                            allWhereFilter;
+    private IFilter                                            subqueryFilter;
 
     public JoinPermutationGenerator(QueryTreeNode qtn){
         this.orderBys = qtn.getOrderBys();
@@ -54,6 +55,7 @@ public final class JoinPermutationGenerator {
         this.limitFrom = qtn.getLimitFrom();
         this.limitTo = qtn.getLimitTo();
         this.allWhereFilter = qtn.getAllWhereFilter();
+        this.subqueryFilter = qtn.getSubqueryFilter();
         this.getQueryNodesFromQueryTree(qtn);
 
         pg = new PermutationGenerator(this.queryNodes);
@@ -144,6 +146,7 @@ public final class JoinPermutationGenerator {
                 newTree.setLimitFrom(limitFrom);
                 newTree.setLimitTo(limitTo);
                 newTree.setAllWhereFilter(allWhereFilter);
+                newTree.setSubqueryFilter(subqueryFilter);
                 return newTree;
             }
         }

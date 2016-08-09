@@ -1,8 +1,6 @@
 package com.taobao.tddl.optimizer.core.expression;
 
-import java.util.Map;
-
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.CanVisit;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 
@@ -21,13 +19,7 @@ public interface ISelectable<RT extends ISelectable> extends CanVisit, Comparabl
      * a. 比如原始sql中使用了?占位符，通过PrepareStatement.setXXX设置参数
      * b. sql解析后构造了，将?解析为IBindVal对象
      */
-    public RT assignment(Map<Integer, ParameterContext> parameterSettings);
-
-    // public static enum DATA_TYPE {
-    // BYTES_VAL, LONG_VAL, SHORT_VAL, BOOLEAN_VAL, CHAR_VAL, STRING_VAL,
-    // FLOAT_VAL, DOUBLE_VAL, INT_VAL, BIND_VAL,
-    // DATE_VAL, TIMESTAMP_VAL, TIME_VAL, BLOB_VAL, BIT_VAL
-    // }
+    public RT assignment(Parameters parameterSettings);
 
     public RT setDataType(DataType dataType);
 
@@ -69,6 +61,10 @@ public interface ISelectable<RT extends ISelectable> extends CanVisit, Comparabl
     public RT setDistinct(boolean distinct);
 
     public RT setIsNot(boolean isNot);
+
+    public Long getCorrelateOnFilterId();
+
+    public RT setCorrelateOnFilterId(Long correlateOnFilterId);
 
     // -----------------对象复制 -----------------
 

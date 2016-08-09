@@ -23,7 +23,7 @@ public class AbstractLifecycle implements Lifecycle {
             } catch (Exception e) {
                 // 出现异常调用destroy方法，释放
                 try {
-                    dodestroy();
+                    doDestroy();
                 } catch (Exception e1) {
                     // ignore
                 }
@@ -38,7 +38,7 @@ public class AbstractLifecycle implements Lifecycle {
                 return;
             }
 
-            dodestroy();
+            doDestroy();
             isInited = false;
         }
     }
@@ -50,7 +50,7 @@ public class AbstractLifecycle implements Lifecycle {
     protected void doInit() throws TddlException {
     }
 
-    protected void dodestroy() throws TddlException {
+    protected void doDestroy() throws TddlException {
     }
 
 }

@@ -1,7 +1,9 @@
 package com.taobao.tddl.executor.spi;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.optimizer.config.table.TableMeta;
+import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.cursor.ICursorMeta;
+import com.taobao.tddl.executor.cursor.ISchematicCursor;
 
 /**
  * 临时表
@@ -9,17 +11,16 @@ import com.taobao.tddl.optimizer.config.table.TableMeta;
  * @author mengshi.sunmengshi 2013-11-27 下午4:00:11
  * @since 5.0.0
  */
-public interface ITempTable {
+public interface ITempTable extends ITable {
 
     /**
-     * 获取一个临时表对象
-     * 
-     * @param meta
-     * @param groupNode
-     * @param isTempTable
-     * @return
-     * @throws Exception
+     * 临时表返回给前段的meta
      */
-    ITable getTable(TableMeta meta, String groupNode, boolean isTempTable, long requestID) throws TddlException;
+    ICursorMeta returnMeta = null;
 
+    public ICursorMeta getCursorMeta();
+
+    public void setCursorMeta(ICursorMeta cursorMeta);
+
+    public ISchematicCursor getCursor(ExecutionContext tmpContext) throws TddlException;
 }

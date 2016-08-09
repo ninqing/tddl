@@ -2,13 +2,13 @@ package com.taobao.tddl.optimizer.core.expression.bean;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
+import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.ExtraFunctionManager;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
@@ -23,19 +23,20 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
  */
 public class Function<RT extends IFunction> implements IFunction<RT> {
 
-    public static final Object[] emptyArgs       = new Object[0];
+    public static final Object[] emptyArgs           = new Object[0];
     // count
     protected String             functionName;
-    protected List               args            = new ArrayList();
+    protected List               args                = new ArrayList();
     protected String             alias;
-    protected boolean            distinct        = false;
+    protected boolean            distinct            = false;
     protected String             tablename;
 
     // count(id)
     protected String             columnName;
     protected IExtraFunction     extraFunction;
-    private boolean              isNot;
-    private boolean              needDistinctArg = false;
+    protected boolean            isNot;
+    protected boolean            needDistinctArg     = false;
+    protected Long               correlateOnFilterId = 0L;
 
     @Override
     public String getFunctionName() {
@@ -158,15 +159,19 @@ public class Function<RT extends IFunction> implements IFunction<RT> {
             .setTableName(this.getTableName())
             .setColumnName(this.getColumnName())
             .setDistinct(this.isDistinct())
-            .setIsNot(this.isNot());
+            .setIsNot(this.isNot())
+            .setCorrelateOnFilterId(this.getCorrelateOnFilterId());
 
+        funcNew.setNeedDistinctArg(this.isNeedDistinctArg());
         if (getArgs() != null) {
             List<Object> argsNew = new ArrayList(getArgs().size());
             for (Object arg : getArgs()) {
                 if (arg instanceof ISelectable) {
                     argsNew.add(((ISelectable) arg).copy());
                 } else if (arg instanceof IBindVal) {
-                    argsNew.add((arg));
+                    argsNew.add((((IBindVal) arg).copy()));
+                } else if (arg instanceof QueryTreeNode) {
+                    argsNew.add((((QueryTreeNode) arg).deepCopy()));
                 } else {
                     argsNew.add(arg);
                 }
@@ -186,7 +191,8 @@ public class Function<RT extends IFunction> implements IFunction<RT> {
             .setTableName(this.getTableName())
             .setColumnName(this.getColumnName())
             .setDistinct(this.isDistinct())
-            .setIsNot(this.isNot());
+            .setIsNot(this.isNot())
+            .setCorrelateOnFilterId(this.getCorrelateOnFilterId());
 
         if (getArgs() != null) {
             List<Object> argsNew = new ArrayList(getArgs().size());
@@ -194,7 +200,9 @@ public class Function<RT extends IFunction> implements IFunction<RT> {
                 if (arg instanceof ISelectable) {
                     argsNew.add(((ISelectable) arg).copy());
                 } else if (arg instanceof IBindVal) {
-                    argsNew.add((arg));
+                    argsNew.add((((IBindVal) arg).copy()));
+                } else if (arg instanceof QueryTreeNode) {
+                    argsNew.add((((QueryTreeNode) arg).deepCopy()));
                 } else {
                     argsNew.add(arg);
                 }
@@ -215,7 +223,7 @@ public class Function<RT extends IFunction> implements IFunction<RT> {
     }
 
     @Override
-    public RT assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public RT assignment(Parameters parameterSettings) {
         if (getArgs() != null) {
             List<Object> argsNew = getArgs();
             int index = 0;
@@ -268,5 +276,99 @@ public class Function<RT extends IFunction> implements IFunction<RT> {
     @Override
     public DataType getDataType() {
         return getExtraFunction().getReturnType();
+    }
+
+    @Override
+    public Long getCorrelateOnFilterId() {
+        return correlateOnFilterId;
+    }
+
+    @Override
+    public RT setCorrelateOnFilterId(Long correlateOnFilterId) {
+        this.correlateOnFilterId = correlateOnFilterId;
+        return (RT) this;
+    }
+
+    /**
+     * 这个方法不要被自动修改！ 在很多地方都有用到。
+     */
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((args == null) ? 0 : args.hashCode());
+        result = prime * result + ((columnName == null) ? 0 : columnName.hashCode());
+        result = prime * result + (distinct ? 1231 : 1237);
+        result = prime * result + ((functionName == null) ? 0 : functionName.hashCode());
+        result = prime * result + (isNot ? 1231 : 1237);
+        result = prime * result + (needDistinctArg ? 1231 : 1237);
+        result = prime * result + ((tablename == null) ? 0 : tablename.hashCode());
+        return result;
+    }
+
+    /**
+     * 这个方法不要被自动修改！ 在很多地方都有用到。
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        Function other = (Function) obj;
+
+        if (((alias == null && other.alias != null)) || ((alias != null && other.alias == null))) {
+            return false;
+        }
+        // alias 都不为空的时候，进行比较，如果不匹配则返回false,其余时候都跳过alias匹配
+        if (alias != null && other.alias != null) {
+            if (!alias.equals(other.alias)) {
+                return false;
+            }
+        }
+
+        if (args == null) {
+            if (other.args != null) {
+                return false;
+            }
+        } else if (!args.equals(other.args)) {
+            return false;
+        }
+        if (columnName == null) {
+            if (other.columnName != null) {
+                return false;
+            }
+        } else if (!columnName.equals(other.columnName)) {
+            return false;
+        }
+        if (distinct != other.distinct) {
+            return false;
+        }
+        if (functionName == null) {
+            if (other.functionName != null) {
+                return false;
+            }
+        } else if (!functionName.equals(other.functionName)) {
+            return false;
+        }
+        if (isNot != other.isNot) {
+            return false;
+        }
+        if (needDistinctArg != other.needDistinctArg) {
+            return false;
+        }
+        if (tablename == null) {
+            if (other.tablename != null) {
+                return false;
+            }
+        } else if (!tablename.equals(other.tablename)) {
+            return false;
+        }
+        return true;
     }
 }

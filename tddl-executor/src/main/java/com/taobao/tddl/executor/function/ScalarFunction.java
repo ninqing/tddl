@@ -1,6 +1,10 @@
 package com.taobao.tddl.executor.function;
 
-import com.taobao.tddl.optimizer.core.datatype.DataType;
+import java.util.List;
+
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.optimizer.core.expression.IExtraFunction;
 import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.exceptions.FunctionException;
@@ -21,24 +25,43 @@ public abstract class ScalarFunction extends ExtraFunction implements IExtraFunc
     }
 
     @Override
-    public void serverMap(Object[] args) throws FunctionException {
-        this.compute(args);
-    }
-
-    @Override
-    public void serverReduce(Object[] args) throws FunctionException {
-        this.compute(args);
-    }
-
-    @Override
-    public DataType getMapReturnType() {
-        return this.getReturnType();
-    }
-
-    @Override
     public String getDbFunction() {
         return function.getColumnName();
     }
 
-    public abstract void compute(Object[] args) throws FunctionException;
+    protected abstract Object compute(Object[] args, ExecutionContext ec) throws FunctionException;
+
+    /**
+     * @param kvPair
+     * @param ec
+     * @throws TddlRuntimeException
+     */
+    public Object scalarCalucate(IRowSet kvPair, ExecutionContext ec) throws TddlRuntimeException {
+        // 当前function需要的args 有些可能是函数，也有些是其他的一些数据
+        List<Object> argsArr = getMapArgs(function);
+        // 函数的input参数
+        Object[] inputArg = new Object[argsArr.size()];
+        int index = 0;
+        for (Object funcArg : argsArr) {
+            inputArg[index] = getArgValue(funcArg, kvPair, ec);
+            index++;
+        }
+
+        if (this instanceof ScalarFunction) {
+            try {
+                return this.compute(inputArg, ec);
+            } catch (ArrayIndexOutOfBoundsException e) {
+                throw new FunctionException("Incorrect parameter count in the call to native function '"
+                                            + this.function.getFunctionName() + "'");
+            }
+        } else {
+            throw new TddlRuntimeException("聚合函数不会调到这里");
+        }
+    }
+
+    @Override
+    public void clear() {
+
+    }
+
 }

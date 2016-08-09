@@ -7,6 +7,7 @@ import com.taobao.tddl.common.utils.TddlToStringStyle;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * 单个索引的统计数据
  * 

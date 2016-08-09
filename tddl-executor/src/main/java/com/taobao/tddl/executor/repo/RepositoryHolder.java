@@ -8,6 +8,7 @@ import java.util.Set;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.utils.extension.ExtensionLoader;
 import com.taobao.tddl.executor.spi.IRepository;
 import com.taobao.tddl.executor.spi.IRepositoryFactory;
@@ -29,17 +30,17 @@ public class RepositoryHolder {
         return repository.get(repoName);
     }
 
-    public IRepository getOrCreateRepository(String repoName, Map<String, String> properties) {
-        if (get(repoName) != null) {
-            return get(repoName);
+    public IRepository getOrCreateRepository(Group group, Map<String, String> properties, Map connectionProperties) {
+        if (get(group.getType().toString()) != null) {
+            return get(group.getType().toString());
         }
 
         synchronized (this) {
-            if (get(repoName) == null) {
-                IRepositoryFactory factory = getRepoFactory(repoName);
-                IRepository repo = factory.buildRepository(properties);
+            if (get(group.getType().toString()) == null) {
+                IRepositoryFactory factory = getRepoFactory(group.getType().toString());
+                IRepository repo = factory.buildRepository(group, properties, connectionProperties);
                 if (repo == null) {
-                    throw new TddlRuntimeException(repoNotFoundError.format(repoName));
+                    throw new TddlRuntimeException(repoNotFoundError.format(new String[] { group.getType().toString() }));
                 }
 
                 try {
@@ -47,11 +48,36 @@ public class RepositoryHolder {
                 } catch (TddlException e) {
                     throw new TddlRuntimeException(e);
                 }
-                this.put(repoName, repo);
+                this.put(group.getType().toString(), repo);
             }
         }
 
-        return this.get(repoName);
+        return this.get(group.getType().toString());
+    }
+
+    public IRepository getOrCreateRepository(String group, Map<String, String> properties, Map connectionProperties) {
+        if (get(group) != null) {
+            return get(group);
+        }
+
+        synchronized (this) {
+            if (get(group) == null) {
+                IRepositoryFactory factory = getRepoFactory(group);
+                IRepository repo = factory.buildRepository(null, properties, connectionProperties);
+                if (repo == null) {
+                    throw new TddlRuntimeException(repoNotFoundError.format(group));
+                }
+
+                try {
+                    repo.init();
+                } catch (TddlException e) {
+                    throw new TddlRuntimeException(e);
+                }
+                this.put(group.toString(), repo);
+            }
+        }
+
+        return this.get(group.toString());
     }
 
     private IRepositoryFactory getRepoFactory(String repoName) {

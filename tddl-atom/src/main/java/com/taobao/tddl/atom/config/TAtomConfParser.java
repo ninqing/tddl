@@ -45,6 +45,8 @@ public class TAtomConfParser {
     public static final String PASSWD_ENC_KEY_KEY                    = "encKey";
 
     public static final String APP_DRIVER_CLASS_KEY                  = "driverClass";
+
+    public static final String APP_CONNECTION_INIT_SQL_KEY           = "connectionInitSql";
     /**
      * 写，次数限制
      */
@@ -158,11 +160,16 @@ public class TAtomConfParser {
 
                     if (connectionProperties.containsKey(APP_PREFILL)) {
                         // add by agapple, 简单处理支持下初始化链接
-                        String prefill = connectionProperties.get(APP_PREFILL);
+                        String prefill = connectionProperties.remove(APP_PREFILL);
                         if (BooleanUtils.toBoolean(prefill)
                             && pasObj.getInitPoolSize() == TAtomDsConfDO.defaultInitPoolSize) {
                             pasObj.setInitPoolSize(pasObj.getMinPoolSize());
                         }
+                    }
+
+                    String connectionInitSql = connectionProperties.remove(TAtomConfParser.APP_CONNECTION_INIT_SQL_KEY);
+                    if (!TStringUtil.isBlank(connectionInitSql)) {
+                        pasObj.setConnectionInitSql(connectionInitSql);
                     }
                 }
 
@@ -198,6 +205,12 @@ public class TAtomConfParser {
 
     public static String parserPasswd(String passwdStr) {
         String passwd = null;
+
+        // 如果形式不是 encPasswd=xxxxxxxxx
+        // 则认为密码是没加密的，直接返回。
+        if (!passwdStr.contains("encPasswd")) {
+            return passwdStr;
+        }
         Properties passwdProp = TAtomConfParser.parserConfStr2Properties(passwdStr);
         String encPasswd = passwdProp.getProperty(TAtomConfParser.PASSWD_ENC_PASSWD_KEY);
         if (TStringUtil.isNotBlank(encPasswd)) {

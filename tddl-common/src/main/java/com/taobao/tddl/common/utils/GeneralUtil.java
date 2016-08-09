@@ -1,6 +1,5 @@
 package com.taobao.tddl.common.utils;
 
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -125,15 +124,22 @@ public class GeneralUtil {
         return first;
     }
 
-    public static InputStream getInputStream(String fileName) throws FileNotFoundException {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = GeneralUtil.class.getClassLoader();
-        }
+    public static InputStream getInputStream(String fileName) {
         if (fileName.charAt(0) == '/') {
             fileName = fileName.substring(1);
         }
-        return classLoader.getResourceAsStream(fileName);
+
+        ClassLoader classLoader = GeneralUtil.class.getClassLoader();
+        InputStream stream = null;
+        if (classLoader != null) {
+            stream = classLoader.getResourceAsStream(fileName);
+        }
+
+        if (stream == null) {
+            stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName);
+        }
+
+        return stream;
     }
 
 }

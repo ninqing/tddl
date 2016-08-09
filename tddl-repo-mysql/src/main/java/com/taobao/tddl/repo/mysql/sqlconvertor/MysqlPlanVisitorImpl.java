@@ -10,9 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.optimizer.core.CanVisit;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -29,20 +31,23 @@ import com.taobao.tddl.optimizer.core.plan.dml.IReplace;
 import com.taobao.tddl.optimizer.core.plan.dml.IUpdate;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.repo.mysql.sqlconvertor.functions.FunctionStringConstructor;
-import com.taobao.tddl.repo.mysql.sqlconvertor.functions.FunctionStringConstructorManager;
+import com.taobao.tddl.optimizer.utils.FilterUtils;
+import com.taobao.tddl.repo.mysql.function.FunctionStringConstructor;
+import com.taobao.tddl.repo.mysql.function.FunctionStringConstructorManager;
 
 public class MysqlPlanVisitorImpl implements PlanVisitor {
 
-    protected boolean                          bindVal        = true;
-    protected Map<Integer, ParameterContext>   paramMap;
+    protected boolean                          bindVal               = true;
+    protected Map<Integer, ParameterContext>   outPutParamMap;
+    protected Map<Integer, ParameterContext>   inPutParamMap;
+    protected Map<Integer, Integer>            newParamIndexToOldMap = null;
     protected AtomicInteger                    bindValSequence;
-    protected StringBuilder                    sqlBuilder     = new StringBuilder();
-    protected FunctionStringConstructorManager manager        = new FunctionStringConstructorManager();
+    protected StringBuilder                    sqlBuilder            = new StringBuilder();
+    protected FunctionStringConstructorManager manager               = new FunctionStringConstructorManager();
     protected IDataNodeExecutor                query;
-    protected boolean                          isGroupBy      = false;
+    protected boolean                          isGroupBy             = false;
 
-    private static Set<String>                 middleFuncName = new HashSet<String>();
+    private static Set<String>                 middleFuncName        = new HashSet<String>();
 
     static {
         middleFuncName.add("+");
@@ -78,18 +83,30 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
         middleFuncName.add("^");
     }
 
-    public MysqlPlanVisitorImpl(IDataNodeExecutor query, Map<Integer, ParameterContext> paramMap,
-                                AtomicInteger bindValSequence, boolean bindVal){
-        this(query, paramMap, bindValSequence, bindVal, false);
+    public MysqlPlanVisitorImpl(IDataNodeExecutor query, Map<Integer, ParameterContext> inputParamMap,
+                                Map<Integer, ParameterContext> outputParamMap,
+                                Map<Integer, Integer> newParamIndexToOldMap, AtomicInteger bindValSequence,
+                                boolean bindVal){
+        this(query, inputParamMap, outputParamMap, newParamIndexToOldMap, bindValSequence, bindVal, false);
     }
 
-    public MysqlPlanVisitorImpl(IDataNodeExecutor query, Map<Integer, ParameterContext> paramMap,
-                                AtomicInteger bindValSequence, boolean bindVal, boolean isGroupBy){
+    public MysqlPlanVisitorImpl(IDataNodeExecutor query, Map<Integer, ParameterContext> inputParamMap,
+                                Map<Integer, ParameterContext> outputParamMap,
+                                Map<Integer, Integer> newParamIndexToOldMap, AtomicInteger bindValSequence,
+                                boolean bindVal, boolean isGroupBy){
         this.query = query;
-        if (paramMap != null) {
-            this.paramMap = paramMap;
-        } else {
-            this.paramMap = new HashMap<Integer, ParameterContext>();
+        this.inPutParamMap = inputParamMap;
+
+        this.outPutParamMap = outputParamMap;
+
+        if (this.outPutParamMap == null) {
+            this.outPutParamMap = new HashMap<Integer, ParameterContext>();
+        }
+
+        this.newParamIndexToOldMap = newParamIndexToOldMap;
+
+        if (this.newParamIndexToOldMap == null) {
+            this.newParamIndexToOldMap = new HashMap();
         }
 
         if (bindValSequence != null) {
@@ -190,7 +207,13 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
     }
 
     public MysqlPlanVisitorImpl getOrderbyVisitor(IOrderBy o, boolean isGroupBy) {
-        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query, paramMap, bindValSequence, bindVal, isGroupBy);
+        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query,
+            inPutParamMap,
+            outPutParamMap,
+            newParamIndexToOldMap,
+            bindValSequence,
+            bindVal,
+            isGroupBy);
 
         if (o instanceof CanVisit) {
             ((CanVisit) o).accept(visitor);
@@ -202,7 +225,13 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
     }
 
     public MysqlPlanVisitorImpl getNewVisitor(Object o) {
-        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query, paramMap, bindValSequence, bindVal, false);
+        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query,
+            inPutParamMap,
+            outPutParamMap,
+            newParamIndexToOldMap,
+            bindValSequence,
+            bindVal,
+            false);
 
         if (o instanceof CanVisit) {
             ((CanVisit) o).accept(visitor);
@@ -214,7 +243,13 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
     }
 
     public MysqlPlanVisitorImpl getNewVisitor(IQueryTree query, Object o) {
-        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query, paramMap, bindValSequence, bindVal, false);
+        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(query,
+            inPutParamMap,
+            outPutParamMap,
+            newParamIndexToOldMap,
+            bindValSequence,
+            bindVal,
+            false);
 
         if (o instanceof CanVisit) {
             ((CanVisit) o).accept(visitor);
@@ -225,8 +260,12 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
         return visitor;
     }
 
-    public Map<Integer, ParameterContext> getParamMap() {
-        return paramMap;
+    public Map<Integer, ParameterContext> getOutPutParamMap() {
+        return outPutParamMap;
+    }
+
+    public Map<Integer, Integer> getNewParamIndexToOldMap() {
+        return newParamIndexToOldMap;
     }
 
     public String getString() {
@@ -245,7 +284,7 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
     }
 
     public void setParamMap(Map<Integer, ParameterContext> paramMap) {
-        this.paramMap = paramMap;
+        this.outPutParamMap = paramMap;
     }
 
     @Override
@@ -289,7 +328,7 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
             sqlBuilder.append(constructor.constructColumnNameForFunction(query,
                 bindVal,
                 bindValSequence,
-                paramMap,
+                outPutParamMap,
                 func,
                 this));
         } else {
@@ -460,37 +499,37 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
         if (query.isSubQuery() || query.isTopQuery()) {
             buildSelect(query);
 
-            if (query.getTableName() == null) {
+            if (query.getTableName() == null && query.getSubQuery() == null) {
                 return;
             }
             sqlBuilder.append(" from ");
         }
-        sqlBuilder.append(query.getTableName());
-        if (!query.isSubQuery() && query.getAlias() != null && !query.getAlias().equalsIgnoreCase(query.getTableName())) {
-            sqlBuilder.append(" ").append(query.getAlias());
+
+        if (query.getTableName() != null) {
+            sqlBuilder.append(query.getTableName());
+
+            if (!query.isSubQuery() && query.getAlias() != null
+                && !query.getAlias().equalsIgnoreCase(query.getTableName())) {
+                sqlBuilder.append(" ").append(query.getAlias());
+            }
+        } else if (query.getSubQuery() != null) {
+            sqlBuilder.append(this.getNewVisitor(query.getSubQuery(), query.getSubQuery()).getString());
         }
 
         if (query.isSubQuery() || query.isTopQuery()) {
             String keyFilterStr = "";
-            String resultFilterStr = "";
 
-            if (query.getKeyFilter() != null) {
-                MysqlPlanVisitorImpl visitor = this.getNewVisitor(query.getKeyFilter());
+            IFilter whereFilter = FilterUtils.and(FilterUtils.and(query.getKeyFilter(), query.getValueFilter()),
+                query.getOtherJoinOnFilter());
+
+            if (whereFilter != null) {
+                MysqlPlanVisitorImpl visitor = this.getNewVisitor(whereFilter);
                 keyFilterStr = visitor.getString();
             }
 
-            if (query.getValueFilter() != null) {
-                MysqlPlanVisitorImpl visitor = this.getNewVisitor(query.getValueFilter());
-                resultFilterStr = visitor.getString();
-            }
-
-            if (!TStringUtil.isEmpty(keyFilterStr) || !TStringUtil.isEmpty(resultFilterStr)) {
+            if (!TStringUtil.isEmpty(keyFilterStr)) {
                 sqlBuilder.append(" where ");
                 sqlBuilder.append(keyFilterStr);
-                if (!TStringUtil.isEmpty(keyFilterStr) && !TStringUtil.isEmpty(resultFilterStr)) {
-                    sqlBuilder.append(" and ");
-                }
-                sqlBuilder.append(resultFilterStr);
             }
             buildGroupBy(query);
             buildHaving(query);
@@ -551,19 +590,51 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
             } else {
                 context = new ParameterContext(ParameterMethod.setNull1, new Object[] { index, Types.NULL });
             }
-            this.paramMap.put(index, context);
+            this.outPutParamMap.put(index, context);
             sqlBuilder.append("?");
         }
 
     }
 
     @Override
+    public void visit(IBindVal bindVal) {
+
+        int index = bindValSequence.getAndIncrement();
+        ParameterContext context = null;
+
+        context = new ParameterContext(inPutParamMap.get(bindVal.getOrignIndex()).getParameterMethod(), new Object[] {
+                index, inPutParamMap.get(bindVal.getOrignIndex()).getArgs()[1] });
+
+        this.newParamIndexToOldMap.put(index, bindVal.getOrignIndex());
+
+        this.outPutParamMap.put(index, context);
+        sqlBuilder.append("?");
+
+    }
+
+    @Override
     public void visit(IInsert put) {
-        sqlBuilder.append("insert into ");
+
+        sqlBuilder.append("insert ");
+
+        if (put.isLowPriority()) {
+            sqlBuilder.append("low_priority ");
+        } else if (put.isHighPriority()) {
+            sqlBuilder.append("high_priority ");
+        } else if (put.isDelayed()) {
+            sqlBuilder.append("delayed ");
+        }
+
+        if (put.isIgnore()) {
+            sqlBuilder.append("ignore into ");
+        } else {
+            sqlBuilder.append("into ");
+        }
+
         sqlBuilder.append(put.getTableName()).append(" ");
 
         boolean first = true;
-        if (put.getUpdateColumns() != null && !put.getUpdateValues().isEmpty()) {
+        if (!GeneralUtil.isEmpty(put.getUpdateColumns())) {
             sqlBuilder.append("( ");
             for (int i = 0; i < put.getUpdateColumns().size(); i++) {
                 if (first) {
@@ -575,25 +646,67 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
             }
             sqlBuilder.append(") ");
         }
-        sqlBuilder.append("values ( ");
-        first = true;
-        for (int i = 0; i < put.getUpdateValues().size(); i++) {
-            if (first) {
-                first = false;
+        sqlBuilder.append("values ");
+
+        for (int valuesIndex = 0; valuesIndex < put.getMultiValuesSize(); valuesIndex++) {
+
+            if (valuesIndex == 0) {
+                sqlBuilder.append("( ");
             } else {
-                sqlBuilder.append(", ");
+                sqlBuilder.append(", ( ");
             }
-            sqlBuilder.append(this.getNewVisitor(put.getUpdateValues().get(i)).getString());
+
+            first = true;
+
+            List<Object> values = put.getValues(valuesIndex);
+            for (int i = 0; i < values.size(); i++) {
+                if (first) {
+                    first = false;
+                } else {
+                    sqlBuilder.append(", ");
+                }
+                sqlBuilder.append(this.getNewVisitor(values.get(i)).getString());
+            }
+            sqlBuilder.append(") ");
         }
-        sqlBuilder.append(") ");
+
+        if (put.getDuplicateUpdateColumns() != null && !put.getDuplicateUpdateColumns().isEmpty()) {
+            sqlBuilder.append("on duplicate key update ");
+
+            first = true;
+
+            for (int i = 0; i < put.getDuplicateUpdateColumns().size(); i++) {
+                if (first) {
+                    first = false;
+                } else {
+                    sqlBuilder.append(", ");
+                }
+
+                sqlBuilder.append(this.getNewVisitor(put.getDuplicateUpdateColumns().get(i)).getString());
+                sqlBuilder.append(" = ");
+                sqlBuilder.append(this.getNewVisitor(put.getDuplicateUpdateValues().get(i)).getString());
+            }
+
+            sqlBuilder.append(" ");
+
+        }
     }
 
     @Override
     public void visit(IReplace put) {
-        sqlBuilder.append("replace into ");
+        sqlBuilder.append("replace ");
+
+        if (put.isLowPriority()) {
+            sqlBuilder.append("low_priority ");
+        } else if (put.isIgnore()) {
+            sqlBuilder.append("delayed ");
+        }
+
+        sqlBuilder.append("into ");
+
         sqlBuilder.append(put.getTableName()).append(" ");
         boolean first = true;
-        if (put.getUpdateColumns() != null && !put.getUpdateValues().isEmpty()) {
+        if (!GeneralUtil.isEmpty(put.getUpdateColumns())) {
             sqlBuilder.append("( ");
             for (int i = 0; i < put.getUpdateColumns().size(); i++) {
                 if (first) {
@@ -606,24 +719,42 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
             sqlBuilder.append(") ");
         }
 
-        sqlBuilder.append("values ( ");
-        first = true;
-        for (int i = 0; i < put.getUpdateValues().size(); i++) {
-            if (first) {
-                first = false;
+        sqlBuilder.append("values ");
+        for (int valuesIndex = 0; valuesIndex < put.getMultiValuesSize(); valuesIndex++) {
+
+            if (valuesIndex == 0) {
+                sqlBuilder.append("( ");
             } else {
-                sqlBuilder.append(", ");
+                sqlBuilder.append(", ( ");
             }
 
-            sqlBuilder.append(this.getNewVisitor(put.getUpdateValues().get(i)).getString());
+            first = true;
+
+            List<Object> values = put.getValues(valuesIndex);
+            for (int i = 0; i < values.size(); i++) {
+                if (first) {
+                    first = false;
+                } else {
+                    sqlBuilder.append(", ");
+                }
+                sqlBuilder.append(this.getNewVisitor(values.get(i)).getString());
+            }
+            sqlBuilder.append(") ");
         }
 
-        sqlBuilder.append(") ");
     }
 
     @Override
     public void visit(IUpdate put) {
         sqlBuilder.append("update ");
+
+        if (put.isLowPriority()) {
+            sqlBuilder.append("low_priority ");
+        }
+        if (put.isIgnore()) {
+            sqlBuilder.append("ignore ");
+        }
+
         sqlBuilder.append(put.getTableName()).append(" ");
 
         sqlBuilder.append("set ");
@@ -673,7 +804,21 @@ public class MysqlPlanVisitorImpl implements PlanVisitor {
 
     @Override
     public void visit(IDelete put) {
-        sqlBuilder.append("delete from ");
+        sqlBuilder.append("delete ");
+
+        if (put.isLowPriority()) {
+            sqlBuilder.append("low_priority ");
+        }
+
+        if (put.isQuick()) {
+            sqlBuilder.append("quick ");
+        }
+
+        if (put.isIgnore()) {
+            sqlBuilder.append("ignore ");
+        }
+        sqlBuilder.append("from ");
+
         sqlBuilder.append(put.getTableName()).append(" ");
 
         String keyFilterStr = "";

@@ -52,7 +52,7 @@ public class PreParser {
             }
         } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "show")) {
             // ??show 不支持？
-            // sqlType = SqlType.SHOW;
+            sqlType = SqlType.SHOW;
         } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "insert")) {
             sqlType = SqlType.INSERT;
         } else if (TStringUtil.startsWithIgnoreCaseAndWs(noCommentsSql, "update")) {

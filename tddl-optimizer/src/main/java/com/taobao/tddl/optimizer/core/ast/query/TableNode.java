@@ -8,11 +8,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
@@ -21,6 +20,7 @@ import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
 import com.taobao.tddl.optimizer.core.ast.build.TableNodeBuilder;
+import com.taobao.tddl.optimizer.core.ast.delegate.ShareDelegate;
 import com.taobao.tddl.optimizer.core.ast.dml.DeleteNode;
 import com.taobao.tddl.optimizer.core.ast.dml.InsertNode;
 import com.taobao.tddl.optimizer.core.ast.dml.PutNode;
@@ -31,7 +31,8 @@ import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.core.plan.IQueryTree;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
@@ -49,17 +50,18 @@ public class TableNode extends QueryTreeNode {
 
     private final TableNodeBuilder builder;
     private String                 tableName;
-    private String                 actualTableName;              // 比如存在水平分表时，tableName代表逻辑表名,actualTableName代表物理表名
+    private List<String>           actualTableNames      = new ArrayList<String>(); // 比如存在水平分表时，tableName代表逻辑表名,actualTableName代表物理表名
     private IFilter                indexQueryValueFilter = null;
     private TableMeta              tableMeta;
-    private IndexMeta              indexUsed             = null; // 当前逻辑表的使用index
-    private boolean                fullTableScan         = false; // 是否需要全表扫描
+    private IndexMeta              indexUsed             = null;                   // 当前逻辑表的使用index
+    private boolean                fullTableScan         = false;                  // 是否需要全表扫描
 
     public TableNode(){
         this(null);
     }
 
     public TableNode(String tableName){
+        super();
         this.tableName = tableName;
         builder = new TableNodeBuilder(this);
     }
@@ -74,13 +76,14 @@ public class TableNode extends QueryTreeNode {
     }
 
     @Override
-    public void assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public void assignment(Parameters parameterSettings) {
         super.assignment(parameterSettings);
         this.indexQueryValueFilter = OptimizerUtils.assignment(indexQueryValueFilter, parameterSettings);
     }
 
     @Override
-    public IQueryTree toDataNodeExecutor() throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+        // 不能传递shareIndex,代理对象会自处理
         return this.convertToJoinIfNeed().toDataNodeExecutor();
     }
 
@@ -100,6 +103,7 @@ public class TableNode extends QueryTreeNode {
      */
     @Override
     public QueryTreeNode convertToJoinIfNeed() {
+        String ot = this.getTableName();
         if (this.getIndexUsed() == null || this.getIndexUsed().isPrimaryKeyIndex()) {
             // 若不包含索引，则扫描主表即可或者使用主键索引
             KVIndexNode keyIndexQuery = new KVIndexNode(this.getTableMeta().getPrimaryIndex().getName());
@@ -107,18 +111,30 @@ public class TableNode extends QueryTreeNode {
             keyIndexQuery.alias(this.getName());
             keyIndexQuery.setLimitFrom(this.getLimitFrom());
             keyIndexQuery.setLimitTo(this.getLimitTo());
-            keyIndexQuery.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), keyIndexQuery.getAlias()));
-            keyIndexQuery.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), keyIndexQuery.getAlias()));
-            keyIndexQuery.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), keyIndexQuery.getAlias()));
-            keyIndexQuery.having(OptimizerUtils.copyFilter(this.getHavingFilter(), keyIndexQuery.getAlias()));
+            keyIndexQuery.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), ot, keyIndexQuery.getAlias()));
+            keyIndexQuery.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), ot, keyIndexQuery.getAlias()));
+            keyIndexQuery.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), ot, keyIndexQuery.getAlias()));
+            keyIndexQuery.having(OptimizerUtils.copyFilter(this.getHavingFilter(), ot, keyIndexQuery.getAlias()));
             keyIndexQuery.setOtherJoinOnFilter(OptimizerUtils.copyFilter(this.getOtherJoinOnFilter(),
+                ot,
                 keyIndexQuery.getAlias()));
-            keyIndexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), keyIndexQuery.getAlias()));
+            keyIndexQuery.setSubqueryFilter(OptimizerUtils.copyFilter(this.getSubqueryFilter(),
+                ot,
+                keyIndexQuery.getAlias()));
+            keyIndexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), ot, keyIndexQuery.getAlias()));
             keyIndexQuery.valueQuery(FilterUtils.and(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(),
-                keyIndexQuery.getAlias()), OptimizerUtils.copyFilter(this.getResultFilter(), keyIndexQuery.getAlias())));
-            keyIndexQuery.executeOn(this.getDataNode());
+                ot,
+                keyIndexQuery.getAlias()), OptimizerUtils.copyFilter(this.getResultFilter(),
+                ot,
+                keyIndexQuery.getAlias())));
+            for (int i = 0; i < this.getShareSize(); i++) {
+                keyIndexQuery.executeOn(this.getDataNode(i), i);
+            }
             keyIndexQuery.setSubQuery(this.isSubQuery());
             keyIndexQuery.setFullTableScan(this.isFullTableScan());
+            keyIndexQuery.setLockMode(this.getLockMode());
+            keyIndexQuery.setParent(this.getParent());
+            keyIndexQuery.setCorrelatedSubquery(this.isCorrelatedSubquery());
             keyIndexQuery.build();
             return keyIndexQuery;
         } else { // 非主键索引
@@ -126,11 +142,23 @@ public class TableNode extends QueryTreeNode {
             List<ISelectable> indexQuerySelected = new ArrayList<ISelectable>();
 
             KVIndexNode indexQuery = new KVIndexNode(this.getIndexUsed().getName());
+            indexQuery.setParent(this.getParent());
             // 索引是否都包含在查询字段中
             boolean isIndexCover = true;
             List<ISelectable> allColumnsRefered = this.getColumnsRefered();
             for (ISelectable selected : allColumnsRefered) {
                 if (selected instanceof IFunction) {
+                    continue;
+                }
+
+                boolean isSameName = selected.getTableName().equals(this.getAlias())
+                                     || selected.getTableName().equals(this.getTableName());
+                if (this.isSubQuery() && this.getSubAlias() != null) {
+                    isSameName |= selected.getTableName().equals(this.getSubAlias());
+                }
+
+                if (!isSameName) {
+                    // 针对correlated subquery,可能存在非当前表的列，忽略之
                     continue;
                 }
 
@@ -147,34 +175,61 @@ public class TableNode extends QueryTreeNode {
             // 索引覆盖的情况下，只需要返回索引查询
             if (isIndexCover) {
                 indexQuery.alias(this.getName());
-                indexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), indexQuery.getAlias()));
-                indexQuery.valueQuery(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(), indexQuery.getAlias()));
-                indexQuery.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), indexQuery.getAlias()));
-                indexQuery.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), indexQuery.getAlias()));
-                indexQuery.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), indexQuery.getAlias()));
+                indexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), ot, indexQuery.getAlias()));
+                indexQuery.valueQuery(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(),
+                    ot,
+                    indexQuery.getAlias()));
+                indexQuery.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), ot, indexQuery.getAlias()));
+                indexQuery.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), ot, indexQuery.getAlias()));
+                indexQuery.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), ot, indexQuery.getAlias()));
                 indexQuery.setLimitFrom(this.getLimitFrom());
                 indexQuery.setLimitTo(this.getLimitTo());
-                indexQuery.executeOn(this.getDataNode());
                 indexQuery.setSubQuery(this.isSubQuery());
-                indexQuery.having(OptimizerUtils.copyFilter(this.getHavingFilter(), indexQuery.getAlias()));
+                indexQuery.having(OptimizerUtils.copyFilter(this.getHavingFilter(), ot, indexQuery.getAlias()));
+                indexQuery.query(this.getWhereFilter());
                 indexQuery.valueQuery(FilterUtils.and(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(),
-                    indexQuery.getAlias()), OptimizerUtils.copyFilter(this.getResultFilter(), indexQuery.getAlias())));
+                    ot,
+                    indexQuery.getAlias()),
+                    OptimizerUtils.copyFilter(this.getResultFilter(), ot, indexQuery.getAlias())));
                 indexQuery.setOtherJoinOnFilter(OptimizerUtils.copyFilter(this.getOtherJoinOnFilter(),
+                    ot,
                     indexQuery.getAlias()));
+                indexQuery.setSubqueryFilter(OptimizerUtils.copyFilter(this.getSubqueryFilter(),
+                    ot,
+                    indexQuery.getAlias()));
+                for (int i = 0; i < this.getShareSize(); i++) {
+                    indexQuery.executeOn(this.getDataNode(i), i);
+                }
+                indexQuery.setLockMode(this.getLockMode());
+                indexQuery.setCorrelatedSubquery(this.isCorrelatedSubquery());
                 indexQuery.build();
                 return indexQuery;
             } else {
                 indexQuery.alias(indexUsed.getNameWithOutDot());
-                indexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), indexQuery.getAlias()));
-                indexQuery.valueQuery(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(), indexQuery.getAlias()));
+                indexQuery.keyQuery(OptimizerUtils.copyFilter(this.getKeyFilter(), ot, indexQuery.getAlias()));
+                indexQuery.valueQuery(OptimizerUtils.copyFilter(this.getIndexQueryValueFilter(),
+                    ot,
+                    indexQuery.getAlias()));
 
                 // 不是索引覆盖的情况下，需要回表，就是索引查询和主键查询
                 IndexMeta pk = this.getTableMeta().getPrimaryIndex();
                 // 由于按照主键join，主键也是被引用的列
                 for (ColumnMeta keyColumn : pk.getKeyColumns()) {
                     boolean has = false;
-                    for (ISelectable s : allColumnsRefered) {
-                        if (keyColumn.getName().equals(s.getColumnName())) {
+                    for (ISelectable selected : allColumnsRefered) {
+                        boolean isSameName = selected.getTableName().equals(this.getAlias())
+                                             || selected.getTableName().equals(this.getTableName());
+                        if (this.isSubQuery() && this.getSubAlias() != null) {
+                            isSameName |= selected.getTableName().equals(this.getSubAlias());
+                        }
+
+                        if (!isSameName) {
+                            // 针对correlated subquery,可能存在非当前表的列，忽略之
+                            has = true;
+                            continue;
+                        }
+
+                        if (keyColumn.getName().equals(selected.getColumnName())) {
                             has = true;
                             break;
                         }
@@ -193,9 +248,21 @@ public class TableNode extends QueryTreeNode {
                 List<ISelectable> keyQuerySelected = new ArrayList<ISelectable>();
                 KVIndexNode keyQuery = new KVIndexNode(pk.getName());
                 keyQuery.alias(this.getName());
+                keyQuery.setParent(this.getParent());
                 for (ISelectable selected : allColumnsRefered) {
                     // 函数应该回表的时候做
                     if (selected instanceof IFunction) {
+                        continue;
+                    }
+
+                    boolean isSameName = selected.getTableName().equals(this.getAlias())
+                                         || selected.getTableName().equals(this.getTableName());
+                    if (this.isSubQuery() && this.getSubAlias() != null) {
+                        isSameName |= selected.getTableName().equals(this.getSubAlias());
+                    }
+
+                    if (!isSameName) {
+                        // 针对correlated subquery,可能存在非当前表的列，忽略之
                         continue;
                     }
 
@@ -205,7 +272,7 @@ public class TableNode extends QueryTreeNode {
                 }
                 keyQuery.select(keyQuerySelected);
                 // mengshi 如果valueFilter中有index中的列，实际应该在indexQuery中做
-                keyQuery.valueQuery(OptimizerUtils.copyFilter(this.getResultFilter(), keyQuery.getAlias()));
+                keyQuery.valueQuery(OptimizerUtils.copyFilter(this.getResultFilter(), ot, keyQuery.getAlias()));
 
                 JoinNode join = indexQuery.join(keyQuery);
                 // 按照PK进行join
@@ -228,20 +295,27 @@ public class TableNode extends QueryTreeNode {
                     tableName = this.getAlias();
                 }
 
-                join.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), tableName));
-                join.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), tableName));
-                join.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), tableName));
+                join.select(OptimizerUtils.copySelectables(this.getColumnsSelected(), ot, tableName));
+                join.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys(), ot, tableName));
+                join.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys(), ot, tableName));
                 join.setUsedForIndexJoinPK(true);
                 join.setLimitFrom(this.getLimitFrom());
                 join.setLimitTo(this.getLimitTo());
-                join.executeOn(this.getDataNode());
+                join.query(this.getWhereFilter());
+                for (int i = 0; i < this.getShareSize(); i++) {
+                    join.executeOn(this.getDataNode(i), i);
+                }
                 join.setSubQuery(this.isSubQuery());
                 // 回表是IndexNestedLoop
                 join.setJoinStrategy(JoinStrategy.INDEX_NEST_LOOP);
                 join.setAlias(this.getAlias());
                 join.setSubAlias(this.getSubAlias());
-                join.having(OptimizerUtils.copyFilter(this.getHavingFilter(), tableName));
-                join.setOtherJoinOnFilter(OptimizerUtils.copyFilter(this.getOtherJoinOnFilter(), tableName));
+                join.having(OptimizerUtils.copyFilter(this.getHavingFilter(), ot, tableName));
+                join.setOtherJoinOnFilter(OptimizerUtils.copyFilter(this.getOtherJoinOnFilter(), ot, tableName));
+                join.setSubqueryFilter(OptimizerUtils.copyFilter(this.getSubqueryFilter(), ot, tableName));
+                join.setLockMode(this.getLockMode());
+                join.setParent(this.getParent());
+                join.setCorrelatedSubquery(this.isCorrelatedSubquery());
                 join.build();
                 return join;
             }
@@ -255,17 +329,21 @@ public class TableNode extends QueryTreeNode {
         if (orderByCombineWithGroupBy != null) {
             return orderByCombineWithGroupBy;
         } else {
+            return new ArrayList();
             // 默认使用主键的索引信息进行order by
-            List<IOrderBy> implicitOrdersCandidate = OptimizerUtils.getOrderBy(this.tableMeta.getPrimaryIndex());
-            List<IOrderBy> implicitOrders = new ArrayList();
-            for (int i = 0; i < implicitOrdersCandidate.size(); i++) {
-                if (this.getColumnsSelected().contains(implicitOrdersCandidate.get(i).getColumn())) {
-                    implicitOrders.add(implicitOrdersCandidate.get(i));
-                } else {
-                    break;
-                }
-            }
-            return implicitOrders;
+            // List<IOrderBy> implicitOrdersCandidate =
+            // OptimizerUtils.getOrderBy(this.tableMeta.getPrimaryIndex());
+            // List<IOrderBy> implicitOrders = new ArrayList();
+            // for (int i = 0; i < implicitOrdersCandidate.size(); i++) {
+            // if
+            // (this.getColumnsSelected().contains(implicitOrdersCandidate.get(i).getColumn()))
+            // {
+            // implicitOrders.add(implicitOrdersCandidate.get(i));
+            // } else {
+            // break;
+            // }
+            // }
+            // return implicitOrders;
         }
     }
 
@@ -282,15 +360,6 @@ public class TableNode extends QueryTreeNode {
         return this.getTableName();
     }
 
-    protected ISelectable getColumn(String name) {
-        if (this.getTableMeta() == null) {
-            this.build();
-        }
-
-        return this.getBuilder()
-            .getSelectableFromChild(ASTNodeFactory.getInstance().createColumn().setColumnName(name));
-    }
-
     public TableNode setIndexUsed(IndexMeta indexUsed) {
         this.indexUsed = indexUsed;
         return this;
@@ -298,15 +367,20 @@ public class TableNode extends QueryTreeNode {
 
     // ============= insert/update/delete/put==================
 
-    public InsertNode insert(List<ISelectable> columns, List<Object> values) {
+    public InsertNode insert(List<ISelectable> columns, List values) {
         InsertNode insert = new InsertNode(this);
         insert.setColumns(columns);
-        insert.setValues(values);
-
+        if (values.size() > 0 && values.get(0) instanceof List) {
+            // 处理insert多value
+            insert.setMultiValues(true);
+            insert.setMultiValues(values);
+        } else {
+            insert.setValues(values);
+        }
         return insert;
     }
 
-    public InsertNode insert(String columns, Comparable values[]) {
+    public InsertNode insert(String columns, Object values[]) {
         if (columns == null || columns.isEmpty()) {
             return this.insert(new String[] {}, values);
         }
@@ -324,20 +398,40 @@ public class TableNode extends QueryTreeNode {
         return this.insert(cs, valueList);
     }
 
-    public PutNode put(List<ISelectable> columns, List<Object> values) {
-        if (columns.size() != values.size()) {
-            throw new IllegalArgumentException("The size of the columns and values is not matched."
-                                               + " columns' size is " + columns.size() + ". values' size is "
-                                               + values.size());
+    public InsertNode insert(String columns, List values) {
+        if (columns == null || columns.isEmpty()) {
+            return this.insert(new String[] {}, values);
+        }
+        return this.insert(columns.split(" "), values);
+    }
+
+    public InsertNode insert(String columns[], List values) {
+        List<ISelectable> cs = new LinkedList<ISelectable>();
+        for (String name : columns) {
+            ISelectable s = OptimizerUtils.createColumnFromString(name);
+            cs.add(s);
         }
 
+        return this.insert(cs, values);
+    }
+
+    public PutNode put(List<ISelectable> columns, List values) {
         PutNode put = new PutNode(this);
         put.setColumns(columns);
-        put.setValues(values);
+        if (values.size() > 0 && values.get(0) instanceof List) {
+            // 处理insert多value
+            put.setMultiValues(true);
+            put.setMultiValues(values);
+        } else {
+            put.setValues(values);
+        }
         return put;
     }
 
-    public PutNode put(String columns, Comparable values[]) {
+    public PutNode put(String columns, Object values[]) {
+        if (columns == null || columns.isEmpty()) {
+            return this.put(new String[] {}, values);
+        }
         return put(StringUtils.split(columns, ' '), values);
     }
 
@@ -352,8 +446,26 @@ public class TableNode extends QueryTreeNode {
         return put(cs, valueList);
     }
 
-    public UpdateNode update(List<ISelectable> columns, List<Object> values) {
+    public PutNode put(String columns, List values) {
 
+        if (columns == null || columns.isEmpty()) {
+            return this.put(new String[] {}, values);
+        }
+
+        return this.put(columns.split(" "), values);
+    }
+
+    public PutNode put(String columns[], List values) {
+        List<ISelectable> cs = new LinkedList<ISelectable>();
+        for (String name : columns) {
+            ISelectable s = OptimizerUtils.createColumnFromString(name);
+            cs.add(s);
+        }
+
+        return this.put(cs, values);
+    }
+
+    public UpdateNode update(List<ISelectable> columns, List<Object> values) {
         if (columns.size() != values.size()) {
             throw new IllegalArgumentException("The size of the columns and values is not matched."
                                                + " columns' size is " + columns.size() + ". values' size is "
@@ -395,13 +507,18 @@ public class TableNode extends QueryTreeNode {
     }
 
     @Override
+    public TableNode copySelf() {
+        return copy();
+    }
+
+    @Override
     protected void copySelfTo(QueryTreeNode to) {
         super.copySelfTo(to);
         TableNode toTable = (TableNode) to;
         toTable.setFullTableScan(this.isFullTableScan());
         toTable.setIndexQueryValueFilter((IFilter) (indexQueryValueFilter == null ? null : indexQueryValueFilter.copy()));
         toTable.tableName = this.tableName;
-        toTable.actualTableName = this.actualTableName;
+        toTable.actualTableNames = new ArrayList<String>(this.actualTableNames);
         toTable.setTableMeta(this.getTableMeta());
         toTable.useIndex(this.getIndexUsed());
     }
@@ -420,7 +537,7 @@ public class TableNode extends QueryTreeNode {
         toTable.setFullTableScan(this.isFullTableScan());
         toTable.setIndexQueryValueFilter((IFilter) (indexQueryValueFilter == null ? null : indexQueryValueFilter.copy()));
         toTable.tableName = this.tableName;
-        toTable.actualTableName = this.actualTableName;
+        toTable.actualTableNames = new ArrayList<String>(this.actualTableNames);
         toTable.setTableMeta(this.getTableMeta());
         toTable.useIndex(this.getIndexUsed());
     }
@@ -472,16 +589,44 @@ public class TableNode extends QueryTreeNode {
         this.tableName = tableName;
     }
 
+    @ShareDelegate
     public String getActualTableName() {
-        return actualTableName;
+        return getActualTableName(0);
     }
 
-    public void setActualTableName(String actualTableName) {
-        this.actualTableName = actualTableName;
+    @ShareDelegate
+    public TableNode setActualTableName(String actualTableName) {
+        return setActualTableName(actualTableName, 0);
+    }
+
+    public String getActualTableName(int shareIndex) {
+        ensureCapacity(actualTableNames, shareIndex);
+        return actualTableNames.get(shareIndex);
+    }
+
+    public TableNode setActualTableName(String actualTableName, int shareIndex) {
+        ensureCapacity(actualTableNames, shareIndex);
+        this.actualTableNames.set(shareIndex, actualTableName);
+        return this;
+    }
+
+    /**
+     * 进行joinMergeJoin优化时，左右表的根据extra匹配的shareIndex的顺序不一致，需要按照一边调整另外一边的顺序
+     * 
+     * <pre>
+     * 比如左表为2,4,1,3顺序，右表为1,2,3,4
+     * 此时如果以右表为准，对应的oldshareIndexs为3,1,4,2. [第一个数字3代表，左表新的1位置的数据应该是原左表3上的位置]
+     * </pre>
+     */
+    public void adjustActualTableName(List<Integer> oldshareIndexs) {
+        List<String> oldActualTableNames = new ArrayList<String>(actualTableNames);
+        for (int i = 0; i < oldshareIndexs.size(); i++) {
+            actualTableNames.set(i, oldActualTableNames.get(oldshareIndexs.get(i)));
+        }
     }
 
     @Override
-    public String toString(int inden) {
+    public String toString(int inden, int shareIndex) {
         String tabTittle = GeneralUtil.getTab(inden);
         String tabContent = GeneralUtil.getTab(inden + 1);
         StringBuilder sb = new StringBuilder();
@@ -492,7 +637,7 @@ public class TableNode extends QueryTreeNode {
             appendln(sb, tabTittle + "Query from " + this.getTableName());
         }
 
-        appendField(sb, "actualTableName", this.getActualTableName(), tabContent);
+        appendField(sb, "actualTableName", this.getActualTableName(shareIndex), tabContent);
         appendField(sb, "keyFilter", printFilterString(this.getKeyFilter(), inden + 2), tabContent);
         appendField(sb, "resultFilter", printFilterString(this.getResultFilter(), inden + 2), tabContent);
         appendField(sb, "whereFilter", printFilterString(this.getWhereFilter(), inden + 2), tabContent);
@@ -501,6 +646,7 @@ public class TableNode extends QueryTreeNode {
             printFilterString(this.getIndexQueryValueFilter(), inden + 2),
             tabContent);
         appendField(sb, "otherJoinOnFilter", printFilterString(this.getOtherJoinOnFilter(), inden + 2), tabContent);
+        appendField(sb, "subqueryFilter", printFilterString(this.getSubqueryFilter(), inden + 2), tabContent);
         appendField(sb, "having", printFilterString(this.getHavingFilter(), inden + 2), tabContent);
         if (this.getIndexUsed() != null) {
             appendField(sb, "indexUsed", "\n" + this.getIndexUsed().toStringWithInden(inden + 2), tabContent);
@@ -517,11 +663,16 @@ public class TableNode extends QueryTreeNode {
 
         appendField(sb, "orderBy", this.getOrderBys(), tabContent);
         appendField(sb, "queryConcurrency", this.getQueryConcurrency(), tabContent);
-        appendField(sb, "lockModel", this.getLockModel(), tabContent);
+        if (this.getLockMode() != LOCK_MODE.UNDEF) {
+            appendField(sb, "lockMode", this.getLockMode(), tabContent);
+        }
         appendField(sb, "columns", this.getColumnsSelected(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
         appendField(sb, "sql", this.getSql(), tabContent);
-        appendField(sb, "executeOn", this.getDataNode(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
+        appendField(sb, "executeOn", this.getDataNode(shareIndex), tabContent);
         return sb.toString();
     }
 }

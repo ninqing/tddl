@@ -6,6 +6,7 @@ import org.apache.commons.lang.time.FastDateFormat;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 
+
 /**
  * 基于 Tddl Logger 的统计日志输出类。 保证向下兼容, 日志刷出的结构为：
  * 

@@ -37,6 +37,7 @@ public class GroupConfigHolder extends AbstractConfigDataHolder {
         delegateDataHolder.setSonConfigDataHolder(sonConfigDataHolder);// 传递给deletegate，由它进行son传递
     }
 
+    @Override
     public void init() {
         loadDelegateExtension();
 

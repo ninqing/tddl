@@ -23,14 +23,16 @@ import com.taobao.tddl.executor.cursor.ITempTableSortCursor;
 import com.taobao.tddl.executor.cursor.IValueFilterCursor;
 import com.taobao.tddl.executor.cursor.ResultCursor;
 import com.taobao.tddl.executor.cursor.impl.SortCursor;
+import com.taobao.tddl.executor.cursor.impl.TempTableCursor;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
+import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 
 /**
  * 这个接口的作用，就是用来进行各种基于cursor的转换处理的。 比如，如果sql中出现了alias
@@ -49,7 +51,7 @@ public interface ICursorFactory {
      * @return
      */
     IMergeCursor mergeCursor(ExecutionContext context, List<ISchematicCursor> cursors, ICursorMeta indexMeta,
-                             IDataNodeExecutor currentExecotor, List<IOrderBy> orderBys) throws TddlException;
+                             IMerge currentExecotor, List<IOrderBy> orderBys) throws TddlException;
 
     /**
      * 用来处理合并的cursor . 对应QueryNode里面的Merge node.
@@ -58,8 +60,8 @@ public interface ICursorFactory {
      * @param cursors
      * @return
      */
-    IMergeCursor mergeCursor(ExecutionContext context, List<ISchematicCursor> cursors, IDataNodeExecutor currentExecotor)
-                                                                                                                         throws TddlException;
+    IMergeCursor mergeCursor(ExecutionContext context, List<ISchematicCursor> cursors, IMerge currentExecotor)
+                                                                                                              throws TddlException;
 
     /**
      * 用于处理count max min avg 等函数的cursor
@@ -240,4 +242,12 @@ public interface ICursorFactory {
 
     SortCursor mergeSortedCursor(ExecutionContext context, List<ISchematicCursor> cursors, boolean duplicated)
                                                                                                               throws TddlException;
+
+    TempTableCursor tempTableCursor(ExecutionContext executionContext, ISchematicCursor cursor,
+                                    List<IOrderBy> orderBys, boolean sortedDuplicates, long requestID)
+                                                                                                      throws TddlException;
+
+    TempTableCursor tempTableCursor(ExecutionContext executionContext, IQueryTree paln, List<IOrderBy> orderBys,
+                                    boolean sortedDuplicates, long requestID) throws TddlException;
+
 }

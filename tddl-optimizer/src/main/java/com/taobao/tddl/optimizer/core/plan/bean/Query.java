@@ -4,22 +4,20 @@ import static com.taobao.tddl.optimizer.utils.OptimizerToString.appendField;
 import static com.taobao.tddl.optimizer.utils.OptimizerToString.appendln;
 import static com.taobao.tddl.optimizer.utils.OptimizerToString.printFilterString;
 
-import java.util.Map;
-
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
+import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 public class Query extends QueryTree implements IQuery {
 
     protected IFilter    keyFilter;
-    protected LOCK_MODEL lockModel = LOCK_MODEL.SHARED_LOCK;
-    protected String     tableName;
+    protected LOCK_MODE  lockModel = LOCK_MODE.SHARED_LOCK;
     protected String     indexName;
+    protected String     tableName;
     protected IQueryTree subQuery;
 
     @Override
@@ -34,12 +32,12 @@ public class Query extends QueryTree implements IQuery {
     }
 
     @Override
-    public LOCK_MODEL getLockModel() {
+    public LOCK_MODE getLockMode() {
         return lockModel;
     }
 
     @Override
-    public IQuery setLockModel(LOCK_MODEL lockModel) {
+    public IQuery setLockMode(LOCK_MODE lockModel) {
         this.lockModel = lockModel;
         return this;
     }
@@ -52,36 +50,18 @@ public class Query extends QueryTree implements IQuery {
 
     @Override
     public String getTableName() {
-        return tableName;
+        return this.tableName;
     }
 
     @Override
     public String getIndexName() {
-        return indexName;
+        return this.indexName;
     }
 
     @Override
     public IQuery setIndexName(String indexName) {
         this.indexName = indexName;
         return this;
-    }
-
-    @Override
-    public IQueryTree assignment(Map<Integer, ParameterContext> parameterSettings) {
-        super.assignment(parameterSettings);
-
-        IQueryTree iqc = getSubQuery();
-        if (iqc != null) {
-            iqc.assignment(parameterSettings);
-        }
-
-        IFilter kf = getKeyFilter();
-        if (kf != null) {
-            kf.assignment(parameterSettings);
-        }
-
-        return this;
-
     }
 
     @Override
@@ -99,10 +79,13 @@ public class Query extends QueryTree implements IQuery {
     public IQuery copy() {
         IQuery query = ASTNodeFactory.getInstance().createQuery();
         copySelfTo((QueryTree) query);
-        query.setLockModel(this.getLockModel());
-        query.setSubQuery(this.getSubQuery());
+        query.setLockMode(this.getLockMode());
+        if (this.getSubQuery() != null) {
+            query.setSubQuery((IQueryTree) this.getSubQuery().copy());
+        }
         query.setTableName(this.getTableName());
-        query.setKeyFilter(this.getKeyFilter());
+        query.setIndexName(this.getIndexName());
+        query.setKeyFilter(OptimizerUtils.copyFilter(this.getKeyFilter()));
         return query;
     }
 
@@ -145,11 +128,16 @@ public class Query extends QueryTree implements IQuery {
         }
         appendField(sb, "orderBy", this.getOrderBys(), tabContent);
         appendField(sb, "queryConcurrency", this.getQueryConcurrency(), tabContent);
-        appendField(sb, "lockModel", this.getLockModel(), tabContent);
+        if (this.getLockMode() != LOCK_MODE.UNDEF) {
+            appendField(sb, "lockModel", this.getLockMode(), tabContent);
+        }
         appendField(sb, "columns", this.getColumns(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
 
         appendField(sb, "sql", this.getSql(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
         appendField(sb, "executeOn", this.getDataNode(), tabContent);
 
         // appendField(sb, "requestID",

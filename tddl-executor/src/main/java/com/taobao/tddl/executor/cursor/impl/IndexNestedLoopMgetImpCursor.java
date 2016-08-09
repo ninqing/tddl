@@ -6,8 +6,10 @@ import java.util.List;
 import java.util.Map;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.properties.ConnectionParams;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.executor.common.DuplicateKVPair;
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.KVPair;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.IIndexNestLoopCursor;
@@ -27,15 +29,6 @@ import com.taobao.tddl.optimizer.core.plan.query.IJoin;
  */
 public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements IIndexNestLoopCursor {
 
-    /**
-     * 一次匹配中，batch传递的数据个数
-     */
-    int                                   sizeKeyLimination             = 20;
-
-    /**
-     * 假定每个key都有25个不同的value
-     */
-    int                                   sizeRetLimination             = 5000;
     /**
      * left cursor ，会先取一批数据（sizeKeyLimination个），这是那一批数据的遍历器
      */
@@ -61,18 +54,68 @@ public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements
 
     protected ICursorMeta                 rightCursorMeta               = null;
 
+    /**
+     * 开始执行的时间
+     */
+    private Long                          executeStartTime              = System.currentTimeMillis();
+
+    /**
+     * 超时时间
+     */
+    private Long                          timeout                       = 0L;
+    /**
+     * 已迭代次数
+     */
+    private Long                          interationTimes               = 0L;
+
+    /**
+     * 最大迭代次数
+     */
+    private Long                          maxInterationTimes            = 0L;
+
+    /**
+     * 一次匹配中，batch传递的数据个数
+     */
+    int                                   sizeKeyLimination             = 20;
+
+    /**
+     * 假定每个key都有25个不同的value
+     */
+    int                                   sizeRetLimination             = 5000;
+
     public IndexNestedLoopMgetImpCursor(ISchematicCursor leftCursor, ISchematicCursor rightCursor, List leftColumns,
                                         List rightColumns, List columns, List leftRetColumns, List rightRetColumns,
-                                        IJoin join) throws TddlException{
-        super(leftCursor, rightCursor, leftColumns, rightColumns, columns, leftRetColumns, rightRetColumns);
-        setLeftRightJoin(join);
+                                        IJoin join, ExecutionContext executionContext) throws TddlException{
+        this(leftCursor,
+            rightCursor,
+            leftColumns,
+            rightColumns,
+            columns,
+            false,
+            leftRetColumns,
+            rightRetColumns,
+            join,
+            executionContext);
     }
 
     public IndexNestedLoopMgetImpCursor(ISchematicCursor leftCursor, ISchematicCursor rightCursor, List leftColumns,
                                         List rightColumns, List columns, boolean prefix, List leftRetColumns,
-                                        List rightRetColumns, IJoin join) throws TddlException{
+                                        List rightRetColumns, IJoin join, ExecutionContext executionContext)
+                                                                                                            throws TddlException{
         super(leftCursor, rightCursor, leftColumns, rightColumns, columns, prefix, leftRetColumns, rightRetColumns);
         setLeftRightJoin(join);
+
+        maxInterationTimes = executionContext.getParamManager()
+            .getLong(ConnectionParams.MAX_INDEX_NESTED_LOOP_ITERATION_TIMES);
+
+        timeout = executionContext.getParamManager().getLong(ConnectionParams.INDEX_NESTED_LOOP_TIME_OUT);
+
+        sizeKeyLimination = executionContext.getParamManager()
+            .getInt(ConnectionParams.COUNT_OF_KEY_TO_RIGHT_INDEX_NESTED_LOOP);
+
+        sizeRetLimination = executionContext.getParamManager()
+            .getInt(ConnectionParams.MAX_ROW_RETURN_FROM_RIGHT_INDEX_NESTED_LOOP);
+
     }
 
     @Override
@@ -116,9 +159,11 @@ public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements
      * 根据左面的数据id,从右面的结果集中取出的一组数据，这组数据内是可能有重复数据的。这个Map的key，是join on column中要求的数据
      * value，是拥有这行数据的KVPair的集合（也就是拥有相同join on column的数据的集合，是个链表)
      * @return 返回一个Join后的结果。
+     * @throws TddlException
      */
     protected IRowSet match(Iterator<IRowSet> leftIterator, Iterator<CloneableRecord> leftJoinOnColumnCacheIterator2,
-                            Map<CloneableRecord/* 相同的key */, DuplicateKVPair/* 见DuplicateKVPair注释 */> rightPairs2) {
+                            Map<CloneableRecord/* 相同的key */, DuplicateKVPair/* 见DuplicateKVPair注释 */> rightPairs2)
+                                                                                                                  throws TddlException {
         IRowSet right = null;
         if (rightDuplicateCache == null) {
             while (leftIterator.hasNext()) {
@@ -158,25 +203,6 @@ public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements
                             .size()]);
                         current = joinRecord(left, rightRowSet);
 
-                        // Object[] row = new Object[leftColumns.size() +
-                        // rightColumns.size()];
-                        //
-                        // for (int i = 0; i < leftColumns.size(); i++) {
-                        // ColumnMeta cm = leftColumns.get(i);
-                        // Integer index =
-                        // left.getParentCursorMeta().getIndex(cm.getTableName(),
-                        // cm.getName());
-                        // if (index == null) index =
-                        // left.getParentCursorMeta().getIndex(cm.getTableName(),
-                        // cm.getAlias());
-                        // row[i] = left.getObject(index);
-                        // }
-                        // for (int i = leftColumns.size(); i < row.length; i++)
-                        // {
-                        // row[i] = null;
-                        // }
-
-                        // current = new ArrayRowSet(this.joinCursorMeta, row);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -204,12 +230,25 @@ public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements
     }
 
     private boolean getMoreRecord(boolean forward) throws TddlException {
+
+        if (maxInterationTimes > 0) {
+            if (++interationTimes > maxInterationTimes) {
+                return false;
+            }
+        }
+
+        if (timeout > 0) {
+            if (System.currentTimeMillis() - this.executeStartTime >= timeout) {
+                return false;
+            }
+        }
         List<CloneableRecord> leftJoinOnColumnCache = new ArrayList<CloneableRecord>(sizeKeyLimination);
         List<IRowSet> liftKVPair = new ArrayList<IRowSet>(sizeKeyLimination);
         boolean hasMore = fillCache(leftJoinOnColumnCache, liftKVPair, forward);
         if (!hasMore) {
             return false;
         }
+
         // 如果使用index nest loop .那么右表一定是按主key进行查询的。
         rightPairs = getRecordFromRight(leftJoinOnColumnCache);
         leftIterator = liftKVPair.iterator();
@@ -219,6 +258,7 @@ public class IndexNestedLoopMgetImpCursor extends IndexNestLoopCursor implements
 
     protected Map<CloneableRecord, DuplicateKVPair> getRecordFromRight(List<CloneableRecord> leftJoinOnColumnCache)
                                                                                                                    throws TddlException {
+
         return right_cursor.mgetWithDuplicate(leftJoinOnColumnCache, false, true);
     }
 

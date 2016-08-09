@@ -84,13 +84,19 @@ public class FilterPusher {
             DNFNodeToPush.addAll(OptimizerUtils.copyFilter(DNFNode));// 需要复制一份出来
         }
 
+        if (qtn.getAllWhereFilter() == null) {
+            // 针对中间节点，下推之前先复制一份塞到all filter中，方便拼sql
+            IFilter allWhereFilter = FilterUtils.DNFToAndLogicTree(DNFNodeToPush);
+            qtn.setAllWhereFilter(OptimizerUtils.copyFilter(allWhereFilter));
+        }
+
         if (qtn instanceof QueryNode) {
             QueryNode qn = (QueryNode) qtn;
             List<IFilter> DNFNodeToCurrent = new LinkedList<IFilter>();
             if (DNFNodeToPush != null) {
                 for (IFilter node : DNFNodeToPush) {
                     // 可能是多级节点，字段在select中，设置为select中的字段，这样才可以继续下推
-                    if (!tryPushColumn(node, qn.getChild())) {
+                    if (!tryPushColumn(node, qn.getChild(), false)) {
                         // 可能where条件是函数，暂时不下推
                         DNFNodeToCurrent.add(node);
                     }
@@ -120,22 +126,43 @@ public class FilterPusher {
                 // 情况2这种不优化，直接当作where条件处理
                 findJoinKeysAndRemoveIt(DNFNodeToPush, jn);
                 for (IFilter node : DNFNodeToPush) {
-                    if (tryPushColumn(node, jn.getLeftNode())) {
+                    // 如果是outer节点,需要做特殊处理:
+                    // 即下推条件到子节点，同时保留条件在父节点(这样右表的where条件不需要复制到on一份)
+                    // (保留在父节点的不做pushColumn操作，否则在jn.query()设置时字段为子表的字段)
+                    if (tryPushColumn(node, jn.getLeftNode(), jn.getRightOuter())) {
+                        if (jn.getRightOuter()) {
+                            DNFNodeToCurrent.add((IFilter) node.copy()); // 复制一份到当前节点
+                            // 强制推一次
+                            tryPushColumn(node, jn.getLeftNode(), false);
+                        }
                         DNFNodetoPushToLeft.add(node);
-                    } else if (tryPushColumn(node, jn.getRightNode())) {
+                    } else if (tryPushColumn(node, jn.getRightNode(), jn.getLeftOuter())) {
+                        if (jn.getLeftOuter()) {
+                            DNFNodeToCurrent.add((IFilter) node.copy()); // 复制一份到当前节点
+                            // 强制推一次
+                            tryPushColumn(node, jn.getRightNode(), false);
+                        }
+
                         DNFNodetoPushToRight.add(node);
                     } else {
                         // 可能是函数，不继续下推
                         DNFNodeToCurrent.add(node);
                     }
                 }
-                // 将左条件的表达式，推导到join filter的右条件上
-                DNFNodetoPushToRight.addAll(copyFilterToJoinOnColumns(DNFNodeToPush,
-                    jn.getLeftKeys(),
-                    jn.getRightKeys()));
 
-                // 将右条件的表达式，推导到join filter的左条件上
-                DNFNodetoPushToLeft.addAll(copyFilterToJoinOnColumns(DNFNodeToPush, jn.getRightKeys(), jn.getLeftKeys()));
+                if (!jn.getLeftOuter()) {
+                    // 将左条件的表达式，推导到join filter的右条件上
+                    DNFNodetoPushToRight.addAll(copyFilterToJoinOnColumns(DNFNodeToPush,
+                        jn.getLeftKeys(),
+                        jn.getRightKeys()));
+                }
+
+                if (!jn.getRightOuter()) {
+                    // 将右条件的表达式，推导到join filter的左条件上
+                    DNFNodetoPushToLeft.addAll(copyFilterToJoinOnColumns(DNFNodeToPush,
+                        jn.getRightKeys(),
+                        jn.getLeftKeys()));
+                }
             }
 
             // 针对不能下推的，合并到当前的where
@@ -144,25 +171,8 @@ public class FilterPusher {
                 qtn.query(FilterUtils.and(qtn.getWhereFilter(), node));
             }
 
-            if (jn.isInnerJoin()) {
-                jn.setLeftNode(pushFilter(jn.getLeftNode(), DNFNodetoPushToLeft));
-                jn.setRightNode(pushFilter(((JoinNode) qtn).getRightNode(), DNFNodetoPushToRight));
-            } else if (jn.isLeftOuterJoin()) {
-                jn.setLeftNode(pushFilter(jn.getLeftNode(), DNFNodetoPushToLeft));
-                if (DNFNodeToPush != null && !DNFNodeToPush.isEmpty()) {
-                    jn.query(FilterUtils.DNFToAndLogicTree(DNFNodetoPushToRight)); // 在父节点完成filter，不能下推
-                }
-            } else if (jn.isRightOuterJoin()) {
-                jn.setRightNode(pushFilter(((JoinNode) qtn).getRightNode(), DNFNodetoPushToRight));
-                if (DNFNodeToPush != null && !DNFNodeToPush.isEmpty()) {
-                    jn.query(FilterUtils.DNFToAndLogicTree(DNFNodetoPushToLeft));// 在父节点完成filter，不能下推
-                }
-            } else {
-                if (DNFNodeToPush != null && !DNFNodeToPush.isEmpty()) {
-                    jn.query(FilterUtils.DNFToAndLogicTree(DNFNodeToPush));
-                }
-            }
-
+            jn.setLeftNode(pushFilter(jn.getLeftNode(), DNFNodetoPushToLeft));
+            jn.setRightNode(pushFilter(((JoinNode) qtn).getRightNode(), DNFNodetoPushToRight));
             jn.build();
             return jn;
         }
@@ -200,6 +210,12 @@ public class FilterPusher {
             DNFNodeToPush.addAll(DNFNode);
         }
 
+        if (qtn.getOtherJoinOnFilter() == null) {
+            // 针对中间节点，下推之前先复制一份塞到join on条件中，方便拼sql
+            IFilter otherJoinOnFilter = FilterUtils.DNFToAndLogicTree(DNFNodeToPush);
+            qtn.setOtherJoinOnFilter(OptimizerUtils.copyFilter(otherJoinOnFilter));
+        }
+
         if (qtn instanceof QueryNode) {
             QueryNode qn = (QueryNode) qtn;
             List<IFilter> DNFNodeToCurrent = new LinkedList<IFilter>();
@@ -208,7 +224,7 @@ public class FilterPusher {
                 for (IFilter node : DNFNodeToPush) {
                     // 可能是多级节点，字段在select中，设置为select中的字段，这样才可以继续下推
                     // 因为query不可能是顶级节点，只会是传递的中间状态，不需要处理DNFNodeToCurrent
-                    if (!tryPushColumn(node, qn.getChild())) {
+                    if (!tryPushColumn(node, qn.getChild(), false)) {
                         // 可能where条件是函数，暂时不下推
                         DNFNodeToCurrent.add(node);
                     }
@@ -234,9 +250,9 @@ public class FilterPusher {
 
             if (DNFNodeToPush != null) {
                 for (IFilter node : DNFNodeToPush) {
-                    if (tryPushColumn(node, jn.getLeftNode())) {
+                    if (tryPushColumn(node, jn.getLeftNode(), false)) {
                         DNFNodetoPushToLeft.add(node);
-                    } else if (tryPushColumn(node, jn.getRightNode())) {
+                    } else if (tryPushColumn(node, jn.getRightNode(), false)) {
                         DNFNodetoPushToRight.add(node);
                     } else {
                         // 可能是函数，不继续下推
@@ -396,11 +412,11 @@ public class FilterPusher {
      * 尝试推一下column到子节点，会设置为查找到子节点上的column<br/>
      * 比如需要下推字段，可能来自于子节点的select，所以需要先转化为子节点上的select信息，再下推
      */
-    private static boolean tryPushColumn(IFilter filter, QueryTreeNode qtn) {
-        return tryPushColumn(filter, true, qtn) && tryPushColumn(filter, false, qtn);
+    private static boolean tryPushColumn(IFilter filter, QueryTreeNode qtn, boolean outer) {
+        return tryPushColumn(filter, true, qtn, outer) && tryPushColumn(filter, false, qtn, outer);
     }
 
-    private static boolean tryPushColumn(IFilter filter, boolean isColumn, QueryTreeNode qtn) {
+    private static boolean tryPushColumn(IFilter filter, boolean isColumn, QueryTreeNode qtn, boolean outer) {
         Object value = null;
         if (isColumn) {
             value = ((IBooleanFilter) filter).getColumn();
@@ -411,15 +427,20 @@ public class FilterPusher {
         if (value instanceof ISelectable) {
             ISelectable c = qtn.findColumn((ISelectable) value);
             if (c instanceof IColumn) {
-                if (isColumn) {
-                    ((IBooleanFilter) filter).setColumn(c.copy());
-                } else {
-                    ((IBooleanFilter) filter).setValue(c.copy());
+                if (!outer) {
+                    if (isColumn) {
+                        ((IBooleanFilter) filter).setColumn(c.copy());
+                    } else {
+                        ((IBooleanFilter) filter).setValue(c.copy());
+                    }
                 }
                 return true;
             } else {
                 return false;
             }
+        } else if (value instanceof QueryTreeNode) {
+            // 子查询filter不能下推
+            return false;
         } else {
             return true;
         }

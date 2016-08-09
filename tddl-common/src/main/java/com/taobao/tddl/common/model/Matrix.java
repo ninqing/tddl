@@ -7,7 +7,6 @@ import java.util.Map;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.TddlToStringStyle;
 
 /**
@@ -19,10 +18,9 @@ import com.taobao.tddl.common.utils.TddlToStringStyle;
 public class Matrix {
 
     private String              name;
-
     private List<Group>         groups     = new ArrayList<Group>();
-
     private Map<String, String> properties = new HashMap();
+    private List<Matrix>        subMatrixs = new ArrayList();
 
     public String getName() {
         return name;
@@ -47,7 +45,16 @@ public class Matrix {
             }
         }
 
-        throw new TddlRuntimeException("not found groupName : " + groupName);
+        for (Matrix subMatrix : this.subMatrixs) {
+            Group group = subMatrix.getGroup(groupName);
+
+            if (group != null) {
+                return group;
+            }
+        }
+
+        return null;
+        // throw new TddlRuntimeException("not found groupName : " + groupName);
     }
 
     public Map<String, String> getProperties() {
@@ -58,6 +65,11 @@ public class Matrix {
         this.properties = properties;
     }
 
+    public void addSubMatrix(Matrix sub) {
+        this.subMatrixs.add(sub);
+    }
+
+    @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this, TddlToStringStyle.DEFAULT_STYLE);
     }

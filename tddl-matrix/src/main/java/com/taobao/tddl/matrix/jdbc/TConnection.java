@@ -22,21 +22,27 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
+
+import javax.sql.DataSource;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.taobao.tddl.common.GroupDataSourceRouteHelper;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
+import com.taobao.tddl.common.plugin.PreSqlPlugin;
+import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.executor.MatrixExecutor;
+import com.taobao.tddl.executor.common.ConnectionHolder;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
+import com.taobao.tddl.executor.cursor.IResultSetCursor;
 import com.taobao.tddl.executor.cursor.ResultCursor;
-import com.taobao.tddl.executor.cursor.impl.ResultSetCursor;
-import com.taobao.tddl.executor.spi.ITransaction;
+import com.taobao.tddl.executor.spi.IGroupExecutor;
 import com.taobao.tddl.group.utils.GroupHintParser;
 import com.taobao.tddl.matrix.jdbc.utils.ExceptionUtils;
 import com.taobao.tddl.optimizer.OptimizerContext;
@@ -55,6 +61,10 @@ public class TConnection implements Connection {
     private boolean                closed;
     private int                    transactionIsolation = -1;
     private final ExecutorService  executorService;
+    /**
+     * 管理这个连接下用到的所有物理连接
+     */
+    private ConnectionHolder       connectionHolder     = new ConnectionHolder();
 
     public TConnection(TDataSource ds){
         this.ds = ds;
@@ -65,8 +75,21 @@ public class TConnection implements Connection {
     /**
      * 执行sql语句的逻辑
      */
-    public ResultSet executeSQL(String sql, Map<Integer, ParameterContext> context, TStatement stmt,
-                                Map<String, Object> extraCmd, ExecutionContext executionContext) throws SQLException {
+    public ResultSet executeSQL(String sql, Parameters params, TStatement stmt, Map<String, Object> extraCmd,
+                                ExecutionContext executionContext) throws SQLException {
+
+        if (this.getConnectionHolder().getAllConnection().size() > 1) {
+            throw new IllegalAccessError("连接泄露了也许");
+        }
+
+        List<PreSqlPlugin> plugins = this.ds.getPreSqlPluginList();
+
+        if (!GeneralUtil.isEmpty(plugins)) {
+            for (PreSqlPlugin plugin : plugins) {
+                sql = plugin.handle(sql);
+            }
+        }
+
         ExecutorContext.setContext(this.ds.getConfigHolder().getExecutorContext());
         OptimizerContext.setContext(this.ds.getConfigHolder().getOptimizerContext());
         ResultCursor resultCursor;
@@ -79,7 +102,7 @@ public class TConnection implements Connection {
             executionContext.setGroupHint(GroupHintParser.buildTddlGroupHint(groupHint));
         }
         executionContext.setExecutorService(executorService);
-        executionContext.setParams(context);
+        executionContext.setParams(params);
         executionContext.setExtraCmds(extraCmd);
         try {
             resultCursor = executor.execute(sql, executionContext);
@@ -87,8 +110,8 @@ public class TConnection implements Connection {
             throw new SQLException(e);
         }
 
-        if (resultCursor instanceof ResultSetCursor) {
-            rs = ((ResultSetCursor) resultCursor).getResultSet();
+        if (resultCursor instanceof IResultSetCursor) {
+            rs = ((IResultSetCursor) resultCursor).getResultSet();
         } else {
             rs = new TResultSet(resultCursor);
         }
@@ -114,11 +137,17 @@ public class TConnection implements Connection {
         return stmt;
     }
 
-    private ExecutionContext prepareExecutionContext() {
+    private ExecutionContext prepareExecutionContext() throws SQLException {
         if (isAutoCommit) {
+
+            if (this.executionContext != null) {
+                this.executionContext.cleanTempTables();
+            }
+
             // 即使为autoCommit也需要记录
             // 因为在JDBC规范中，只要在statement.execute执行之前,设置autoCommit=false都是有效的
             this.executionContext = new ExecutionContext();
+
         } else {
             if (this.executionContext == null) {
                 this.executionContext = new ExecutionContext();
@@ -128,6 +157,8 @@ public class TConnection implements Connection {
                 this.executionContext.setAutoCommit(false);
             }
         }
+
+        this.executionContext.setConnectionHolder(this.connectionHolder);
         return this.executionContext;
     }
 
@@ -167,10 +198,7 @@ public class TConnection implements Connection {
             try {
                 // 事务结束,清理事务内容
                 this.executor.commit(this.executionContext);
-                ITransaction transtion = this.executionContext.getTransaction();
-                if (transtion != null) {
-                    transtion.close();
-                }
+
                 this.executionContext = null;
             } catch (TddlException e) {
                 throw new SQLException(e);
@@ -188,11 +216,7 @@ public class TConnection implements Connection {
         if (this.executionContext != null) {
             try {
                 this.executor.rollback(executionContext);
-                // 事务结束,清理事务内容
-                ITransaction transtion = this.executionContext.getTransaction();
-                if (transtion != null) {
-                    transtion.close();
-                }
+
                 this.executionContext = null;
             } catch (TddlException e) {
                 throw new SQLException(e);
@@ -203,7 +227,7 @@ public class TConnection implements Connection {
     @Override
     public DatabaseMetaData getMetaData() throws SQLException {
         checkClosed();
-        return new TDatabaseMetaData();
+        return new TDatabaseMetaData(ds);
     }
 
     private void checkClosed() throws SQLException {
@@ -240,7 +264,9 @@ public class TConnection implements Connection {
         if (executorService != null) {
             this.ds.releaseExecutorService(executorService);
         }
-
+        if (this.executionContext != null) {
+            this.executionContext.cleanTempTables();
+        }
         if (this.executionContext != null && this.executionContext.getTransaction() != null) {
             try {
                 this.executionContext.getTransaction().close();
@@ -248,6 +274,8 @@ public class TConnection implements Connection {
                 exceptions.add(new SQLException(e));
             }
         }
+
+        this.connectionHolder.closeAllConnections();
 
         closed = true;
         ExceptionUtils.throwSQLException(exceptions, "close tconnection", Collections.EMPTY_LIST);
@@ -286,9 +314,6 @@ public class TConnection implements Connection {
         return extraCmd;
     }
 
-    /**
-     * 未实现方法
-     */
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         TStatement stmt = (TStatement) createStatement();
@@ -300,50 +325,90 @@ public class TConnection implements Connection {
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
                                                                                                            throws SQLException {
-        throw new UnsupportedOperationException();
+        TStatement stmt = (TStatement) createStatement(resultSetType, resultSetConcurrency);
+        stmt.setResultSetHoldability(resultSetHoldability);
+        return stmt;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-        throw new UnsupportedOperationException();
+        TPreparedStatement stmt = (TPreparedStatement) prepareStatement(sql);
+        stmt.setAutoGeneratedKeys(autoGeneratedKeys);
+        return stmt;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency,
                                               int resultSetHoldability) throws SQLException {
-        throw new UnsupportedOperationException();
+        TPreparedStatement stmt = (TPreparedStatement) prepareStatement(sql, resultSetType, resultSetConcurrency);
+        stmt.setResultSetHoldability(resultSetHoldability);
+        return stmt;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-        throw new UnsupportedOperationException();
+        TPreparedStatement stmt = (TPreparedStatement) prepareStatement(sql);
+        stmt.setColumnIndexes(columnIndexes);
+        return stmt;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-        throw new UnsupportedOperationException();
+        TPreparedStatement stmt = (TPreparedStatement) prepareStatement(sql);
+        stmt.setColumnNames(columnNames);
+        return stmt;
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
                                                                                                       throws SQLException {
-        throw new UnsupportedOperationException();
+        TPreparedStatement stmt = (TPreparedStatement) prepareStatement(sql);
+        stmt.setResultSetType(resultSetType);
+        stmt.setResultSetConcurrency(resultSetConcurrency);
+        return stmt;
     }
 
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
-        throw new UnsupportedOperationException();
+        return prepareCall(sql, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
-        throw new UnsupportedOperationException();
+        return prepareCall(sql, Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency,
                                          int resultSetHoldability) throws SQLException {
-        throw new UnsupportedOperationException();
+        checkClosed();
+        // 针对存储过程，直接下推到default库上执行
+        String defaultDbIndex = this.ds.getConfigHolder().getOptimizerContext().getRule().getDefaultDbIndex(null);
+        IGroupExecutor groupExecutor = this.ds.getConfigHolder()
+            .getExecutorContext()
+            .getTopologyHandler()
+            .get(defaultDbIndex);
+
+        Object groupDataSource = groupExecutor.getRemotingExecutableObject();
+        if (groupDataSource instanceof DataSource) {
+            GroupDataSourceRouteHelper.executeByGroupDataSourceIndex(0);
+            Connection conn = ((DataSource) groupDataSource).getConnection();
+            CallableStatement target = null;
+            if (resultSetType != Integer.MIN_VALUE && resultSetHoldability != Integer.MIN_VALUE) {
+                target = conn.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+            } else if (resultSetType != Integer.MIN_VALUE) {
+                target = conn.prepareCall(sql, resultSetType, resultSetConcurrency);
+            } else {
+                target = conn.prepareCall(sql);
+            }
+
+            TCallableStatement stmt = new TCallableStatement(ds, this, sql, null, target);
+            openedStatements.add(stmt);
+            return stmt;
+        } else {
+            throw new UnsupportedOperationException();
+        }
+
     }
 
     @Override
@@ -522,7 +587,10 @@ public class TConnection implements Connection {
         throw new UnsupportedOperationException("getCatalog");
     }
 
-	@Override
+    public ConnectionHolder getConnectionHolder() {
+        return this.connectionHolder;
+    }
+		@Override
 	public void setSchema(String schema) throws SQLException {
 		// TODO Auto-generated method stub
 		

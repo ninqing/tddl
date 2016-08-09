@@ -5,6 +5,9 @@ import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.KVPair;
 import com.taobao.tddl.executor.cursor.IRangeCursor;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
@@ -17,9 +20,6 @@ import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * 现在具有对多个索引内前缀字段+非前缀字段
@@ -47,17 +47,19 @@ public class RangeCursor extends SchematicCursor implements IRangeCursor {
     private IFilter               lf           = null;
 
     boolean                       first        = true;
+    protected ExecutionContext    ec;
 
-    public RangeCursor(ISchematicCursor cursor, IFilter lf){
+    public RangeCursor(ISchematicCursor cursor, IFilter lf, ExecutionContext ec) throws TddlException{
         super(cursor, null, cursor.getOrderBy());
         this.lf = lf;
         RangeMaker.Range range = makeRange(lf, orderBys);
         this.from = range.from;
         this.to = range.to;
+        this.ec = ec;
     }
 
     protected RangeMaker.Range makeRange(IFilter lf, List<IOrderBy> orderBys) {
-        return new RangeMaker().makeRange(lf, orderBys);
+        return new RangeMaker(ec).makeRange(lf, orderBys);
     }
 
     private void initSchema(IRowSet firstRowSet, IFilter lf) {
@@ -236,6 +238,7 @@ public class RangeCursor extends SchematicCursor implements IRangeCursor {
         return toStringWithInden(0);
     }
 
+    @Override
     public String toStringWithInden(int inden) {
         StringBuilder sb = new StringBuilder();
         String tab = GeneralUtil.getTab(inden);

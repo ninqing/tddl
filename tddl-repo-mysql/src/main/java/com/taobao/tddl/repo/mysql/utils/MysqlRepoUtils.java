@@ -4,11 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.sql.DataSource;
-
-import com.taobao.tddl.executor.common.ExecutionContext;
-import com.taobao.tddl.executor.spi.IDataSourceGetter;
-import com.taobao.tddl.executor.spi.ITransaction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
@@ -17,8 +12,6 @@ import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.repo.mysql.spi.My_JdbcHandler;
-import com.taobao.tddl.repo.mysql.spi.My_Transaction;
 
 /**
  * @author mengshi.sunmengshi 2013-12-5 下午6:08:32
@@ -55,29 +48,6 @@ public class MysqlRepoUtils {
 
         return orderbys;
 
-    }
-
-    public static My_JdbcHandler getJdbcHandler(IDataSourceGetter dsGetter, IDataNodeExecutor executor,
-                                                ExecutionContext executionContext) {
-        DataSource ds;
-        My_JdbcHandler jdbcHandler = new My_JdbcHandler(executionContext);
-
-        ds = dsGetter.getDataSource(executor.getDataNode());
-        My_Transaction my_transaction = null;
-        ITransaction txn = executionContext.getTransaction();
-        if (txn != null) {
-            if (txn instanceof My_Transaction) {
-                my_transaction = (My_Transaction) txn;
-            }
-        } else {
-            my_transaction = new My_Transaction(executionContext.isAutoCommit());
-            executionContext.setTransaction(my_transaction);
-        }
-        jdbcHandler.setDs(ds);
-        jdbcHandler.setGroupName(executor.getDataNode());
-        jdbcHandler.setMyTransaction(my_transaction);
-        jdbcHandler.setPlan(executor);
-        return jdbcHandler;
     }
 
     protected static final List<IOrderBy> getOrderBy(List columns) {

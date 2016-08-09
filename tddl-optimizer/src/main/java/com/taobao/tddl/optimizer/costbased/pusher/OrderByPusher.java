@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -96,22 +97,11 @@ public class OrderByPusher {
             if (containsDistinctColumns(merge)) {
                 for (ASTNode con : merge.getChildren()) {
                     QueryTreeNode child = (QueryTreeNode) con;
-
-                    // 去掉function函数，比如count(distinct id)
-                    List<IFunction> toRemove = new ArrayList();
-                    for (ISelectable s : child.getColumnsSelected()) {
-                        if (s instanceof IFunction) {
-                            toRemove.add((IFunction) s);
-                        }
-                    }
-                    child.getColumnsSelected().removeAll(toRemove);
-                    child.build();
-
                     // 重新构建order by / group by字段
                     if (!child.getGroupBys().isEmpty()) {
                         List<IOrderBy> implicitOrderBys = child.getImplicitOrderBys();
                         // 如果order by包含了所有的group by顺序
-                        if (containAllOrderBys(implicitOrderBys, child.getGroupBys())) {
+                        if (isStartWithSameOrderBys(implicitOrderBys, child.getGroupBys())) {
                             child.setOrderBys(implicitOrderBys);
                         } else {
                             // order by不是一个group by的子集，优先使用group by
@@ -122,31 +112,70 @@ public class OrderByPusher {
                     // 将查询所有字段进行order by，保证每个child返回的数据顺序都是一致的
                     List<IOrderBy> distinctOrderbys = new LinkedList<IOrderBy>();
                     for (ISelectable s : child.getColumnsSelected()) {
+                        if (s instanceof IFunction) {
+                            // count(distinct id)不列入distinct字段，因为已有distinct id的列
+                            continue;
+                        }
                         IOrderBy order = ASTNodeFactory.getInstance().createOrderBy();
                         order.setColumn(s).setDirection(true);
                         distinctOrderbys.add(order);
                     }
 
-                    // 尝试调整下distinct的order by顺序，调整不了的话，按照distinct columns顺序
-                    List<IOrderBy> orderbys = getPushOrderBysCombileOrderbyColumns(distinctOrderbys,
-                        child.getOrderBys());
-                    if (orderbys.isEmpty()) {
-                        child.setOrderBys(distinctOrderbys);
+                    boolean isDistinctByShardColumns = merge.isDistinctByShardColumns();
+                    if (child.getOrderBys() == null || child.getOrderBys().isEmpty()) {
+                        // 针对没有业务order by列
+                        // 判断一下是否为distinct分库键
+                        if (isGroupByShardColumns(distinctOrderbys, child)) {
+                            merge.setDistinctByShardColumns(true);
+                            isDistinctByShardColumns = true;
+                        }
+                    }
+
+                    // 尝试去掉function函数，比如count(distinct id)
+                    List<IFunction> toRemove = new ArrayList();
+                    for (ISelectable s : child.getColumnsSelected()) {
+                        if (s instanceof IFunction) {
+                            toRemove.add((IFunction) s);
+                        }
+                    }
+                    if (isDistinctByShardColumns) {
+                        if (!toRemove.isEmpty()) { // 存在count(distinct id)函数
+                            List<ISelectable> distinctColumnRemove = new ArrayList();
+                            for (ISelectable s : child.getColumnsSelected()) {
+                                if (s instanceof ISelectable && ((ISelectable) s).isDistinct()) {
+                                    distinctColumnRemove.add((ISelectable) s);
+                                }
+                            }
+                            // 删除distinct id列
+                            child.getColumnsSelected().removeAll(distinctColumnRemove);
+                        }
                     } else {
-                        child.setOrderBys(orderbys);
+                        child.getColumnsSelected().removeAll(toRemove);
+
+                        // 尝试调整下distinct的order by顺序，调整不了的话，按照distinct columns顺序
+                        List<IOrderBy> orderbys = getPushOrderBysCombileOrderbyColumns(distinctOrderbys,
+                            child.getOrderBys());
+                        if (orderbys.isEmpty()) {
+                            child.setOrderBys(distinctOrderbys);
+                        } else {
+                            child.setOrderBys(orderbys);
+                        }
                     }
 
                     // 清空child的group by，由merge节点进行处理
                     child.setGroupBys(new ArrayList(0));
                 }
 
-                // merge上的函数设置为distinct标记
-                for (ISelectable s : merge.getColumnsSelected()) {
-                    if (s instanceof IFunction && isDistinct(s)) {
-                        ((IFunction) s).setNeedDistinctArg(true);
+                if (!merge.isDistinctByShardColumns()) {
+                    // merge上的函数设置为distinct标记
+                    for (ISelectable s : merge.getColumnsSelected()) {
+                        if (s instanceof IFunction && isDistinct(s)) {
+                            ((IFunction) s).setNeedDistinctArg(true);
+                        }
                     }
                 }
 
+                merge.build();
                 return merge;
             }
         } else if (qtn instanceof JoinNode || qtn instanceof QueryNode) {
@@ -168,6 +197,8 @@ public class OrderByPusher {
                     // 尝试合并order by和distinct成功，则设置当前order by
                     qtn.setOrderBys(orderbys);
                 }
+
+                qtn.build();
             }
         }
 
@@ -199,39 +230,54 @@ public class OrderByPusher {
                     ((QueryTreeNode) child).build();
                 }
             } else {
+                // 比如merge节点同时存在order by/group by
+                // 1. 优先下推父节点的group by到子节点
+                // 2. 然后去掉子节点的group by
                 for (ASTNode child : merge.getChildren()) {
                     if (!(child instanceof QueryTreeNode)) {
                         continue;
                     }
 
-                    // 比如merge节点同时存在order by/group by
-                    // 1. 优先下推父节点的group by到子节点
-                    // 2. 然后去掉子节点的group by
                     QueryTreeNode qn = (QueryTreeNode) child;
-                    if (qn.getOrderBys() != null && !qn.getOrderBys().isEmpty() && qn.getGroupBys() != null
-                        && !qn.getGroupBys().isEmpty()) {
-                        // 正常的shard生成的MergeNode
-                        List<IOrderBy> standardOrder = qn.getImplicitOrderBys();
-                        // order by不是一个group by的子集，优先使用group by
-                        if (!containAllOrderBys(standardOrder, qn.getGroupBys())) {
-                            standardOrder = qn.getGroupBys();
+                    if (qn.getGroupBys() != null && !qn.getGroupBys().isEmpty()) {
+
+                        boolean isGroupByShardColumns = false;
+                        if ((qn.getOrderBys() == null || qn.getOrderBys().isEmpty())
+                            && isGroupByShardColumns(qn.getGroupBys(), qn)) {
+                            // 针对无order by,并且是groupBy分库键,打个标记
+                            merge.setGroupByShardColumns(true);
+                            isGroupByShardColumns = true;
+                        } else {
+                            // 如果非分库键的group, having在merge做，child清空having条件
+                            qn.having("");
                         }
 
-                        // 需要考虑，如果子节点的列中存在聚合函数，则不能去除子节点的group by，否则语义不正确
-                        // order by中可能有desc的倒排语法
-                        // 目前的做法是设置orderby/groupby使用相同的列
-                        qn.setOrderBys(standardOrder);
-                        qn.setGroupBys(standardOrder);
-                        qn.having("");
+                        if (isGroupByShardColumns) {
+                            // 跳过
+                        } else {
+                            // 需要考虑，如果子节点的列中存在聚合函数，则不能去除子节点的group by，否则语义不正确
+                            // order by中可能有desc的倒排语法
+                            // 目前的做法是设置orderby/groupby使用相同的列
+                            List<IOrderBy> implicitOrderBys = qn.getImplicitOrderBys();
+                            // order by不是一个group by的子集，优先使用group by
+                            if (isStartWithSameOrderBys(implicitOrderBys, qn.getGroupBys())) {
+                                qn.setOrderBys(implicitOrderBys);
+                            } else {
+                                qn.setOrderBys(qn.getGroupBys());
+                            }
+                        }
                         qn.build();
                     }
                 }
+
+                merge.build();
             }
         } else if (qtn instanceof JoinNode) {
             // index nested loop中的order by，可以推到左节点
             JoinNode join = (JoinNode) qtn;
             if (join.getJoinStrategy() == JoinStrategy.INDEX_NEST_LOOP
                 || join.getJoinStrategy() == JoinStrategy.NEST_LOOP_JOIN) {
+                // 左表排序隐式下推
                 List<IOrderBy> orders = getPushOrderBys(join, join.getImplicitOrderBys(), join.getLeftNode(), true);
                 pushJoinOrder(orders, join.getLeftNode(), join.isUedForIndexJoinPK());
             } else if (join.getJoinStrategy() == JoinStrategy.SORT_MERGE_JOIN) {
@@ -368,21 +414,49 @@ public class OrderByPusher {
         return false;
     }
 
-    private static boolean containAllOrderBys(List<IOrderBy> orderBys, List<IOrderBy> groupBys) {
+    /**
+     * 判断两个排序列表是否完全相同
+     * 
+     * <pre>
+     * 针对order by id,name group by id
+     * 子节点先按照id做group by,因为子节点的orderby和父节点的groupBy满足一个前序匹配，这里直接使用父节点id,Name做order by
+     * merge节点先按id做group by(底下子节点为id,name排序，不需要临时表排序)，groupby处理后的结果也满足id,name的排序，直接返回，不需要临时表
+     * 
+     * 比如：order by id,name group by id , 合并的结果为order by id,name 和 group by id是一个前序匹配
+     * 比如：order by id group by name id , 合并的结果为order by id,name，和 group by id,name是一个前序匹配
+     * 比如：order by name,id group by id , 合并的结果为order by name,id，和group by id不是一个前序匹配
+     * 比如：order by id group by name,school , 合并的结果为order by id，和group by name,school不是一个前序匹配
+     * </pre>
+     * 
+     * @param orderBys
+     * @param groupBys
+     * @return
+     */
+    private static boolean isStartWithSameOrderBys(List<IOrderBy> orderBys, List<IOrderBy> groupBys) {
+        if (groupBys.size() > orderBys.size()) {
+            return false;
+        }
+
+        int i = 0;
         for (IOrderBy group : groupBys) {
             boolean found = false;
+            int j = 0;
             for (IOrderBy order : orderBys) {
                 if (order.getColumn().equals(group.getColumn())) {
                     found = true;
                     break;
                 }
+
+                j++;
             }
 
-            if (!found) {
+            if (!found || i != j) {
+                // 没找到或者顺序不匹配
                 return false;
             }
-        }
 
+            i++;
+        }
         return true;
     }
 
@@ -539,7 +613,7 @@ public class OrderByPusher {
     /**
      * 尝试查找一个同名的排序字段，返回下标，-1代表没找到
      */
-    protected static int findOrderByByColumn(List<IOrderBy> orderbys, ISelectable column) {
+    private static int findOrderByByColumn(List<IOrderBy> orderbys, ISelectable column) {
         for (int i = 0; i < orderbys.size(); i++) {
             IOrderBy order = orderbys.get(i);
             if (order.getColumn().equals(column)) {
@@ -566,5 +640,69 @@ public class OrderByPusher {
 
             qn.build();
         }
+    }
+
+    /**
+     * 检查下group列是否为分库键列，无顺序要求
+     * 
+     * @return
+     */
+    private static boolean isGroupByShardColumns(List<IOrderBy> groupBys, QueryTreeNode qtn) {
+        if (!(qtn instanceof TableNode)) {
+            return false;
+        }
+
+        // 后续可考虑下join merge join，join存在groupBy为单库的分库键
+        TableNode node = (TableNode) qtn;
+        List<String> shardColumns = OptimizerContext.getContext().getRule().getSharedColumns(node.getTableName());
+        List<IOrderBy> newGroupBys = new ArrayList<IOrderBy>();
+        for (String shardColumn : shardColumns) {
+            boolean isFound = false;
+            for (IOrderBy groupBy : groupBys) {
+                // 都是大写，直接进行比较
+                if (groupBy.getColumn() instanceof IFunction) {
+                    return false;
+                } else if (groupBy.getColumn().getColumnName().equals(shardColumn)) {
+                    // groupBy的列来自于select或者tableMeta，只比较列名，不比较别名
+                    isFound = true;
+                    newGroupBys.add(groupBy);
+                    break;
+                }
+            }
+
+            if (!isFound) {
+                // 找不到分库键
+                return false;
+            }
+        }
+
+        // if (groupBys.size() > newGroupBys.size()) {
+        // if (!adjustOrders) {
+        // return false;
+        // }
+        // // 可能是group by name,id. 对应id为分库键，而name为普通字段，也可以下推到单库上执行
+        // // 将多出来的非分库键添加到newGroupBys中
+        // int size = newGroupBys.size();
+        // int i = 0;
+        // for (IOrderBy groupBy : groupBys) {
+        // int index = findOrderByByColumn(newGroupBys, groupBy.getColumn());
+        // if (index == -1) {
+        // if (i < size && !adjustOrders) {
+        // // 说明groupby前序中有个非分库键的列
+        // return false;
+        // } else {
+        // newGroupBys.add(groupBy);
+        // }
+        // }
+        //
+        // i++;
+        // }
+        //
+        // groupBys.clear();
+        // groupBys.addAll(newGroupBys);// 将newGroupBys的顺序返回
+        // }
+
+        // 所有都找到
+        return true;
     }
 }

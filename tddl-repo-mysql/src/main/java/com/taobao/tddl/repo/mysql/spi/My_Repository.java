@@ -12,6 +12,7 @@ import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.TransactionConfig;
 import com.taobao.tddl.executor.repo.RepositoryConfig;
 import com.taobao.tddl.executor.spi.ICommandHandlerFactory;
@@ -20,10 +21,12 @@ import com.taobao.tddl.executor.spi.IDataSourceGetter;
 import com.taobao.tddl.executor.spi.IGroupExecutor;
 import com.taobao.tddl.executor.spi.IRepository;
 import com.taobao.tddl.executor.spi.ITable;
+import com.taobao.tddl.executor.spi.ITempTable;
 import com.taobao.tddl.executor.spi.ITransaction;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.repo.mysql.executor.TddlGroupExecutor;
 import com.taobao.tddl.repo.mysql.handler.CommandHandlerFactoryMyImp;
 
@@ -71,11 +74,12 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
             @Override
             public IGroupExecutor load(Group group) throws Exception {
                 TGroupDataSource groupDS = new TGroupDataSource(group.getName(), group.getAppName());
+                groupDS.setUnitName(group.getUnitName());
                 groupDS.init();
 
                 TddlGroupExecutor executor = new TddlGroupExecutor(getRepo());
                 executor.setGroup(group);
-                executor.setRemotingExecutableObject(groupDS);
+                executor.setGroupDataSource(groupDS);
                 return executor;
             }
         });
@@ -86,7 +90,7 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
     }
 
     @Override
-    protected void dodestroy() throws TddlException {
+    protected void doDestroy() throws TddlException {
         tables.cleanUp();
 
         for (IGroupExecutor executor : executors.asMap().values()) {
@@ -95,7 +99,7 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
     }
 
     @Override
-    public ITable getTable(final TableMeta meta, final String groupNode) throws TddlException {
+    public ITable getTable(final TableMeta meta, final String groupNode, String actualTableName) throws TddlException {
         if (meta.isTmp()) {
             return getTempTable(meta);
         } else {
@@ -108,14 +112,13 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
     }
 
     @Override
-    public ITable getTempTable(TableMeta meta) throws TddlException {
+    public ITempTable getTempTable(TableMeta meta) throws TddlException {
         throw new UnsupportedOperationException("temp table is not supported by mysql repo");
     }
 
     @Override
-    public ITransaction beginTransaction(TransactionConfig tc) throws TddlException {
-        My_Transaction my = new My_Transaction(true);
-        my.beginTransaction();
+    public ITransaction createTransaction(TransactionConfig tc, ExecutionContext executionContext) throws TddlException {
+        My_Transaction my = new My_Transaction(executionContext);
         return my;
     }
 
@@ -152,6 +155,34 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
             throw new TddlRuntimeException(e);
         }
 
+    }
+
+    public My_JdbcHandler getJdbcHandler(IDataSourceGetter dsGetter, IDataNodeExecutor executor,
+                                         ExecutionContext executionContext) {
+        DataSource ds;
+        My_JdbcHandler jdbcHandler = this.newJdbcHandler(executionContext);
+
+        ds = dsGetter.getDataSource(executor.getDataNode());
+        My_Transaction my_transaction = null;
+        ITransaction txn = executionContext.getTransaction();
+        if (txn != null) {
+            if (txn instanceof My_Transaction) {
+                my_transaction = (My_Transaction) txn;
+            }
+        } else {
+
+            throw new IllegalAccessError("impossible, txn is null");
+
+        }
+        jdbcHandler.setDs(ds);
+        jdbcHandler.setGroupName(executor.getDataNode());
+        jdbcHandler.setMyTransaction(my_transaction);
+        jdbcHandler.setPlan(executor);
+        return jdbcHandler;
+    }
+
+    protected My_JdbcHandler newJdbcHandler(ExecutionContext executionContext) {
+        return new My_JdbcHandler(executionContext);
     }
 
 }

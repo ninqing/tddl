@@ -21,22 +21,11 @@ public interface IExtraFunction {
     public FunctionType getFunctionType();
 
     /**
-     * 获取Map函数的返回结果
-     */
-    public abstract DataType getMapReturnType();
-
-    /**
      * 获取最后返回结果类型
      */
     public abstract DataType getReturnType();
 
-    /**
-     * 获取function的结果
-     */
-    public Object getResult();
+    public String[] getFunctionNames();
 
-    /**
-     * 清除函数计算的中间结果，group by时使用
-     */
     public void clear();
 }

@@ -2,6 +2,7 @@ package com.taobao.tddl.optimizer.core;
 
 import java.util.List;
 
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
@@ -41,4 +42,6 @@ public interface PlanVisitor {
     public abstract void visit(IUpdate update);
 
     public abstract void visit(IDelete delete);
+
+    public abstract void visit(IBindVal bindVal);
 }

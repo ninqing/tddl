@@ -6,6 +6,9 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
+
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
@@ -16,11 +19,23 @@ public final class Version {
 
     private static final Logger logger  = LoggerFactory.getLogger(Version.class);
 
-    private static final String VERSION = getVersion(Version.class, "5.0.0");
+    private static final String VERSION = getVersion(Version.class, "5.0.8");
 
     static {
         // 检查是否存在重复的jar包
-        Version.checkDuplicate(Version.class);
+        // Version为tddl5.x之后的版本检测类
+        // 如果Version检测没有发现重复，再和tddl3.x系列进行检查,ThreadLocalMap兼容了tddl3.x的类路径
+        if (!Version.checkDuplicate(Version.class)) {
+            Version.checkDuplicate(ThreadLocalMap.class);
+        }
+
+        // 检查下经常性冲突的两个包
+        Version.checkDuplicate("com/alibaba/druid/pool/DruidDataSource.class", false);
+        validVersion("druid", "com/alibaba/druid/pool/DruidDataSource.class", "1.0.2");
+        Version.checkDuplicate("com/taobao/diamond/client/Diamond.class", false);
+        validVersion("diamond", "com/taobao/diamond/client/Diamond.class", "3.6.8");
+        Version.checkDuplicate("com/google/common/collect/MapMaker.class", false);
+        validVersion("guava", "com/google/common/collect/MapMaker.class", "15.0");
     }
 
     public static String getVersion() {
@@ -42,26 +57,7 @@ public final class Version {
                                 + defaultVersion);
                 } else {
                     String file = codeSource.getLocation().getFile();
-                    if (file != null && file.length() > 0 && file.endsWith(".jar")) {
-                        file = file.substring(0, file.length() - 4);
-                        int i = file.lastIndexOf('/');
-                        if (i >= 0) {
-                            file = file.substring(i + 1);
-                        }
-                        i = file.indexOf("-");
-                        if (i >= 0) {
-                            file = file.substring(i + 1);
-                        }
-                        while (file.length() > 0 && !Character.isDigit(file.charAt(0))) {
-                            i = file.indexOf("-");
-                            if (i >= 0) {
-                                file = file.substring(i + 1);
-                            } else {
-                                break;
-                            }
-                        }
-                        version = file;
-                    }
+                    version = getVerionByPath(file);
                 }
             }
             // 返回版本号，如果为空返回缺省版本号
@@ -73,18 +69,53 @@ public final class Version {
         }
     }
 
-    public static void checkDuplicate(Class<?> cls, boolean failOnError) {
-        checkDuplicate(cls.getName().replace('.', '/') + ".class", failOnError);
+    /**
+     * 检查下对应class path的版本，是否>minVersion
+     */
+    public static boolean validVersion(String name, String path, String minVersion) {
+        try {
+            if (minVersion == null) {
+                return true;
+            }
+
+            Long minv = convertVersion(minVersion);
+            Enumeration<URL> urls = Version.class.getClassLoader().getResources(path);
+            while (urls.hasMoreElements()) {
+                URL url = urls.nextElement();
+                if (url != null) {
+                    String file = url.getFile();
+                    if (file != null && file.length() > 0) {
+                        String version = getVerionByPath(file);
+                        if (version != null) {
+                            Long ver = convertVersion(version);
+                            if (ver < minv) {
+                                throw new IllegalStateException("check " + name + " version is " + version + " <= "
+                                                                + minVersion + "(the minimum version), please upgrade "
+                                                                + name + " jar version");
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable e) { // 防御性容错
+            logger.error(e.getMessage(), e);
+        }
+
+        return true;
     }
 
-    public static void checkDuplicate(Class<?> cls) {
-        checkDuplicate(cls, false);
+    public static boolean checkDuplicate(Class<?> cls, boolean failOnError) {
+        return checkDuplicate(cls.getName().replace('.', '/') + ".class", failOnError);
     }
 
-    public static void checkDuplicate(String path, boolean failOnError) {
+    public static boolean checkDuplicate(Class<?> cls) {
+        return checkDuplicate(cls, false);
+    }
+
+    public static boolean checkDuplicate(String path, boolean failOnError) {
         try {
             // 在ClassPath搜文件
-            Enumeration<URL> urls = ClassHelper.getCallerClassLoader(Version.class).getResources(path);
+            Enumeration<URL> urls = Version.class.getClassLoader().getResources(path);
             Set<String> files = new HashSet<String>();
             while (urls.hasMoreElements()) {
                 URL url = urls.nextElement();
@@ -103,10 +134,63 @@ public final class Version {
                 } else {
                     logger.error(error);
                 }
+
+                return true;
             }
         } catch (Throwable e) { // 防御性容错
             logger.error(e.getMessage(), e);
         }
+
+        return false;
     }
 
+    /**
+     * 根据jar包的路径，找到对应的版本号
+     */
+    public static String getVerionByPath(String file) {
+        if (file != null && file.length() > 0 && StringUtils.contains(file, ".jar!/")) {
+            int index = StringUtils.indexOf(file, ".jar!/");
+            file = file.substring(0, index);
+            int i = file.lastIndexOf('/');
+            if (i >= 0) {
+                file = file.substring(i + 1);
+            }
+            i = file.indexOf("-");
+            if (i >= 0) {
+                file = file.substring(i + 1);
+            }
+            while (file.length() > 0 && !Character.isDigit(file.charAt(0))) {
+                i = file.indexOf("-");
+                if (i >= 0) {
+                    file = file.substring(i + 1);
+                } else {
+                    break;
+                }
+            }
+            return file;
+        } else {
+            return null;
+        }
+    }
+
+    public static Long convertVersion(String version) {
+        String parts[] = StringUtils.split(version, '.');
+        Long result = 0l;
+        int i = 1;
+        int size = parts.length > 4 ? parts.length : 4;
+        for (String part : parts) {
+            if (StringUtils.isNumeric(part)) {
+                result += Long.valueOf(part) * Double.valueOf(Math.pow(100, (size - i))).longValue();
+            } else {
+                String subParts[] = StringUtils.split(part, '-');
+                if (StringUtils.isNumeric(subParts[0])) {
+                    result += Long.valueOf(subParts[0]) * Double.valueOf(Math.pow(100, (size - i))).longValue();
+                }
+            }
+
+            i++;
+        }
+
+        return result;
+    }
 }

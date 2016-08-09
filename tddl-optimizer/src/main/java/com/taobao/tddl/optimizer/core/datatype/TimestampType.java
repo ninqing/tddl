@@ -3,6 +3,7 @@ package com.taobao.tddl.optimizer.core.datatype;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Calendar;
 
 import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
@@ -20,6 +21,100 @@ public class TimestampType extends AbstractDataType<java.sql.Timestamp> {
     private static final Timestamp maxTimestamp = Timestamp.valueOf("9999-12-31 23:59:59");
     private static final Timestamp minTimestamp = Timestamp.valueOf("1900-01-01 00:00:00");
     private Convertor              longToDate   = null;
+
+    private final Calculator       calculator   = new AbstractCalculator() {
+
+                                                    @Override
+                                                    public Object doAdd(Object v1, Object v2) {
+                                                        Calendar cal = Calendar.getInstance();
+                                                        if (v1 instanceof IntervalType) {
+                                                            Timestamp i2 = convertFrom(v2);
+                                                            cal.setTime(i2);
+                                                            ((IntervalType) v1).process(cal, 1);
+                                                        } else if (v2 instanceof IntervalType) {
+                                                            Timestamp i1 = convertFrom(v1);
+                                                            cal.setTime(i1);
+                                                            ((IntervalType) v2).process(cal, 1);
+                                                        } else {
+                                                            throw new NotSupportException("时间类型不支持算术符操作");
+                                                        }
+
+                                                        return convertFrom(cal.getTime());
+                                                    }
+
+                                                    @Override
+                                                    public Object doSub(Object v1, Object v2) {
+                                                        Calendar cal = Calendar.getInstance();
+                                                        if (v1 instanceof IntervalType) {
+                                                            Timestamp i2 = convertFrom(v2);
+                                                            cal.setTime(i2);
+                                                            ((IntervalType) v1).process(cal, -1);
+                                                        } else if (v2 instanceof IntervalType) {
+                                                            Timestamp i1 = convertFrom(v1);
+                                                            cal.setTime(i1);
+                                                            ((IntervalType) v2).process(cal, -1);
+                                                        } else {
+                                                            throw new NotSupportException("时间类型不支持算术符操作");
+                                                        }
+
+                                                        return convertFrom(cal.getTime());
+                                                    }
+
+                                                    @Override
+                                                    public Object doMultiply(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doDivide(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doMod(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doAnd(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doOr(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doNot(Object v1) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doBitAnd(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doBitOr(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doBitNot(Object v1) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doXor(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+
+                                                    @Override
+                                                    public Object doBitXor(Object v1, Object v2) {
+                                                        throw new NotSupportException("时间类型不支持算术符操作");
+                                                    }
+                                                };
 
     public TimestampType(){
         longToDate = this.getConvertor(Long.class);
@@ -111,7 +206,7 @@ public class TimestampType extends AbstractDataType<java.sql.Timestamp> {
 
     @Override
     public Calculator getCalculator() {
-        throw new NotSupportException("时间类型不支持算术符操作");
+        return calculator;
     }
 
 }

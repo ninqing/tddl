@@ -18,6 +18,7 @@ import com.taobao.tddl.rule.utils.RuleUtils;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * 一组{@linkplain TableRule}的集合
  * 

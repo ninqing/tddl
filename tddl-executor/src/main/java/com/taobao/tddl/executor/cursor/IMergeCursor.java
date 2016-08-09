@@ -8,5 +8,5 @@ import java.util.List;
  */
 public interface IMergeCursor extends ISchematicCursor {
 
-    public List<ISchematicCursor> getISchematicCursors();
+    public List<ISchematicCursor> getSubCursors();
 }

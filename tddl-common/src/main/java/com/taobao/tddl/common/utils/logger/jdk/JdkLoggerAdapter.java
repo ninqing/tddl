@@ -7,6 +7,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Handler;
 import java.util.logging.LogManager;
 
+import com.taobao.tddl.common.utils.GeneralUtil;
+
 import com.taobao.tddl.common.utils.logger.Level;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerAdapter;
@@ -19,7 +21,7 @@ public class JdkLoggerAdapter implements LoggerAdapter {
 
     public JdkLoggerAdapter(){
         try {
-            InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("logging.properties");
+            InputStream in = GeneralUtil.getInputStream("logging.properties");
             if (in != null) {
                 LogManager.getLogManager().readConfiguration(in);
             } else {

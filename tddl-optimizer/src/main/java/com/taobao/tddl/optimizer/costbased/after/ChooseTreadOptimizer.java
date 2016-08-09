@@ -2,7 +2,7 @@ package com.taobao.tddl.optimizer.costbased.after;
 
 import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
@@ -22,12 +22,10 @@ public class ChooseTreadOptimizer implements QueryPlanOptimizer {
     }
 
     @Override
-    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Map<Integer, ParameterContext> parameterSettings,
-                                      Map<String, Object> extraCmd) {
-
-        if (extraCmd != null && extraCmd.get("initThread") != null) this.allocThread(dne,
-            (Integer) extraCmd.get("initThread"));
-        else {
+    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
+        if (extraCmd != null && extraCmd.get("initThread") != null) {
+            this.allocThread(dne, (Integer) extraCmd.get("initThread"));
+        } else {
             this.allocThread(dne, 0);
         }
 
@@ -48,7 +46,7 @@ public class ChooseTreadOptimizer implements QueryPlanOptimizer {
             }
 
         } else if (dne instanceof IMerge) {
-            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNode()) {
+            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNodes()) {
                 this.allocThread(sub, i + 1);
             }
 

@@ -20,13 +20,13 @@ public class ConditionHintTest extends BaseMatrixTestCase {
 
     public ConditionHintTest(){
         BaseTestCase.normaltblTableName = "mysql_normaltbl_oneGroup_oneAtom";
-        jdbcTemplate = new JdbcTemplate(us);
+        jdbcTemplate = new JdbcTemplate(tddlDatasource);
     }
 
     @Before
     public void initData() throws Exception {
-        andorUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
-        andorUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
+        tddlUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
+        tddlUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
     }
 
     @Test
@@ -42,7 +42,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 用直连库进行查询
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
@@ -59,7 +59,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         // 执行删除
         sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"params\":[{\"expr\":[\"pk=1:int\"]}]})*/";
         sql += "delete from mysql_normaltbl_onegroup_mutilatom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
 
         // 删除完之后，应该查不到
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
@@ -82,7 +82,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 用直连库进行查询
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
@@ -102,7 +102,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"params\":[{\"expr\":[\"pk=1:int\"]}]})*/";
         sql += "/*+TDDL_GROUP({groupIndex:0})*/";
         sql += "delete from mysql_normaltbl_onegroup_mutilatom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
 
         // 删除完之后，应该查不到
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
@@ -126,7 +126,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 用直连库进行查询，查询两个表
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -148,7 +148,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         // 执行删除
         sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"params\":[{\"relation\":\"or\",\"expr\":[\"pk=0:int\",\"pk=1:int\"]}]})*/";
         sql += "delete from mysql_normaltbl_onegroup_mutilatom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
 
         // 删除完之后，应该查不到
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -176,7 +176,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 用直连库进行查询，查询两个表
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -198,7 +198,7 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         // 执行删除
         sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"params\":[{\"relation\":\"and\",\"expr\":[\"pk>=0:int\",\"pk<2:int\"]}]})*/";
         sql += "delete from mysql_normaltbl_onegroup_mutilatom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
 
         // 删除完之后，应该查不到
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_2\",\"vtab\":\"mysql_normaltbl_onegroup_mutilatom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -212,4 +212,62 @@ public class ConditionHintTest extends BaseMatrixTestCase {
         Assert.assertEquals(0, list.size());
     }
 
+    @Test
+    public void test_batch测试() throws Exception {
+        String sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"?\",\"params\":[{\"expr\":[\"pk=?:int\"]}]})*/";
+        sql += "insert into mysql_normaltbl_onegroup_mutilatom values(?,?,?,?,?,?,?)";
+
+        List<List<Object>> params = new ArrayList<List<Object>>();
+        for (int i = 0; i < 10; i++) {
+            List<Object> param = new ArrayList<Object>();
+            param.add("mysql_normaltbl_onegroup_mutilatom");
+            param.add(RANDOM_ID + i);
+            param.add(RANDOM_ID + i);
+            param.add(RANDOM_INT);
+            param.add(time);
+            param.add(time);
+            param.add(time);
+            param.add(name);
+            param.add(fl);
+            params.add(param);
+        }
+        tddlUpdateDataBatch(sql, params);
+
+        // 用hint查询
+        for (int i = 0; i < 10; i++) {
+            sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"?\",\"params\":[{\"expr\":[\"pk=?:int\"]}]})*/";
+            sql += "select gmt_timestamp from mysql_normaltbl_onegroup_mutilatom where pk=" + (RANDOM_ID + i);
+            List<Object> param = new ArrayList<Object>();
+            param.add("mysql_normaltbl_onegroup_mutilatom");
+            param.add(RANDOM_ID + i);
+
+            Map re = jdbcTemplate.queryForMap(sql, param.toArray(new Object[param.size()]));
+            Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("GMT_TIMESTAMP")).getTime() / 1000);
+        }
+
+        // 执行删除
+        params = new ArrayList<List<Object>>();
+        for (int i = 0; i < 10; i++) {
+            sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"?\",\"params\":[{\"expr\":[\"pk=?:int\"]}]})*/";
+            sql += "delete from mysql_normaltbl_onegroup_mutilatom where pk = ?";
+            List<Object> param = new ArrayList<Object>();
+            param.add("mysql_normaltbl_onegroup_mutilatom");
+            param.add(RANDOM_ID + i);
+            param.add(RANDOM_ID + i);
+            params.add(param);
+        }
+        tddlUpdateDataBatch(sql, params);
+
+        // 删除完之后，应该查不到
+        for (int i = 0; i < 10; i++) {
+            sql = "/*+TDDL({\"type\":\"condition\",\"vtab\":\"?\",\"params\":[{\"expr\":[\"pk=?:int\"]}]})*/";
+            sql += "select gmt_timestamp from mysql_normaltbl_onegroup_mutilatom where pk=" + (RANDOM_ID + i);
+            List<Object> param = new ArrayList<Object>();
+            param.add("mysql_normaltbl_onegroup_mutilatom");
+            param.add(RANDOM_ID + i);
+
+            List list = jdbcTemplate.queryForList(sql, param.toArray(new Object[param.size()]));
+            Assert.assertEquals(0, list.size());
+        }
+    }
 }

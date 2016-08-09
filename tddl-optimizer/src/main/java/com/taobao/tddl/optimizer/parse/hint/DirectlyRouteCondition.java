@@ -12,6 +12,14 @@ public class DirectlyRouteCondition extends ExtraCmdRouteCondition implements Ro
     protected String      dbId;                           // 目标库的id
     protected Set<String> tables = new HashSet<String>(2); // 目标表的id
 
+    public DirectlyRouteCondition(){
+
+    }
+
+    public DirectlyRouteCondition(String dbId){
+        this.dbId = dbId;
+    }
+
     public Set<String> getTables() {
         return tables;
     }

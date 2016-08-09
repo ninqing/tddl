@@ -18,7 +18,7 @@ public class SqlConvertor {
         sqlMergeNode.setSubQuerys(sqlsMap);
         if (node instanceof IMerge) {
             IMerge merge = (IMerge) node;
-            List<IDataNodeExecutor> subNodes = merge.getSubNode();
+            List<IDataNodeExecutor> subNodes = merge.getSubNodes();
             if (subNodes == null) {
                 throw new IllegalArgumentException("should not be here");
             }
@@ -57,11 +57,11 @@ public class SqlConvertor {
         if (nodeExecutor instanceof IPut) {
             // 写入相关
             String nodeName = nodeExecutor.getDataNode();
-            addOneSql(bindVal, sqlMergeNode, nodeName, (IPut) nodeExecutor);
+            addOneSql(bindVal, sqlMergeNode, nodeName, nodeExecutor);
         } else if (nodeExecutor instanceof IQueryTree) {
             String nodeName = nodeExecutor.getDataNode();
             // query or join
-            addOneSql(bindVal, sqlMergeNode, nodeName, (IQueryTree) nodeExecutor);
+            addOneSql(bindVal, sqlMergeNode, nodeName, nodeExecutor);
         }
     }
 
@@ -76,11 +76,11 @@ public class SqlConvertor {
         if (oneQuery instanceof IQueryTree) {
             ((IQueryTree) oneQuery).setTopQuery(true);
         }
-        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(oneQuery, null, null, true);
+        MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(oneQuery, null, null, null, null, true);
         oneQuery.accept(visitor);
         Sql sql = new Sql();
         sql.setSql(visitor.getString());
-        sql.setParam(visitor.getParamMap());
+        sql.setParam(visitor.getOutPutParamMap());
         sqls.add(sql);
     }
 

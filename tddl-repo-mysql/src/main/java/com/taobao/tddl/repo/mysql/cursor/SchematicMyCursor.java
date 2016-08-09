@@ -2,6 +2,7 @@ package com.taobao.tddl.repo.mysql.cursor;
 
 import java.util.List;
 
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.executor.cursor.Cursor;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.SchematicCursor;
@@ -13,7 +14,7 @@ import com.taobao.tddl.optimizer.core.expression.IOrderBy;
  */
 public class SchematicMyCursor extends SchematicCursor {
 
-    public SchematicMyCursor(Cursor cursor, ICursorMeta meta){
+    public SchematicMyCursor(Cursor cursor, ICursorMeta meta) throws TddlException{
         super(cursor);
     }
 

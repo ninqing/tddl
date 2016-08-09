@@ -35,6 +35,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
     private boolean                                useCache        = true;
     private LoadingCache<Group, RepoSchemaManager> repos           = null;
     private LoadingCache<String, TableMeta>        cache           = null;
+
     /**
      * default cache expire time, 30000ms
      */
@@ -51,6 +52,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
         if (cacheExpireTime != null && cacheExpireTime != 0) {
             this.cacheExpireTime = cacheExpireTime;
         }
+
     }
 
     @Override
@@ -87,8 +89,8 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
     }
 
     @Override
-    protected void dodestroy() throws TddlException {
-        super.dodestroy();
+    protected void doDestroy() throws TddlException {
+        super.doDestroy();
 
         for (RepoSchemaManager repo : repos.asMap().values()) {
             repo.destroy();
@@ -108,6 +110,10 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
             ts = local.getTable(tableName);
         } else {
             Group group = matrix.getGroup(targetDB.getDbIndex()); // 先找到group
+
+            if (group == null) {
+                throw new TddlRuntimeException("not found groupName : " + targetDB.getDbIndex());
+            }
             try {
                 ts = repos.get(group).getTable(tableName, targetDB.getTableNames().iterator().next());
             } catch (ExecutionException e) {
@@ -137,7 +143,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
             try {
                 meta = cache.get(tableName);
             } catch (Exception e) {
-                throw new TddlRuntimeException(e);
+                throw new TddlRuntimeException("table : " + tableName + " is not found", e);
             }
         } else {
             meta = this.getTable0(tableName);

@@ -27,14 +27,14 @@ public class JDBCTemplateTest extends BaseTemplateTestCase {
 
         sql = String.format("select * from %s where pk= ?", normaltblTableName);
         Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-        Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+        Assert.assertEquals(name, String.valueOf(re.get("name")));
 
         sql = String.format("update %s set name =? where pk=? ", normaltblTableName);
         andorJT.update(sql, new Object[] { name1, RANDOM_ID });
 
         sql = String.format("select * from %s where pk= ?", normaltblTableName);
         re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-        Assert.assertEquals(name1, String.valueOf(re.get("NAME")));
+        Assert.assertEquals(name1, String.valueOf(re.get("name")));
 
         sql = String.format("delete from %s where pk = ?", normaltblTableName);
         andorJT.update(sql, new Object[] { RANDOM_ID });
@@ -46,9 +46,9 @@ public class JDBCTemplateTest extends BaseTemplateTestCase {
 
     @Test
     public void tractionCommitTest() {
-        JdbcTemplate andorJT = new JdbcTemplate(us);
+        JdbcTemplate andorJT = new JdbcTemplate(tddlDatasource);
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(us);
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(tddlDatasource);
         TransactionStatus ts = transactionManager.getTransaction(def);
 
         try {
@@ -56,7 +56,7 @@ public class JDBCTemplateTest extends BaseTemplateTestCase {
             andorJT.update(sql, new Object[] { RANDOM_ID, name });
             sql = String.format("select * from %s where pk= ?", normaltblTableName);
             Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-            Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+            Assert.assertEquals(name, String.valueOf(re.get("name")));
         } catch (DataAccessException ex) {
             transactionManager.rollback(ts);
             throw ex;
@@ -65,14 +65,14 @@ public class JDBCTemplateTest extends BaseTemplateTestCase {
         }
         sql = String.format("select * from %s where pk= ?", normaltblTableName);
         Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-        Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+        Assert.assertEquals(name, String.valueOf(re.get("name")));
     }
 
     @Test
     public void tractionRollBackTest() {
-        JdbcTemplate andorJT = new JdbcTemplate(us);
+        JdbcTemplate andorJT = new JdbcTemplate(tddlDatasource);
         DefaultTransactionDefinition def = new DefaultTransactionDefinition();
-        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(us);
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(tddlDatasource);
         TransactionStatus ts = transactionManager.getTransaction(def);
 
         try {
@@ -80,7 +80,7 @@ public class JDBCTemplateTest extends BaseTemplateTestCase {
             andorJT.update(sql, new Object[] { RANDOM_ID, name });
             sql = String.format("select * from %s where pk= ?", normaltblTableName);
             Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-            Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+            Assert.assertEquals(name, String.valueOf(re.get("name")));
             // 回滚
             transactionManager.rollback(ts);
         } catch (DataAccessException ex) {

@@ -20,7 +20,7 @@ import com.taobao.tddl.qatest.BaseTemplateTestCase;
 
 public class TransactionTemplateTest extends BaseTemplateTestCase {
 
-    private DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(us);
+    private DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(tddlDatasource);
     private TransactionTemplate          andorTransaction   = new TransactionTemplate(transactionManager);
 
     @Test
@@ -34,7 +34,7 @@ public class TransactionTemplateTest extends BaseTemplateTestCase {
                     andorJT.update(sql, new Object[] { RANDOM_ID, name });
                     sql = String.format("select * from %s where pk= ?", normaltblTableName);
                     Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-                    Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+                    Assert.assertEquals(name, String.valueOf(re.get("name")));
                 } catch (Exception ex) {
                     status.setRollbackOnly();
                 }
@@ -43,7 +43,7 @@ public class TransactionTemplateTest extends BaseTemplateTestCase {
         });
         sql = String.format("select * from %s where pk= ?", normaltblTableName);
         Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-        Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+        Assert.assertEquals(name, String.valueOf(re.get("name")));
     }
 
     @Test
@@ -57,7 +57,7 @@ public class TransactionTemplateTest extends BaseTemplateTestCase {
                     andorJT.update(sql, new Object[] { RANDOM_ID, name });
                     sql = String.format("select * from %s where pk= ?", normaltblTableName);
                     Map re = andorJT.queryForMap(sql, new Object[] { RANDOM_ID });
-                    Assert.assertEquals(name, String.valueOf(re.get("NAME")));
+                    Assert.assertEquals(name, String.valueOf(re.get("name")));
                     status.setRollbackOnly();
                 } catch (Exception ex) {
                     status.setRollbackOnly();

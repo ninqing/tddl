@@ -6,76 +6,62 @@ import java.sql.ResultSet;
 import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 
+import javax.sql.DataSource;
+
+import com.taobao.tddl.common.utils.Version;
+import com.taobao.tddl.executor.spi.IGroupExecutor;
+
 /**
  * @author mengshi.sunmengshi 2013-12-6 下午3:38:38
  * @since 5.0.0
  */
 public class TDatabaseMetaData implements DatabaseMetaData {
 
-    public boolean allProceduresAreCallable() throws SQLException {
-        return false;
+    private TDataSource dataSource = null;
+
+    public TDatabaseMetaData(TDataSource dataSource){
+        this.dataSource = dataSource;
     }
 
-    public boolean allTablesAreSelectable() throws SQLException {
-        return false;
+    public DatabaseMetaData getDatabaseMetaData() throws SQLException {
+        Connection conn = null;
+        DatabaseMetaData dbMa = null;
+        try {
+            // 找到默认的主库
+            String defaultDbIndex = this.dataSource.getConfigHolder()
+                .getOptimizerContext()
+                .getRule()
+                .getDefaultDbIndex(null);
+
+            // 找到对应的执行器
+            IGroupExecutor groupExecutor = this.dataSource.getConfigHolder()
+                .getExecutorContext()
+                .getTopologyHandler()
+                .get(defaultDbIndex);
+
+            Object groupDataSource = groupExecutor.getRemotingExecutableObject();
+            if (groupDataSource instanceof DataSource) {
+                // 指定到主库上执行
+                conn = ((DataSource) groupDataSource).getConnection();
+                dbMa = conn.getMetaData();
+            }
+        } finally {
+            if (conn != null) {
+                conn.close();
+            }
+        }
+        return dbMa;
     }
 
-    public boolean dataDefinitionCausesTransactionCommit() throws SQLException {
-        return false;
-    }
-
-    public boolean dataDefinitionIgnoredInTransactions() throws SQLException {
-        return false;
-    }
-
-    public boolean deletesAreDetected(int type) throws SQLException {
-        return false;
-    }
-
-    public boolean doesMaxRowSizeIncludeBlobs() throws SQLException {
-        return false;
-    }
-
-    public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern,
-                                   String attributeNamePattern) throws SQLException {
-        return null;
-    }
-
-    public ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)
-                                                                                                                   throws SQLException {
-        return null;
-    }
-
-    public String getCatalogSeparator() throws SQLException {
-        return null;
-    }
-
-    public String getCatalogTerm() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getCatalogs() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)
-                                                                                                               throws SQLException {
-        return null;
-    }
+    // =============== 特定实现方法==================
 
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
                                                                                                                         throws SQLException {
-        return null;
+        return getDatabaseMetaData().getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern);
     }
 
     public Connection getConnection() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getCrossReference(String primaryCatalog, String primarySchema, String primaryTable,
-                                       String foreignCatalog, String foreignSchema, String foreignTable)
-                                                                                                        throws SQLException {
-        return null;
+        return getDatabaseMetaData().getConnection();
     }
 
     public int getDatabaseMajorVersion() throws SQLException {
@@ -91,15 +77,11 @@ public class TDatabaseMetaData implements DatabaseMetaData {
     }
 
     public String getDatabaseProductVersion() throws SQLException {
-        return null;
-    }
-
-    public int getDefaultTransactionIsolation() throws SQLException {
-        return 0;
+        return Version.getVersion();
     }
 
     public int getDriverMajorVersion() {
-        return 0;
+        return 5;
     }
 
     public int getDriverMinorVersion() {
@@ -107,14 +89,222 @@ public class TDatabaseMetaData implements DatabaseMetaData {
     }
 
     public String getDriverName() throws SQLException {
-        return "TDDL_DriverName";
+        return "TDDL_JDBC";
+    }
+
+    public int getJDBCMajorVersion() throws SQLException {
+        return 5;
+    }
+
+    public int getJDBCMinorVersion() throws SQLException {
+        return 0;
     }
 
     public String getDriverVersion() throws SQLException {
-        return null;
+        return Version.getVersion();
+    }
+
+    /**
+     * Spring JdbcTemplate的batchUpdate等方法会调用这个判断，
+     * 目前暂不支持（supportBatchUpdates返回false）
+     */
+    public boolean supportsBatchUpdates() throws SQLException {
+        return true;
+    }
+
+    /**
+     * 不支持union
+     */
+    public boolean supportsUnion() throws SQLException {
+        return false;
+    }
+
+    /**
+     * 不支持union
+     */
+    public boolean supportsUnionAll() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
+        return false;
+    }
+
+    public boolean supportsTransactions() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsSubqueriesInComparisons() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsSubqueriesInExists() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsSubqueriesInIns() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsSubqueriesInQuantifieds() throws SQLException {
+        return false;
+    }
+
+    public boolean supportsSelectForUpdate() throws SQLException {
+        return getDatabaseMetaData().supportsSelectForUpdate();
+    }
+
+    public boolean storesLowerCaseIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesLowerCaseIdentifiers();
+    }
+
+    public boolean storesLowerCaseQuotedIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesLowerCaseQuotedIdentifiers();
+    }
+
+    public boolean storesMixedCaseIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesMixedCaseIdentifiers();
+    }
+
+    public boolean storesMixedCaseQuotedIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesMixedCaseQuotedIdentifiers();
+    }
+
+    public boolean storesUpperCaseIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesUpperCaseIdentifiers();
+    }
+
+    public boolean storesUpperCaseQuotedIdentifiers() throws SQLException {
+        return getDatabaseMetaData().storesUpperCaseQuotedIdentifiers();
+    }
+
+    public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)
+                                                                                                                   throws SQLException {
+        return getDatabaseMetaData().getIndexInfo(catalog, schema, table, unique, approximate);
+    }
+
+    public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
+        return getDatabaseMetaData().getPrimaryKeys(catalog, schema, table);
+    }
+
+    public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern,
+                                         String columnNamePattern) throws SQLException {
+        return getDatabaseMetaData().getProcedureColumns(catalog,
+            schemaPattern,
+            procedureNamePattern,
+            columnNamePattern);
+    }
+
+    public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
+                                                                                                     throws SQLException {
+        return getDatabaseMetaData().getProcedures(catalog, schemaPattern, procedureNamePattern);
+    }
+
+    public ResultSet getSchemas() throws SQLException {
+        return getDatabaseMetaData().getSchemas();
+    }
+
+    public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
+        return getDatabaseMetaData().getSuperTables(catalog, schemaPattern, tableNamePattern);
+    }
+
+    public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern) throws SQLException {
+        return getDatabaseMetaData().getSuperTypes(catalog, schemaPattern, typeNamePattern);
+    }
+
+    public ResultSet getTableTypes() throws SQLException {
+        return getDatabaseMetaData().getTableTypes();
+    }
+
+    public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
+                                                                                                             throws SQLException {
+        return getDatabaseMetaData().getTables(catalog, schemaPattern, tableNamePattern, types);
+    }
+
+    public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern) throws SQLException {
+        return getDatabaseMetaData().getFunctions(catalog, schemaPattern, functionNamePattern);
+    }
+
+    public ResultSet getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern,
+                                        String columnNamePattern) throws SQLException {
+        return getDatabaseMetaData().getFunctionColumns(catalog, schemaPattern, functionNamePattern, columnNamePattern);
+    }
+
+    public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
+        return getDatabaseMetaData().getSchemas(catalog, schemaPattern);
+    }
+
+    public ResultSet getClientInfoProperties() throws SQLException {
+        return getDatabaseMetaData().getClientInfoProperties();
+    }
+
+    public ResultSet getAttributes(String catalog, String schemaPattern, String typeNamePattern,
+                                   String attributeNamePattern) throws SQLException {
+        return getDatabaseMetaData().getAttributes(catalog, schemaPattern, typeNamePattern, attributeNamePattern);
+    }
+
+    public ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable)
+                                                                                                                   throws SQLException {
+        return getDatabaseMetaData().getBestRowIdentifier(catalog, schema, table, scope, nullable);
+    }
+
+    public ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern)
+                                                                                                               throws SQLException {
+        return getDatabaseMetaData().getColumnPrivileges(catalog, schema, table, columnNamePattern);
+    }
+
+    public ResultSet getCrossReference(String primaryCatalog, String primarySchema, String primaryTable,
+                                       String foreignCatalog, String foreignSchema, String foreignTable)
+                                                                                                        throws SQLException {
+        return getDatabaseMetaData().getCrossReference(primaryCatalog,
+            primarySchema,
+            primaryTable,
+            foreignCatalog,
+            foreignSchema,
+            foreignTable);
     }
 
     public ResultSet getExportedKeys(String catalog, String schema, String table) throws SQLException {
+        return getDatabaseMetaData().getExportedKeys(catalog, schema, table);
+    }
+
+    public ResultSet getImportedKeys(String catalog, String schema, String table) throws SQLException {
+        return getDatabaseMetaData().getImportedKeys(catalog, schema, table);
+    }
+
+    public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)
+                                                                                                      throws SQLException {
+        return getDatabaseMetaData().getTablePrivileges(catalog, schemaPattern, tableNamePattern);
+    }
+
+    public ResultSet getTypeInfo() throws SQLException {
+        return getDatabaseMetaData().getTypeInfo();
+    }
+
+    public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types)
+                                                                                                       throws SQLException {
+        return getDatabaseMetaData().getUDTs(catalog, schemaPattern, typeNamePattern, types);
+    }
+
+    public ResultSet getCatalogs() throws SQLException {
+        return getDatabaseMetaData().getCatalogs();
+    }
+
+    public ResultSet getVersionColumns(String catalog, String schema, String table) throws SQLException {
+        return getDatabaseMetaData().getVersionColumns(catalog, schema, table);
+    }
+
+    // ================ 不处理的方法 ==================
+
+    public RowIdLifetime getRowIdLifetime() throws SQLException {
+        return null;
+    }
+
+    public String getCatalogSeparator() throws SQLException {
+        return null;
+    }
+
+    public String getCatalogTerm() throws SQLException {
         return null;
     }
 
@@ -126,21 +316,44 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return null;
     }
 
-    public ResultSet getImportedKeys(String catalog, String schema, String table) throws SQLException {
+    public String getSchemaTerm() throws SQLException {
         return null;
     }
 
-    public ResultSet getIndexInfo(String catalog, String schema, String table, boolean unique, boolean approximate)
-                                                                                                                   throws SQLException {
+    public String getSearchStringEscape() throws SQLException {
         return null;
     }
 
-    public int getJDBCMajorVersion() throws SQLException {
-        return 0;
+    public String getStringFunctions() throws SQLException {
+        return null;
     }
 
-    public int getJDBCMinorVersion() throws SQLException {
-        return 0;
+    public String getSystemFunctions() throws SQLException {
+        return null;
+    }
+
+    public String getTimeDateFunctions() throws SQLException {
+        return null;
+    }
+
+    public String getURL() throws SQLException {
+        return null;
+    }
+
+    public String getUserName() throws SQLException {
+        return null;
+    }
+
+    public String getNumericFunctions() throws SQLException {
+        return null;
+    }
+
+    public String getProcedureTerm() throws SQLException {
+        return null;
+    }
+
+    public String getSQLKeywords() throws SQLException {
+        return null;
     }
 
     public int getMaxBinaryLiteralLength() throws SQLException {
@@ -164,6 +377,10 @@ public class TDatabaseMetaData implements DatabaseMetaData {
     }
 
     public int getMaxColumnsInIndex() throws SQLException {
+        return 0;
+    }
+
+    public int getDefaultTransactionIsolation() throws SQLException {
         return 0;
     }
 
@@ -223,105 +440,36 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return 0;
     }
 
-    public String getNumericFunctions() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
-        return null;
-    }
-
-    public ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern,
-                                         String columnNamePattern) throws SQLException {
-        return null;
-    }
-
-    public String getProcedureTerm() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
-                                                                                                     throws SQLException {
-        return null;
-    }
-
     public int getResultSetHoldability() throws SQLException {
         return 0;
-    }
-
-    public String getSQLKeywords() throws SQLException {
-        return null;
     }
 
     public int getSQLStateType() throws SQLException {
         return 0;
     }
 
-    public String getSchemaTerm() throws SQLException {
-        return null;
+    public boolean allProceduresAreCallable() throws SQLException {
+        return false;
     }
 
-    public ResultSet getSchemas() throws SQLException {
-        return null;
+    public boolean allTablesAreSelectable() throws SQLException {
+        return false;
     }
 
-    public String getSearchStringEscape() throws SQLException {
-        return null;
+    public boolean dataDefinitionCausesTransactionCommit() throws SQLException {
+        return false;
     }
 
-    public String getStringFunctions() throws SQLException {
-        return null;
+    public boolean dataDefinitionIgnoredInTransactions() throws SQLException {
+        return false;
     }
 
-    public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
-        return null;
+    public boolean deletesAreDetected(int type) throws SQLException {
+        return false;
     }
 
-    public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern) throws SQLException {
-        return null;
-    }
-
-    public String getSystemFunctions() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern)
-                                                                                                      throws SQLException {
-        return null;
-    }
-
-    public ResultSet getTableTypes() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getTables(String catalog, String schemaPattern, String tableNamePattern, String[] types)
-                                                                                                             throws SQLException {
-        return null;
-    }
-
-    public String getTimeDateFunctions() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getTypeInfo() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getUDTs(String catalog, String schemaPattern, String typeNamePattern, int[] types)
-                                                                                                       throws SQLException {
-        return null;
-    }
-
-    public String getURL() throws SQLException {
-        return null;
-    }
-
-    public String getUserName() throws SQLException {
-        return null;
-    }
-
-    public ResultSet getVersionColumns(String catalog, String schema, String table) throws SQLException {
-        return null;
+    public boolean doesMaxRowSizeIncludeBlobs() throws SQLException {
+        return false;
     }
 
     public boolean insertsAreDetected(int type) throws SQLException {
@@ -384,30 +532,6 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return false;
     }
 
-    public boolean storesLowerCaseIdentifiers() throws SQLException {
-        return false;
-    }
-
-    public boolean storesLowerCaseQuotedIdentifiers() throws SQLException {
-        return false;
-    }
-
-    public boolean storesMixedCaseIdentifiers() throws SQLException {
-        return false;
-    }
-
-    public boolean storesMixedCaseQuotedIdentifiers() throws SQLException {
-        return false;
-    }
-
-    public boolean storesUpperCaseIdentifiers() throws SQLException {
-        return false;
-    }
-
-    public boolean storesUpperCaseQuotedIdentifiers() throws SQLException {
-        return false;
-    }
-
     public boolean supportsANSI92EntryLevelSQL() throws SQLException {
         return false;
     }
@@ -425,14 +549,6 @@ public class TDatabaseMetaData implements DatabaseMetaData {
     }
 
     public boolean supportsAlterTableWithDropColumn() throws SQLException {
-        return false;
-    }
-
-    /**
-     * Spring JdbcTemplate的batchUpdate等方法会调用这个判断，
-     * 目前暂不支持（supportBatchUpdates返回false）
-     */
-    public boolean supportsBatchUpdates() throws SQLException {
         return false;
     }
 
@@ -628,10 +744,6 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return false;
     }
 
-    public boolean supportsSelectForUpdate() throws SQLException {
-        return false;
-    }
-
     public boolean supportsStatementPooling() throws SQLException {
         return false;
     }
@@ -640,39 +752,7 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return false;
     }
 
-    public boolean supportsSubqueriesInComparisons() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsSubqueriesInExists() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsSubqueriesInIns() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsSubqueriesInQuantifieds() throws SQLException {
-        return false;
-    }
-
     public boolean supportsTableCorrelationNames() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
-        return false;
-    }
-
-    public boolean supportsTransactions() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsUnion() throws SQLException {
-        return false;
-    }
-
-    public boolean supportsUnionAll() throws SQLException {
         return false;
     }
 
@@ -688,11 +768,18 @@ public class TDatabaseMetaData implements DatabaseMetaData {
         return false;
     }
 
+    public boolean supportsStoredFunctionsUsingCallSyntax() throws SQLException {
+        return true;
+    }
+
+    public boolean autoCommitFailureClosesAllResultSets() throws SQLException {
+        return false;
+    }
+
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
         return this.getClass().isAssignableFrom(iface);
     }
 
-    @SuppressWarnings("unchecked")
     public <T> T unwrap(Class<T> iface) throws SQLException {
         try {
             return (T) this;
@@ -700,36 +787,6 @@ public class TDatabaseMetaData implements DatabaseMetaData {
             throw new SQLException(e);
         }
     }
-
-    public RowIdLifetime getRowIdLifetime() throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public boolean supportsStoredFunctionsUsingCallSyntax() throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public boolean autoCommitFailureClosesAllResultSets() throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public ResultSet getClientInfoProperties() throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern) throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
-    public ResultSet getFunctionColumns(String catalog, String schemaPattern, String functionNamePattern,
-                                        String columnNamePattern) throws SQLException {
-        throw new SQLException("not support exception");
-    }
-
 	@Override
 	public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern,
 			String columnNamePattern) throws SQLException {

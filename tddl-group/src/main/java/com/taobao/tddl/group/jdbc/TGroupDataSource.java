@@ -19,7 +19,7 @@ import com.taobao.tddl.group.config.GroupConfigManager;
 import com.taobao.tddl.group.dbselector.DBSelector;
 import com.taobao.tddl.group.exception.TGroupDataSourceException;
 import com.taobao.tddl.group.listener.DataSourceChangeListener;
-import com.taobao.tddl.monitor.Monitor;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 
 /**
  * TGroupDataSource并不是像名字所暗示的那样有一组DataSource，
@@ -100,6 +100,12 @@ public class TGroupDataSource implements DataSource {
      * @throws com.taobao.tddl.jdbc.group.exception.ConfigException
      */
     public void init() {
+
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("TGroupDataSource start init");
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + appName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + unitName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("dbGroupKey is: " + this.dbGroupKey);
+
         if (dsKeyAndWeightCommaArray != null) {
             // 本地配置方式：dsKeyAndWeightCommaArray + dataSourceFetcher + dyType
             DataSourceFetcher wrapper = new DataSourceFetcher() {
@@ -123,7 +129,6 @@ public class TGroupDataSource implements DataSource {
             configManager.init();
         }
 
-        Monitor.setAppName(appName);
     }
 
     public void init(DataSourceWrapper... dataSourceWrappers) {

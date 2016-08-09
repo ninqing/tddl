@@ -5,17 +5,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 
+import com.taobao.tddl.common.utils.thread.NamedThreadFactory;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataHandlerFactory;
 import com.taobao.tddl.config.ConfigDataListener;
 
 public class FileConfigDataHandlerFactory implements ConfigDataHandlerFactory {
 
+    private final static ConcurrentHashMap<String, ConfigDataHandler> filePath         = new ConcurrentHashMap<String, ConfigDataHandler>();
+
+    private final static Executor                                     default_Executor = Executors.newCachedThreadPool(new NamedThreadFactory("configure_file_checker",
+                                                                                           true));
     private String                                                    directory        = "";
     private String                                                    appName;
-    private final static ConcurrentHashMap<String, ConfigDataHandler> filePath         = new ConcurrentHashMap<String, ConfigDataHandler>();
     public static final String                                        configure_prefix = "com.taobao.tddl.";
 
     public FileConfigDataHandlerFactory(String directory, String appName, Executor executor){
@@ -29,17 +32,7 @@ public class FileConfigDataHandlerFactory implements ConfigDataHandlerFactory {
         }
     }
 
-    private Executor              executor         = null;
-
-    private final static Executor default_Executor = Executors.newCachedThreadPool(new ThreadFactory() {
-
-                                                       @Override
-                                                       public Thread newThread(Runnable r) {
-                                                           Thread thd = new Thread(r);
-                                                           thd.setName("configure file checker");
-                                                           return thd;
-                                                       }
-                                                   });
+    private Executor executor = null;
 
     public String getDirectory() {
         return directory;

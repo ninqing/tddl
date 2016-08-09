@@ -1,12 +1,8 @@
 package com.taobao.tddl.repo.demo.spi;
 
-import java.sql.SQLException;
-
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.jdbc.IConnection;
-import com.taobao.tddl.common.jdbc.IDataSource;
 import com.taobao.tddl.executor.common.ExecutionContext;
-import com.taobao.tddl.executor.common.IConnectionHolder;
+import com.taobao.tddl.executor.spi.ITHLog;
 import com.taobao.tddl.executor.spi.ITransaction;
 
 /**
@@ -30,6 +26,29 @@ public class DemoTransaction implements ITransaction {
     }
 
     @Override
+    public boolean isAutoCommit() {
+
+        return false;
+    }
+
+    @Override
+    public ITHLog getHistoryLog() {
+        return null;
+    }
+
+    @Override
+    public void close() throws TddlException {
+    }
+
+    @Override
+    public void setAutoCommit(boolean autoCommit) {
+    }
+
+    @Override
+    public void beginTransaction() throws TddlException {
+    }
+
+    @Override
     public void setExecutionContext(ExecutionContext executionContext) {
         this.executionContext = executionContext;
 
@@ -37,48 +56,6 @@ public class DemoTransaction implements ITransaction {
 
     public ExecutionContext getExecutionContext() {
         return executionContext;
-    }
-
-    @Override
-    public IConnectionHolder getConnectionHolder() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public void tryClose(IConnection conn, String groupName) throws SQLException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public IConnection getConnection(String groupName, IDataSource ds, RW rw) throws SQLException {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public boolean isClosed() {
-        // TODO Auto-generated method stub
-        return false;
-    }
-
-    @Override
-    public void close() {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void kill() throws SQLException {
-        // TODO Auto-generated method stub
-
-    }
-
-    @Override
-    public void cancel() throws SQLException {
-        // TODO Auto-generated method stub
-
     }
 
 }

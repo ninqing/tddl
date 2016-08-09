@@ -21,19 +21,14 @@ import org.w3c.dom.Element;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.XmlHelper;
 import com.taobao.tddl.common.utils.extension.Activate;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.spi.IDataSourceGetter;
 import com.taobao.tddl.optimizer.config.table.RepoSchemaManager;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.config.table.parse.TableMetaParser;
 import com.taobao.tddl.repo.mysql.spi.DatasourceMySQLImplement;
 
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
-
-/**
- * @author mengshi.sunmengshi 2013-12-5 下午6:18:14
- * @since 5.0.0
- */
 @Activate(name = "MYSQL_JDBC", order = 2)
 public class MysqlTableMetaManager extends RepoSchemaManager {
 
@@ -117,16 +112,16 @@ public class MysqlTableMetaManager extends RepoSchemaManager {
 
     public static TableMeta resultSetMetaToSchema(ResultSetMetaData rsmd, DatabaseMetaData dbmd,
                                                   String logicalTableName, String actualTableName) {
-
         String xml = resultSetMetaToSchemaXml(rsmd, dbmd, logicalTableName, actualTableName);
         if (xml == null) {
             return null;
         }
+
+        TableMetaParser tableParser = new MysqlTableMetaParser();
         xml = xml.replaceFirst("<tables>", xmlHead);
-        List<TableMeta> ts = null;
-        ts = TableMetaParser.parse(xml);
-        if (ts != null && !ts.isEmpty()) {
-            return ts.get(0);
+        List<TableMeta> schemaList = tableParser.parse(xml);
+        if (!schemaList.isEmpty()) {
+            return schemaList.get(0);
         }
 
         return null;

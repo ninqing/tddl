@@ -1,109 +1,135 @@
 package com.taobao.tddl.optimizer.costbased;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
-import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
-import com.taobao.tddl.optimizer.core.ast.query.TableNode;
+import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
+import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 
 public class SubQueryPreProcessorTest extends BaseOptimizerTest {
 
     @Test
-    public void test_等于子查询() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID = (SELECT ID FROM TABLE2)");
-        table1.build();
+    public void testQuery_子查询_in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
 
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(table1);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertEquals("1", qn.getWhereFilter().toString());
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(qn);
+        Assert.assertTrue(func != null);
+
+        QueryTreeNode qtn = (QueryTreeNode) func.getArgs().get(0);
+        Map<Long, Object> subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(qtn.getSubqueryOnFilterId(), Arrays.asList(1, 2));
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func == null);
     }
 
     @Test
-    public void test_In子查询() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID IN (SELECT ID FROM TABLE2)");
-        table1.build();
+    public void testQuery_子查询_correlate_in模式() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
 
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(table1);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertEquals("1", qn.getWhereFilter().toString());
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(qn);
+        Assert.assertTrue(func == null);
     }
 
     @Test
-    public void test_NotIn子查询() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID NOT IN (SELECT ID FROM TABLE2)");
-        table1.build();
+    public void testQuery_子查询_多级查询() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE NAME = (SELECT NAME FROM TABLE3))";
+        sql += " AND NAME = (SELECT NAME FROM TABLE4) AND SCHOOL > ALL (SELECT SCHOOL FROM TABLE5)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
 
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(table1);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertEquals("TABLE2.ID IS NULL", qn.getWhereFilter().toString());
+        List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qn, true);
+        Assert.assertEquals(4, funcs.size());
+
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(qn);
+        Assert.assertTrue(func != null);
+        Map<Long, Object> subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), 1);
+
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func != null);
+        subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), Arrays.asList(1, 2));
+
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func != null);
+        subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), "LJH");
+
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func != null);
+        subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), 3);
+
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func == null);
     }
 
     @Test
-    public void test_等于子查询_存在OR查询_报错() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID = (SELECT ID FROM TABLE2 WHERE NAME = 'HELLO') OR NAME = 3");
-        table1.build();
+    public void testQuery_子查询_各种位置子查询() throws SqlParserException, QueryException {
+        String sql = "SELECT (SELECT MAX(ID) FROM TABLE1)+1 FROM TABLE1 WHERE NOT EXISTS(SELECT MAX(ID) FROM TABLE2 LIMIT 1) AND (SELECT MAX(ID) FROM TABLE3) + 1 > (SELECT ID FROM TABLE4 WHERE NAME = (SELECT NAME FROM TABLE5))";
+        sql += " GROUP BY ID + (SELECT MAX(ID) FROM TABLE6) HAVING ID + (SELECT MAX(ID) FROM TABLE7) > 10 ORDER BY ID + (SELECT MAX(ID) FROM TABLE8) LIMIT 10,10";
+        QueryTreeNode qn = query(sql);
+        qn.build();
 
-        try {
-            SubQueryPreProcessor.optimize(table1);
-            Assert.fail();
-        } catch (Exception e) {
+        List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qn, true);
+        Assert.assertEquals(8, funcs.size());
+
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(qn);
+        Assert.assertTrue(func != null);
+        for (int i = 0; i < 7; i++) {
+            Map<Long, Object> subquerySettings = new HashMap<Long, Object>();
+            subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), 1);
+            func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+            Assert.assertTrue(func != null);
         }
+
+        Map<Long, Object> subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(((QueryTreeNode) func.getArgs().get(0)).getSubqueryOnFilterId(), 1);
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func == null);
     }
 
     @Test
-    public void test_等于子查询_存在关联条件_报错() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID = (SELECT ID FROM TABLE2 WHERE TABLE1.NAME = TABLE2.NAME)");
-        try {
-            table1.build(); // 编译出错，不支持
-            Assert.fail();
-        } catch (Exception e) {
+    public void testQuery_子查询_correlate替换() throws SqlParserException, QueryException {
+        String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
+        QueryTreeNode qn = query(sql);
+        qn.build();
+
+        List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qn, true);
+        IFunction func = funcs.get(0);
+        Assert.assertTrue(func != null);
+
+        QueryTreeNode qtn = (QueryTreeNode) func.getArgs().get(0);
+        Map<Long, Object> subquerySettings = new HashMap<Long, Object>();
+        subquerySettings.put(qtn.getColumnsCorrelated().get(0).getCorrelateOnFilterId(), 3);
+        func = SubQueryPreProcessor.assignmentSubqueryOnFilter(qn, subquerySettings);
+        Assert.assertTrue(func == null);
+    }
+
+    private QueryTreeNode query(String sql) throws SqlParserException {
+        SqlAnalysisResult sm = parser.parse(sql, false);
+        QueryTreeNode qn = null;
+        if (sm.getSqlType() == SqlType.SELECT) {
+            qn = sm.getQueryTreeNode();
+        } else {
+            qn = new KVIndexNode(null);
+            qn.setSql(sql);
         }
-    }
-
-    @Test
-    public void test_等于子查询_存在多条件() {
-        TableNode table1 = new TableNode("TABLE1");
-        table1.query("ID = (SELECT ID FROM TABLE2 WHERE NAME = 'HELLO' AND SCHOOL = 'HELLO' ) AND NAME = 3 AND SCHOOL IN ('A','B')");
-        table1.build();
-
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(table1);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertEquals(null, table1.getWhereFilter());
-    }
-
-    @Test
-    public void test_等于子查询_外部是个join节点() {
-        TableNode table1 = new TableNode("TABLE1");
-        TableNode table2 = new TableNode("TABLE2");
-        JoinNode join = table1.join(table2, "ID", "ID");
-        join.query("TABLE1.ID = (SELECT ID FROM TABLE3 WHERE NAME = 'HELLO' AND SCHOOL = 'HELLO' ) AND TABLE1.NAME = 3 AND TABLE1.SCHOOL IN ('A','B')");
-        join.build();
-
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(join);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertTrue(((JoinNode) qn).getLeftNode() instanceof JoinNode);
-        Assert.assertEquals(null, join.getWhereFilter());
-    }
-
-    @Test
-    public void test_等于IN组合子查询_复杂条件_外部是个join节点() {
-        TableNode table1 = new TableNode("TABLE1");
-        TableNode table2 = new TableNode("TABLE2");
-        JoinNode join = table1.join(table2, "ID", "ID");
-        join.query("TABLE1.ID = (SELECT ID FROM TABLE3 WHERE NAME = 'HELLO' AND SCHOOL = 'HELLO' ) AND TABLE1.NAME = 3 AND TABLE1.SCHOOL IN (SELECT SCHOOL FROM TABLE4)");
-        join.build();
-
-        QueryTreeNode qn = SubQueryPreProcessor.optimize(join);
-        Assert.assertTrue(qn instanceof JoinNode);
-        Assert.assertTrue(((JoinNode) qn).getLeftNode() instanceof JoinNode);
-        Assert.assertTrue(((JoinNode) ((JoinNode) qn).getLeftNode()).getLeftNode() instanceof JoinNode);
-        Assert.assertEquals(null, join.getWhereFilter());
+        return qn;
     }
 }

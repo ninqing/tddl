@@ -12,9 +12,12 @@ import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.build.QueryNodeBuilder;
 import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
+import com.taobao.tddl.optimizer.core.ast.delegate.ShareDelegate;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 
@@ -26,11 +29,16 @@ public class QueryNode extends QueryTreeNode {
 
     private QueryNodeBuilder builder;
 
+    public QueryNode(){
+        this(null);
+    }
+
     public QueryNode(QueryTreeNode child){
         this(child, null);
     }
 
     public QueryNode(QueryTreeNode child, IFilter filter){
+        super();
         this.builder = new QueryNodeBuilder(this);
         this.whereFilter = filter;
         this.setChild(child);
@@ -95,42 +103,55 @@ public class QueryNode extends QueryTreeNode {
         return this.getAlias();
     }
 
-    public IQueryTree toDataNodeExecutor() throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+        subquerytoDataNodeExecutor(shareIndex);
         IQuery query = ASTNodeFactory.getInstance().createQuery();
         query.setAlias(this.getAlias());
         query.setColumns(this.getColumnsSelected());
         query.setConsistent(this.getConsistent());
         query.setGroupBys(this.getGroupBys());
-
         query.setKeyFilter(this.getKeyFilter());
         query.setValueFilter(this.getResultFilter());
-
         query.setLimitFrom(this.getLimitFrom());
         query.setLimitTo(this.getLimitTo());
-        query.setLockModel(this.getLockModel());
+        query.setLockMode(this.getLockMode());
         query.setOrderBys(this.getOrderBys());
-        query.setSubQuery(this.getChild().toDataNodeExecutor());
-        query.executeOn(this.getDataNode());
+        // 不能传递shareIndex,代理对象会自处理
+        query.setSubQuery((IQueryTree) this.getChild().toDataNodeExecutor());
         query.setSql(this.getSql());
         query.setIsSubQuery(this.isSubQuery());
+        query.setExistAggregate(this.isExistAggregate());
+        query.executeOn(this.getDataNode(shareIndex));
+        query.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
+        query.setSubqueryFilter(this.getSubqueryFilter());
         return query;
     }
 
     public QueryNode copy() {
         QueryNode newTableNode = new QueryNode((QueryTreeNode) this.getChild().copy());
         this.copySelfTo(newTableNode);
-        newTableNode.setNeedBuild(false);
+        return newTableNode;
+    }
+
+    @Override
+    public QueryNode copySelf() {
+        QueryNode newTableNode = new QueryNode((QueryTreeNode) this.getChild());
+        this.copySelfTo(newTableNode);
         return newTableNode;
     }
 
     public QueryNode deepCopy() {
         QueryNode newTableNode = new QueryNode((QueryTreeNode) this.getChild().deepCopy());
         this.deepCopySelfTo(newTableNode);
-        newTableNode.setNeedBuild(false);
         return newTableNode;
     }
 
+    @ShareDelegate
     public String toString(int inden) {
+        return toString(inden, 0);
+    }
+
+    public String toString(int inden, int shareIndex) {
         String tabTittle = GeneralUtil.getTab(inden);
         String tabContent = GeneralUtil.getTab(inden + 1);
         StringBuilder sb = new StringBuilder();
@@ -144,6 +165,7 @@ public class QueryNode extends QueryTreeNode {
         appendField(sb, "whereFilter", printFilterString(this.getWhereFilter(), inden + 2), tabContent);
         appendField(sb, "otherJoinOnFilter", printFilterString(this.getOtherJoinOnFilter(), inden + 2), tabContent);
         appendField(sb, "having", printFilterString(this.getHavingFilter(), inden + 2), tabContent);
+        appendField(sb, "subqueryFilter", printFilterString(this.getSubqueryFilter(), inden + 2), tabContent);
 
         if (!(this.getLimitFrom() != null && this.getLimitFrom().equals(0L) && this.getLimitTo() != null && this.getLimitTo()
             .equals(0L))) {
@@ -156,11 +178,16 @@ public class QueryNode extends QueryTreeNode {
         }
         appendField(sb, "orderBy", this.getOrderBys(), tabContent);
         appendField(sb, "queryConcurrency", this.getQueryConcurrency(), tabContent);
-        appendField(sb, "lockModel", this.getLockModel(), tabContent);
+        if (this.getLockMode() != LOCK_MODE.UNDEF) {
+            appendField(sb, "lockModel", this.getLockMode(), tabContent);
+        }
         appendField(sb, "columns", this.getColumnsSelected(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
         appendField(sb, "sql", this.getSql(), tabContent);
-        appendField(sb, "executeOn", this.getDataNode(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
+        appendField(sb, "executeOn", this.getDataNode(shareIndex), tabContent);
 
         if (this.getChild() != null) {
             appendln(sb, tabContent + "from:");

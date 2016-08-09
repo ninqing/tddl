@@ -14,6 +14,8 @@ import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
  * @since 5.0.0
  */
 public class QueryNodeBuilder extends QueryTreeNodeBuilder {
@@ -128,5 +130,15 @@ public class QueryNodeBuilder extends QueryTreeNodeBuilder {
         }
 
         return this.getColumnFromOtherNode(c, this.getNode().getChild());
+    }
+
+    public void pusherFunction(IFunction f) {
+        QueryTreeNode child = this.getNode().getChild();
+        // 下推select
+        if (this.findColumnFromOtherNode(f, child) == null) {
+            ISelectable copyf = f.copy();
+            child.addColumnsSelected(copyf); // 查找一下子节点的select中是已包含对应函数列
+            child.getBuilder().buildSelectable(copyf, true);// 单独build这一函数列
+        }
     }
 }

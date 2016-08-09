@@ -8,6 +8,7 @@ public class SqlAndParam {
 
     public String                         sql;
     public Map<Integer, ParameterContext> param;
+    public Map<Integer, Integer>          newParamIndexToOld;
 
     @Override
     public String toString() {

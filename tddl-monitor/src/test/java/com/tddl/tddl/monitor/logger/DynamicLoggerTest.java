@@ -16,7 +16,7 @@ public class DynamicLoggerTest {
 
     @Test
     public void testLogback() {
-        System.setProperty("tddl.application.logger", "logback");
+        System.setProperty("tddl.application.logger", "slf4j");
         System.setProperty("user.home", System.getProperty("java.io.tmpdir", "/tmp"));
         System.out.println(LoggerInit.logger.getDelegate().getClass());
         LoggerInit.logger.error("this is test");

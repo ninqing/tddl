@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>com.taobao.tddl</groupId>
 		<artifactId>tddl</artifactId>
-		<version>5.1.0-SNAPSHOT</version>
+		<version>5.0.8</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<groupId>com.taobao.tddl</groupId>
@@ -32,6 +32,20 @@
 			<artifactId>tddl-group</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+			<!-- HBase -->
+			<dependency>
+				<groupId>org.apache.hbase</groupId>
+				<artifactId>hbase</artifactId>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.zookeeper</groupId>
+				<artifactId>zookeeper</artifactId>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.hadoop</groupId>
+				<artifactId>hadoop-core</artifactId>
+			</dependency>
+
 		<!-- Test libs -->
 		<dependency>
 			<groupId>junit</groupId>

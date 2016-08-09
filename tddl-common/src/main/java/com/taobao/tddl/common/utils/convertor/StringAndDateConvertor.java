@@ -1,5 +1,6 @@
 package com.taobao.tddl.common.utils.convertor;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -41,7 +42,38 @@ public class StringAndDateConvertor {
         @Override
         public Object convert(Object src, Class destClass) {
             if (String.class.isInstance(src)) { // 必须是字符串
-                return ConvertorHelper.dateToSql.convert(DateUtils.str_to_time((String) src), destClass);
+                Date date = DateUtils.str_to_time((String) src);
+                if (date == null) {
+                    SimpleDateFormat format = new SimpleDateFormat(TIME_FORMAT);
+                    try {
+                        date = format.parse((String) src);
+                    } catch (ParseException e) {
+                        throw new ConvertorException(e);
+                    }
+                }
+                return ConvertorHelper.dateToSql.convert(date, destClass);
+            }
+
+            throw new ConvertorException("Unsupported convert: [" + src + "," + destClass.getName() + "]");
+        }
+    }
+
+    /**
+     * string -> sql Date
+     */
+    public static class StringToSqlTime extends AbastactConvertor {
+
+        @Override
+        public Object convert(Object src, Class destClass) {
+            if (String.class.isInstance(src)) { // 必须是字符串
+                SimpleDateFormat format = new SimpleDateFormat(TIME_FORMAT);
+                Date date = null;
+                try {
+                    date = format.parse((String) src);
+                } catch (ParseException e) {
+                    date = DateUtils.str_to_time((String) src);
+                }
+                return ConvertorHelper.dateToSql.convert(date, destClass);
             }
 
             throw new ConvertorException("Unsupported convert: [" + src + "," + destClass.getName() + "]");

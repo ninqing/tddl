@@ -11,8 +11,6 @@ import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.codec.RecordCodec;
 import com.taobao.tddl.executor.common.DuplicateKVPair;
@@ -37,8 +35,13 @@ import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
+import com.taobao.tddl.optimizer.utils.OptimizerUtils;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author mengshi.sunmengshi 2013-12-19 下午12:18:29
@@ -49,29 +52,29 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
     private final Logger                   logger                       = LoggerFactory.getLogger(MergeCursor.class);
     protected List<ISchematicCursor>       cursors;
     protected int                          sizeLimination               = 10000;
-    protected final IDataNodeExecutor      currentExecotor;
+    protected final IMerge                 merge;
 
     protected final ExecutionContext       executionContext;
     protected ValueMappingIRowSetConvertor valueMappingIRowSetConvertor = new ValueMappingIRowSetConvertor();
     protected int                          currentIndex                 = 0;
 
-    public MergeCursor(List<ISchematicCursor> cursors, IDataNodeExecutor currentExecotor,
-                       ExecutionContext executionContext){
+    public MergeCursor(List<ISchematicCursor> cursors, IMerge merge, ExecutionContext executionContext)
+                                                                                                       throws TddlException{
         super(null, null, null);
 
-        this.currentExecotor = currentExecotor;
+        this.merge = merge;
         this.executionContext = executionContext;
         this.cursors = cursors;
         List<IOrderBy> orderBys = this.cursors.get(0).getOrderBy();
         setOrderBy(orderBys);
     }
 
-    public MergeCursor(List<ISchematicCursor> cursors, ICursorMeta iCursorMeta, IDataNodeExecutor currentExecotor,
+    public MergeCursor(List<ISchematicCursor> cursors, ICursorMeta iCursorMeta, IMerge merge,
                        ExecutionContext executionContext, List<IOrderBy> orderBys){
         super(null, iCursorMeta, orderBys);
         this.cursors = cursors;
 
-        this.currentExecotor = currentExecotor;
+        this.merge = merge;
         this.executionContext = executionContext;
         setOrderBy(orderBys);
     }
@@ -81,18 +84,38 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
         if (this.inited) {
             return;
         }
+
+        currentIndex = 0;
         super.init();
     }
 
     @Override
     public IRowSet next() throws TddlException {
         init();
+
+        // undecided 的话，分库并执行子节点，否则无法next
+        if (!this.merge.isSharded() && this.cursors.isEmpty()) {
+            this.shardAndExecuteSubQuery();
+        }
         /*
          * 因为subCursor和first Cursor的meta数据可能排列的顺序不一样。 比如，cursor1 ,顺序可能是pk ,
          * Name. 而cursor 2 ,顺序却是反过来的 ， Name , pk 这时候在这里需要统一Cursor内的meta信息才可以。
          */
         IRowSet iRowSet = innerNext();
         return iRowSet;
+    }
+
+    private void shardAndExecuteSubQuery() throws TddlException {
+        IQuery iquery = (IQuery) merge.getSubNode();
+        KVIndexNode query = (KVIndexNode) OptimizerUtils.convertPlanToAst(iquery);
+        query.build();
+        IDataNodeExecutor idne = OptimizerContext.getContext()
+            .getOptimizer()
+            .optimizePlan(query, executionContext.getParams(), executionContext.getExtraCmds());
+
+        ISchematicCursor cursor = null;
+        cursor = ExecutorContext.getContext().getTopologyExecutor().execByExecPlanNode(idne, executionContext);
+        this.cursors.add(cursor);
     }
 
     private IRowSet innerNext() throws TddlException {
@@ -114,7 +137,9 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
     }
 
     private void switchCursor() {
+
         cursors.get(currentIndex).close(exceptionsWhenCloseSubCursor);
+
         currentIndex++;
         // 因为每一个cursor的valueMappingMap都不一样，所以这里把这个数据弄成空的
         valueMappingIRowSetConvertor.reset();
@@ -139,7 +164,7 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
     }
 
     @Override
-    public List<ISchematicCursor> getISchematicCursors() {
+    public List<ISchematicCursor> getSubCursors() {
         return cursors;
     }
 
@@ -162,14 +187,13 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
             throw new UnsupportedOperationException("not supported yet");
         } else {
             // 这里列的别名也丢了吧 似乎解决了
-            IQuery iquery = (IQuery) currentExecotor;
+            IQuery iquery = (IQuery) merge.getSubNode();
             OptimizerContext optimizerContext = OptimizerContext.getContext();
             IBooleanFilter ibf = ASTNodeFactory.getInstance().createBooleanFilter();
             ibf.setOperation(OPERATION.IN);
             ibf.setValues(new ArrayList<Object>());
             String colName = null;
             for (CloneableRecord record : keys) {
-
                 Map<String, Object> recordMap = record.getMap();
                 if (recordMap.size() == 1) {
                     // 单字段in
@@ -195,44 +219,25 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
                 }
             }
 
-            KVIndexNode query = new KVIndexNode(iquery.getIndexName());
-            query.select(iquery.getColumns());
-            query.setLimitFrom(iquery.getLimitFrom());
-            query.setLimitTo(iquery.getLimitTo());
-            query.setOrderBys(iquery.getOrderBys());
-            query.setGroupBys(iquery.getGroupBys());
-            // query.valueQuery(removeDupFilter(iquery.getValueFilter(), ibf));
-            // query.keyQuery(removeDupFilter(iquery.getKeyFilter(), ibf));
-            // if (keyFilterOrValueFilter)
-            // query.keyQuery(FilterUtils.and(query.getKeyFilter(), ibf));
-            // else query.valueQuery(FilterUtils.and(query.getResultFilter(),
-            // ibf));
-
-            // 直接构造为where条件，优化器进行重新选择
-            IFilter whereFilter = FilterUtils.and(iquery.getKeyFilter(), iquery.getValueFilter());
-            query.query(FilterUtils.and(removeDupFilter(whereFilter, ibf), ibf));
-            query.alias(iquery.getAlias());
+            KVIndexNode query = (KVIndexNode) OptimizerUtils.convertPlanToAst(iquery);
+            if (keyFilterOrValueFilter) {
+                query.keyQuery(FilterUtils.and(removeDupFilter(query.getKeyFilter(), ibf), ibf));
+            } else {
+                query.valueQuery(FilterUtils.and(removeDupFilter(query.getResultFilter(), ibf), ibf));
+            }
             query.build();
-            // IDataNodeExecutor idne = dnc.shard(currentExecotor,
-            // Collections.EMPTY_MAP, null);
-            IDataNodeExecutor idne = null;
             // 优化做法，将数据分配掉。
-            Integer currentThread = currentExecotor.getThread();
-
+            Integer currentThread = merge.getThread();
             executionContext.getExtraCmds().put("initThread", currentThread);
-
-            // TODO 以后要考虑做cache
-            idne = optimizerContext.getOptimizer().optimizeAndAssignment(query,
+            IDataNodeExecutor idne = optimizerContext.getOptimizer().optimizePlan(query,
                 executionContext.getParams(),
                 executionContext.getExtraCmds());
 
             ISchematicCursor cursor = null;
             Map<CloneableRecord, DuplicateKVPair> duplicateKeyMap = null;
             try {
-                ExecutionContext tempContext = new ExecutionContext();
-                tempContext.setCurrentRepository(executionContext.getCurrentRepository());
-                tempContext.setExecutorService(executionContext.getExecutorService());
-                cursor = ExecutorContext.getContext().getTopologyExecutor().execByExecPlanNode(idne, tempContext);
+
+                cursor = ExecutorContext.getContext().getTopologyExecutor().execByExecPlanNode(idne, executionContext);
                 // 用于关闭，统一管理
                 this.returnColumns = cursor.getReturnColumns();
                 List<IColumn> cols = new ArrayList<IColumn>();
@@ -355,7 +360,9 @@ public class MergeCursor extends SchematicCursor implements IMergeCursor {
 
     @Override
     public void beforeFirst() throws TddlException {
+        inited = false;
         init();
+
         for (int i = 0; i < cursors.size(); i++) {
             cursors.get(i).beforeFirst();
         }

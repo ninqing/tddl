@@ -4,7 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
@@ -83,16 +83,19 @@ public class JoinChooser {
             QueryNode qn = (QueryNode) qtn;
             if (qn.getChild() != null) {
                 optimizeSubQuery(qn.getChild(), extraCmd);
-                qn.setChild(JoinChooser.optimize(qn.getChild(), extraCmd));
+                qn.setChild(optimizeJoin(qn.getChild(), extraCmd));
             }
+
+            // 复制当前queryNode的where条件
+            qn.setResultFilter(qn.getWhereFilter());
+            qn.query((IFilter) null);
         } else if (qtn instanceof JoinNode) {
             JoinNode jn = (JoinNode) qtn;
             optimizeSubQuery(jn.getLeftNode(), extraCmd);
             optimizeSubQuery(jn.getRightNode(), extraCmd);
-        } else {// table/merge
-            if ((!qtn.getChildren().isEmpty()) && qtn.getChildren().get(0) != null) {
-                optimizeSubQuery((QueryTreeNode) qtn.getChildren().get(0), extraCmd);
-            }
+        } else {
+            // 不会出现mergeNode
+            // 不单独处理tableNode
         }
 
     }
@@ -101,9 +104,8 @@ public class JoinChooser {
      * 优化一棵查询树,以QueryNode为叶子终止,子节点单独进行优化
      */
     private static QueryTreeNode optimizeJoin(QueryTreeNode qtn, Map<String, Object> extraCmd) {
-        // 暂时跳过可能存在的聚合函数
+        // 跳过QueryNode和MergeNode，子查询已经单独处理
         if (!(qtn instanceof TableNode || qtn instanceof JoinNode)) {
-            qtn.getChildren().set(0, optimize((QueryTreeNode) qtn.getChildren().get(0), extraCmd));
             return qtn;
         }
 
@@ -111,7 +113,10 @@ public class JoinChooser {
         JoinPermutationGenerator jpg = null;
         if (needReChooserJoinOrder || isOptimizeJoinOrder(extraCmd)) {
             jpg = new JoinPermutationGenerator(qtn);
-            qtn = jpg.getNext();
+            QueryTreeNode node = jpg.getNext();
+            if (node != null) {
+                qtn = node;
+            }
         }
 
         long minIo = Long.MAX_VALUE;
@@ -238,14 +243,16 @@ public class JoinChooser {
                     ((TableNode) node).setResultFilter(node.getWhereFilter());
                 }
 
+                node.query((IFilter) null);// 清空where
                 return node;
             }
         } else if (node instanceof JoinNode) {
+            // 将未能下推的条件加到result filter中
+            node.setResultFilter(FilterUtils.and(node.getResultFilter(), node.getWhereFilter()));
             // 如果右表是subquery，则也不能用indexNestedLoop
             if (((JoinNode) node).getRightNode().isSubQuery()) {
                 ((JoinNode) node).setJoinStrategy(JoinStrategy.NEST_LOOP_JOIN);
-                // 将未能下推的条件加到result filter中
-                ((JoinNode) node).setResultFilter(FilterUtils.and(node.getResultFilter(), node.getWhereFilter()));
+                node.query((IFilter) null);// 清空where
                 return node;
             }
 
@@ -289,10 +296,12 @@ public class JoinChooser {
                 // 几种分支都是选择sort merge join
                 // join列的处理会在JoinNode.getImplicitOrderBys()中进行
                 ((JoinNode) node).setJoinStrategy(JoinStrategy.SORT_MERGE_JOIN);
+                node.query((IFilter) null);// 清空where
                 return node;
             } else if (((JoinNode) node).isLeftOuterJoin() || ((JoinNode) node).isRightOuterJoin()) {
                 if (canChooseSortMerge((JoinNode) node)) {
                     ((JoinNode) node).setJoinStrategy(JoinStrategy.SORT_MERGE_JOIN);
+                    node.query((IFilter) null);// 清空where
                     return node;
                 }
             }
@@ -360,12 +369,9 @@ public class JoinChooser {
                 ((JoinNode) node).setJoinStrategy(JoinStrategy.NEST_LOOP_JOIN);
             }
 
-            // 将未能下推的条件加到result filter中
-            ((JoinNode) node).setResultFilter(FilterUtils.and(node.getResultFilter(), node.getWhereFilter()));
+            node.query((IFilter) null);// 清空where
             return node;
         } else {
-            // 将未能下推的条件加到result filter中
-            node.setResultFilter(FilterUtils.and(node.getResultFilter(), node.getWhereFilter()));
             return node;
         }
     }
@@ -444,13 +450,15 @@ public class JoinChooser {
             tableNode.setKeyFilter(filters.get(FilterType.IndexQueryKeyFilter));
             tableNode.setResultFilter(filters.get(FilterType.ResultFilter));
             tableNode.setIndexQueryValueFilter(filters.get(FilterType.IndexQueryValueFilter));
+            tableNode.query((IFilter) null);// 清空where
         } else {
             // 如果存在多个合取方式的的or组合时，无法区分出key/indexValue/result，直接下推
             tableNode.setResultFilter(tableNode.getWhereFilter());
+            tableNode.query((IFilter) null);// 清空where
         }
     }
 
     private static boolean isOptimizeJoinOrder(Map<String, Object> extraCmd) {
-        return GeneralUtil.getExtraCmdBoolean(extraCmd, ExtraCmd.CHOOSE_JOIN, false);
+        return GeneralUtil.getExtraCmdBoolean(extraCmd, ConnectionProperties.CHOOSE_JOIN, false);
     }
 }

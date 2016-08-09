@@ -116,7 +116,7 @@ public class TResultSetMetaData implements ResultSetMetaData {
     public String getTableName(int column) throws SQLException {
         column--;
         ColumnMeta c = this.columnMetas.get(column);
-        return c.getTableName();
+        return c.getTableName() == null ? "" : c.getTableName();
     }
 
     @Override

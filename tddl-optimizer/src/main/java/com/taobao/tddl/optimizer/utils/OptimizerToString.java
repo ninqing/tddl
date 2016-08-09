@@ -87,6 +87,11 @@ public class OptimizerToString {
                 builder.append(getColumnName(bf, inden, needTable))
                     .append(" ")
                     .append(bf.getOperation().getOPERATIONString());
+            } else if (bf.getOperation().equals(OPERATION.EXISTS)) {
+                builder.append(bf.getOperation().getOPERATIONString())
+                    .append("(")
+                    .append(getColumnName(bf, inden, needTable))
+                    .append(")");
             } else {
                 builder.append(getColumnName(bf, inden, needTable));
             }

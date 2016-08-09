@@ -4,12 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
-import com.taobao.tddl.executor.function.ExtraFunction;
+import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.spi.ITable;
@@ -18,6 +19,7 @@ import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
+import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IPut.PUT_TYPE;
 
@@ -60,9 +62,14 @@ public class UpdateHandler extends PutHandlerCommon {
                         if (cm.getName().equals(cname)) {
                             Object v = update.getUpdateValues().get(i);
                             if (v instanceof IFunction) {
+                                if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
+                                    throw new TddlRuntimeException("update 中不允许出现聚合函数");
+                                }
                                 IFunction func = ((IFunction) v);
-                                ((ExtraFunction) func.getExtraFunction()).serverMap((IRowSet) null);
-                                v = func.getExtraFunction().getResult();
+
+                                v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null,
+                                    executionContext);
+
                             }
 
                             value.put(cname, v);
@@ -98,7 +105,7 @@ public class UpdateHandler extends PutHandlerCommon {
     }
 
     private Object getValByColumnMeta(IRowSet kv, ColumnMeta cm) {
-        Object val = ExecUtils.getValueByTableAndName(kv, cm.getTableName(), cm.getName());
+        Object val = ExecUtils.getValueByTableAndName(kv, cm.getTableName(), cm.getName(), cm.getAlias());
         return val;
     }
 

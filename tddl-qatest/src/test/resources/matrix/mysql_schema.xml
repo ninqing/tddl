@@ -3,6 +3,7 @@
     xsi:schemaLocation="https://github.com/tddl/tddl/schema/table https://raw.github.com/tddl/tddl/master/tddl-common/src/main/resources/META-INF/table.xsd">
 
 	<!-- ===========================================mysql============================================= -->
+	<!-- 
 	<table name="mysql_student_oneGroup_oneAtom">
 		<columns>
 			<column name="ID" type="long" />
@@ -298,8 +299,7 @@
 				<keys>id</keys>
 				<values>pk</values>
 			</indexMeta>
-			<indexMeta name="second_gmtname" type="btree"
-				strongConsistent="false">
+			<indexMeta name="second_gmtname" type="btree" strongConsistent="false">
 				<keys>gmt_create,name</keys>
 				<values>pk</values>
 			</indexMeta>
@@ -963,7 +963,8 @@
 		</columns>
 		<primaryKey>id</primaryKey>
 	</table>
-	
+	 -->
+	 
 	<table name="student">
 		<columns>
 			<column name="id" type="long" />
@@ -981,4 +982,12 @@
 		</columns>
 		<primaryKey>cid</primaryKey>
 	</table>
+		<table name="_tddl_">
+		<columns>
+			<column name="id" type="long"/>
+			<column name="name" type="string"/>
+		</columns>
+		<primaryKey>id</primaryKey>
+	</table>
+	
 </tables>

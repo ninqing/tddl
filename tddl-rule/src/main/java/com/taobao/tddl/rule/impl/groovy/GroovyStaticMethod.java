@@ -3,7 +3,7 @@ package com.taobao.tddl.rule.impl.groovy;
 import java.util.Calendar;
 import java.util.Date;
 
-import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 
 /**
  * 可直接用于groovy规则中的便捷方法
@@ -163,6 +163,29 @@ public class GroovyStaticMethod {
 
     public static int date(Calendar cal) {
         return cal.get(Calendar.DATE);
+    }
+
+    /**
+     * @return 返回2位的天数，从01开始：01-31（Calendar.DATE对应的值）
+     */
+    public static String dd(Date date) {
+        Calendar cal = getCalendar(date);
+        int d = cal.get(Calendar.DATE);
+        return d < 10 ? "0" + d : String.valueOf(d);
+    }
+
+    public static String dd(Calendar cal) {
+        int d = cal.get(Calendar.DATE);
+        return d < 10 ? "0" + d : String.valueOf(d);
+    }
+
+    public static String mmdd(Date date) {
+        Calendar cal = getCalendar(date);
+        return mm(cal) + dd(cal);
+    }
+
+    public static String mmdd(Calendar cal) {
+        return mm(cal) + dd(cal);
     }
 
     @SuppressWarnings("unused")

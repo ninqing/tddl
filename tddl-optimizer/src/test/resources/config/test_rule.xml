@@ -3,6 +3,7 @@
 <beans>
 	<bean id="vtabroot" class="com.taobao.tddl.rule.VirtualTableRoot" init-method="init">
 		<property name="dbType" value="MYSQL" />
+		<property name="defaultDbIndex" value="andor_group_0" />
 		<property name="tableRules">
 			<map>
 				<entry key="table1" value-ref="table1" />
@@ -107,9 +108,9 @@
 		<property name="allowFullTableScan" value="true" />
 		<property name="dbNamePattern" value="andor_group_{0}" />
 		<property name="dbRuleArray">
-			<value>Math.abs(Long.valueOf(#id,1,8#) % 8).intdiv(2)</value>
+			<value>Math.abs(Long.valueOf(#id,1,4#) % 4).intdiv(2)</value>
 		</property>
-		<property name="tbRules" value="Math.abs(Long.valueOf(#id,1,8#)) % 8" /> 
+		<property name="tbRules" value="Math.abs(Long.valueOf(#id,1,4#)) % 4" /> 
 		<property name="tbNamePattern" value="table5_{00}" />
 		<property name="joinGroup" value="other" />
 	</bean>
@@ -118,9 +119,9 @@
 		<property name="allowFullTableScan" value="true" />
 		<property name="dbNamePattern" value="andor_group_{0}" />
 		<property name="dbRuleArray">
-			<value>Math.abs(Long.valueOf(#id,1,8#) % 8).intdiv(2)</value>
+			<value>Math.abs(Long.valueOf(#id,1,4#) % 4).intdiv(2)</value>
 		</property>
-		<property name="tbRules" value="Math.abs(Long.valueOf(#id,1,8#)) % 8" /> 
+		<property name="tbRules" value="Math.abs(Long.valueOf(#id,1,4#)) % 4" /> 
 		<property name="tbNamePattern" value="table5._name_{00}" />
 		<property name="joinGroup" value="other" />
 	</bean>

@@ -11,8 +11,8 @@ import org.junit.Test;
 
 import com.taobao.diamond.mockserver.MockServer;
 import com.taobao.tddl.common.GroupDataSourceRouteHelper;
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.common.model.ThreadLocalString;
-import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 
 public class DataSourceIndexTest extends BaseGroupTest {

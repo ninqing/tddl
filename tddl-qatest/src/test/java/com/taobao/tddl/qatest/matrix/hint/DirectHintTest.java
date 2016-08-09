@@ -20,13 +20,13 @@ public class DirectHintTest extends BaseMatrixTestCase {
 
     public DirectHintTest(){
         BaseTestCase.normaltblTableName = "mysql_normaltbl_oneGroup_oneAtom";
-        jdbcTemplate = new JdbcTemplate(us);
+        jdbcTemplate = new JdbcTemplate(tddlDatasource);
     }
 
     @Before
     public void initData() throws Exception {
-        andorUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
-        andorUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
+        tddlUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
+        tddlUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
     }
 
     @Test
@@ -41,15 +41,15 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         sql = "select gmt_timestamp from " + normaltblTableName + " where pk=" + RANDOM_ID;
         Map re = jdbcTemplate.queryForMap(sql);
-        Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("GMT_TIMESTAMP")).getTime() / 1000);
+        Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("gmt_timestamp")).getTime() / 1000);
 
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\"})*/";
         sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
     }
 
     @Test
@@ -67,7 +67,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 分别查询两个库
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"mysql_normaltbl_oneGroup_oneAtom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -83,7 +83,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         // 删除
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"mysql_normaltbl_oneGroup_oneAtom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\",\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
         sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
     }
 
     @Test
@@ -98,7 +98,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 多表名替换时，用逗号分隔
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"tablea,tableb\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00,mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
@@ -111,7 +111,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         // 删除
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"mysql_normaltbl_oneGroup_oneAtom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\",\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
         sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
     }
 
     @Test
@@ -119,7 +119,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         // 源表为mysql_normaltbl_oneGroup_oneAtom, 指定两个表
         // mysql_normaltbl_onegroup_mutilatom_00 ，
         // mysql_normaltbl_onegroup_mutilatom_01
-        String sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\",\"?\"]})*/ ";
+        String sql = "/*+TDDL({\"type\":\"direct\",\"dbid\": ?  ,\"vtab\":\"?\",\"realtabs\":[\"?\",\"?\"]})*/ ";
         sql += "insert into mysql_normaltbl_oneGroup_oneAtom values(?,?,?,?,?,?,?)";
         List<Object> param = new ArrayList<Object>();
         param.add("andor_mysql_group_oneAtom");
@@ -133,7 +133,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 分别查询两个库
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
@@ -158,7 +158,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add("mysql_normaltbl_oneGroup_oneAtom");
         param.add("mysql_normaltbl_onegroup_mutilatom_00");
         param.add("mysql_normaltbl_onegroup_mutilatom_01");
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
     }
 
     @Test
@@ -177,7 +177,7 @@ public class DirectHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 分别查询两个库
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"mysql_normaltbl_oneGroup_oneAtom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\"]})*/";
@@ -196,6 +196,87 @@ public class DirectHintTest extends BaseMatrixTestCase {
         sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"andor_mysql_group_oneAtom\",\"vtab\":\"mysql_normaltbl_oneGroup_oneAtom\",\"realtabs\":[\"mysql_normaltbl_onegroup_mutilatom_00\",\"mysql_normaltbl_onegroup_mutilatom_01\"]})*/";
         sql += "/*+TDDL_GROUP({groupIndex:0})*/";
         sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
+    }
+
+    @Test
+    public void test_batch测试() throws Exception {
+        // 源表为mysql_normaltbl_oneGroup_oneAtom, 指定两个表
+        // mysql_normaltbl_onegroup_mutilatom_00 ，
+        // mysql_normaltbl_onegroup_mutilatom_01
+        String sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+        sql += "insert into mysql_normaltbl_oneGroup_oneAtom values(?,?,?,?,?,?,?)";
+
+        List<List<Object>> params = new ArrayList<List<Object>>();
+        for (int i = 0; i < 10; i++) {
+            List<Object> param = new ArrayList<Object>();
+            param.add("andor_mysql_group_oneAtom");
+            param.add("mysql_normaltbl_oneGroup_oneAtom");
+            param.add("mysql_normaltbl_onegroup_mutilatom_0" + i % 2);
+            param.add(RANDOM_ID + i);
+            param.add(RANDOM_INT);
+            param.add(time);
+            param.add(time);
+            param.add(time);
+            param.add(name);
+            param.add(fl);
+
+            params.add(param);
+        }
+        tddlUpdateDataBatch(sql, params);
+
+        // 分别查询两个库
+        for (int i = 0; i < 10; i += 2) {
+            sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+            sql += "select gmt_timestamp from mysql_normaltbl_oneGroup_oneAtom where pk=" + (RANDOM_ID + i);
+            Object args0[] = { "andor_mysql_group_oneAtom", "mysql_normaltbl_oneGroup_oneAtom",
+                    "mysql_normaltbl_onegroup_mutilatom_00" };
+            Map re = jdbcTemplate.queryForMap(sql, args0);
+            Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("GMT_TIMESTAMP")).getTime() / 1000);
+        }
+
+        for (int i = 1; i < 10; i += 2) {
+            sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+            sql += "select gmt_timestamp from mysql_normaltbl_oneGroup_oneAtom where pk=" + (RANDOM_ID + i);
+            Object args1[] = { "andor_mysql_group_oneAtom", "mysql_normaltbl_oneGroup_oneAtom",
+                    "mysql_normaltbl_onegroup_mutilatom_01" };
+            Map re = jdbcTemplate.queryForMap(sql, args1);
+            Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("GMT_TIMESTAMP")).getTime() / 1000);
+        }
+
+        // 删除
+        params = new ArrayList<List<Object>>();
+        for (int i = 0; i < 10; i++) {
+            sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+            sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = ?";
+            List<Object> param = new ArrayList<Object>();
+            param.add("andor_mysql_group_oneAtom");
+            param.add("mysql_normaltbl_oneGroup_oneAtom");
+            param.add("mysql_normaltbl_onegroup_mutilatom_0" + i % 2);
+            param.add(RANDOM_ID + i);
+
+            params.add(param);
+        }
+        tddlUpdateDataBatch(sql, params);
+
+        // 应该找不到了
+        for (int i = 0; i < 10; i += 2) {
+            sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+            sql += "select gmt_timestamp from mysql_normaltbl_oneGroup_oneAtom where pk=" + (RANDOM_ID + i);
+            Object args0[] = { "andor_mysql_group_oneAtom", "mysql_normaltbl_oneGroup_oneAtom",
+                    "mysql_normaltbl_onegroup_mutilatom_00" };
+            List list = jdbcTemplate.queryForList(sql, args0);
+            Assert.assertEquals(0, list.size());
+        }
+
+        for (int i = 1; i < 10; i += 2) {
+            sql = "/*+TDDL({\"type\":\"direct\",\"dbid\":\"?\",\"vtab\":\"?\",\"realtabs\":[\"?\"]})*/ ";
+            sql += "select gmt_timestamp from mysql_normaltbl_oneGroup_oneAtom where pk=" + (RANDOM_ID + i);
+            Object args1[] = { "andor_mysql_group_oneAtom", "mysql_normaltbl_oneGroup_oneAtom",
+                    "mysql_normaltbl_onegroup_mutilatom_01" };
+            List list = jdbcTemplate.queryForList(sql, args1);
+            Assert.assertEquals(0, list.size());
+        }
+
     }
 }

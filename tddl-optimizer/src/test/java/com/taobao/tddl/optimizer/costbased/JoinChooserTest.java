@@ -5,9 +5,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -139,6 +140,7 @@ public class JoinChooserTest extends BaseOptimizerTest {
      * c1有索引，c2无索引
      */
     @Test
+    @Ignore("cost模型计算暂时关闭,不支持调整")
     public void test_JoinStrategy选择_调整join顺序() {
         // table11.c1为二级索引,table10.c2不存在索引
         TableNode table1 = new TableNode("TABLE11");
@@ -180,11 +182,11 @@ public class JoinChooserTest extends BaseOptimizerTest {
     public void test_JoinStrategy选择_存在子查询_存在条件() {
         // table11虽然是C2非主键列为join，但存在主键条件，使用NESTLOOP
         TableNode table1 = new TableNode("TABLE10");
+        table1.query("TABLE10.ID = 1");
         QueryNode query = new QueryNode(table1);
 
         TableNode table2 = new TableNode("TABLE11");
         QueryTreeNode qn = query.join(table2).addJoinKeys("C1", "C2");
-        qn.query("TABLE11.ID = 1");
         qn.build();
         qn = FilterPusher.optimize(qn);// 先把条件推导子节点上，构建子节点join
         build(table1);
@@ -195,6 +197,31 @@ public class JoinChooserTest extends BaseOptimizerTest {
         Assert.assertEquals("TABLE10", ((JoinNode) qn).getLeftNode().getName());
         Assert.assertEquals("TABLE11", ((JoinNode) qn).getRightNode().getName());
         Assert.assertEquals("TABLE11", ((TableNode) ((JoinNode) qn).getRightNode()).getIndexUsed().getName());
+    }
+
+    @Test
+    public void test_存在子查询() {
+        // table11虽然是C2非主键列为join，但存在主键条件，使用NESTLOOP
+        TableNode table1 = new TableNode("TABLE10");
+        table1.query("TABLE10.ID = 1");
+        QueryNode qn = new QueryNode(table1);
+        qn.build();
+
+        QueryTreeNode qtn = optimize(qn, true, true, true);
+        Assert.assertEquals(((TableNode) qtn.getChild()).getKeyFilter().toString(), "TABLE10.ID = 1");
+    }
+
+    @Test
+    public void test_存在嵌套子查询() {
+        // table11虽然是C2非主键列为join，但存在主键条件，使用NESTLOOP
+        TableNode table1 = new TableNode("TABLE10");
+        table1.query("TABLE10.ID = 1");
+        QueryNode nestQn = new QueryNode(table1);
+        QueryNode qn = new QueryNode(nestQn);
+        qn.build();
+
+        optimize(qn, true, true, true);
+        Assert.assertEquals(((TableNode) nestQn.getChild()).getKeyFilter().toString(), "TABLE10.ID = 1");
     }
 
     @Test
@@ -281,9 +308,9 @@ public class JoinChooserTest extends BaseOptimizerTest {
 
     private QueryTreeNode optimize(QueryTreeNode qtn, boolean chooseIndex, boolean chooseJoin, boolean chooseIndexMerge) {
         Map<String, Object> extraCmd = new HashMap<String, Object>();
-        extraCmd.put(ExtraCmd.CHOOSE_INDEX, chooseIndex);
-        extraCmd.put(ExtraCmd.CHOOSE_JOIN, chooseJoin);
-        extraCmd.put(ExtraCmd.CHOOSE_INDEX_MERGE, chooseIndexMerge);
+        extraCmd.put(ConnectionProperties.CHOOSE_INDEX, chooseIndex);
+        extraCmd.put(ConnectionProperties.CHOOSE_JOIN, chooseJoin);
+        extraCmd.put(ConnectionProperties.CHOOSE_INDEX_MERGE, chooseIndexMerge);
         return (QueryTreeNode) JoinChooser.optimize(qtn, extraCmd);
     }
 
@@ -291,7 +318,7 @@ public class JoinChooserTest extends BaseOptimizerTest {
         table.build();
 
         Map<String, Object> extraCmd = new HashMap<String, Object>();
-        extraCmd.put(ExtraCmd.CHOOSE_INDEX, true);
+        extraCmd.put(ConnectionProperties.CHOOSE_INDEX, true);
         IndexMeta index = IndexChooser.findBestIndex(table.getTableMeta(),
             new ArrayList<ISelectable>(),
             FilterUtils.toDNFNode(table.getWhereFilter()),

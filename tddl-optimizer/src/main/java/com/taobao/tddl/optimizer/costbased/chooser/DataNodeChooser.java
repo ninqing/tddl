@@ -1,10 +1,13 @@
 package com.taobao.tddl.optimizer.costbased.chooser;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,8 +16,10 @@ import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.jdbc.Parameters;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.monitor.Monitor;
 import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
@@ -22,6 +27,7 @@ import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.DMLNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
+import com.taobao.tddl.optimizer.core.ast.delegate.NodeDelegate;
 import com.taobao.tddl.optimizer.core.ast.dml.DeleteNode;
 import com.taobao.tddl.optimizer.core.ast.dml.InsertNode;
 import com.taobao.tddl.optimizer.core.ast.dml.PutNode;
@@ -31,12 +37,16 @@ import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.ast.query.MergeNode;
 import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
+import com.taobao.tddl.optimizer.costbased.FilterPreProcessor;
+import com.taobao.tddl.optimizer.costbased.SubQueryPreProcessor;
 import com.taobao.tddl.optimizer.costbased.esitimater.Cost;
 import com.taobao.tddl.optimizer.costbased.esitimater.CostEsitimaterFactory;
 import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
@@ -61,12 +71,24 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  */
 public class DataNodeChooser {
 
-    private static final String LOCAL         = "localhost";
+    private static final String UNDECIDED     = "undecided";
     private static Pattern      suffixPattern = Pattern.compile("\\d+$");                      // 提取字符串最后的数字
     private static final Logger logger        = LoggerFactory.getLogger(DataNodeChooser.class);
 
-    public static ASTNode shard(ASTNode dne, Map<Integer, ParameterContext> parameterSettings,
-                                Map<String, Object> extraCmd) throws QueryException {
+    public static ASTNode shard(ASTNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                        throws QueryException {
+
+        // 针对非batch，绑定变量后，优化语法树
+        if (parameterSettings != null && !parameterSettings.isBatch()) {
+            dne.assignment(parameterSettings);
+            // 绑定变量后，再做一次
+            if (dne instanceof DMLNode) {
+                ((DMLNode) dne).setNode((TableNode) FilterPreProcessor.optimize(((DMLNode) dne).getNode(), false));
+            } else {
+                dne = FilterPreProcessor.optimize(((QueryTreeNode) dne), false);
+            }
+        }
+
         if (dne instanceof DMLNode) {
             if (dne instanceof InsertNode) {
                 return shardInsert((InsertNode) dne, parameterSettings, extraCmd);
@@ -82,20 +104,36 @@ public class DataNodeChooser {
             }
         }
         if (dne instanceof QueryTreeNode) {
-            return shardQuery((QueryTreeNode) dne, parameterSettings, extraCmd);
+            return shardQuery((QueryTreeNode) dne, parameterSettings, extraCmd, true);
         }
 
         return dne;
     }
 
-    private static QueryTreeNode shardQuery(QueryTreeNode qtn, Map<Integer, ParameterContext> parameterSettings,
-                                            Map<String, Object> extraCmd) throws QueryException {
+    private static QueryTreeNode shardQuery(QueryTreeNode qtn, Parameters parameterSettings,
+                                            Map<String, Object> extraCmd, boolean traceIn) throws QueryException {
+        List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qtn, false);
+        // filter中存在子查询，提前处理
+        for (IFunction func : funcs) {
+            QueryTreeNode query = (QueryTreeNode) func.getArgs().get(0);
+            // 非correlated subquery理论上在之前都已经被提前计算过，并进行了assignment替换
+            query = shardQuery(query, parameterSettings, extraCmd, traceIn);
+            func.getArgs().set(0, query);
+        }
+
         if (qtn instanceof QueryNode) {
             QueryNode query = (QueryNode) qtn;
             QueryTreeNode child = query.getChild();
-            child = shardQuery(child, parameterSettings, extraCmd);
-            if (child instanceof MergeNode && !child.isExistAggregate()) {
-                return buildMergeQuery(query, (MergeNode) child);
+            child = shardQuery(child, parameterSettings, extraCmd, traceIn);
+            // 比如select * from (select * from a where xx > xx group b) where xx
+            // > xx limit a,b
+            // 子查询如果存在聚合函数，不可下推
+            // 子查询如果存在from/to，也不可下推.(主要考虑：如果query本身有过滤条件，是在merge查询的基础上过滤，limit之后。如果下推就是limit之前)
+            // 父查询如果存在聚合函数，也不可下推
+            if (child instanceof MergeNode
+                && !(query.isExistAggregate() || child.isExistAggregate() || child.getLimitFrom() != null
+                                                                             && child.getLimitTo() != null)) {
+                return buildMergeQuery(query, (MergeNode) child, extraCmd);
             } else {
                 query.setChild(child);
                 query.setBroadcast(child.isBroadcast());// 传递一下
@@ -109,8 +147,9 @@ public class DataNodeChooser {
             // 构造filter
             IFilter f = FilterUtils.and(query.getKeyFilter(), query.getResultFilter());
             f = FilterUtils.and(f, query.getOtherJoinOnFilter());
+            f = FilterUtils.and(f, query.getSubqueryFilter());
             List<TargetDB> dataNodeChoosed = shard(query.getIndexName(), f, true);
-            return buildMergeTable(query, dataNodeChoosed);
+            return buildMergeTable(query, dataNodeChoosed, extraCmd, traceIn);
         } else if (qtn instanceof JoinNode) {
             // Join节点应该在数据量大的一段进行
             boolean isPartitionOnPartition = false;
@@ -128,16 +167,16 @@ public class DataNodeChooser {
             }
 
             // 处理子节点
-            left = shardQuery(left, parameterSettings, extraCmd);
-            right = shardQuery(right, parameterSettings, extraCmd);
+            left = shardQuery(left, parameterSettings, extraCmd, traceIn);
+            right = shardQuery(right, parameterSettings, extraCmd, traceIn);
             if (isPartitionOnPartition) {
                 // 尝试构建join merge join，可能会构建失败
                 // 失败原因 :
                 // 1. 人肉强制开启join merge join的选项
                 // 2. 涉及index kv的join查询结构，index的数据和原始数据的分区方式可能不一致
-                QueryTreeNode joinMergeJOin = buildJoinMergeJoin(join, left, right);
-                if (joinMergeJOin != null) {
-                    return joinMergeJOin;
+                QueryTreeNode joinMergeJoin = buildJoinMergeJoin(join, left, right, extraCmd);
+                if (joinMergeJoin != null) {
+                    return joinMergeJoin;
                 }
             }
 
@@ -156,7 +195,7 @@ public class DataNodeChooser {
                     // 右边运行时计算
                     ((MergeNode) right).merge(join.getRightNode());
                     ((MergeNode) right).setSharded(false);
-                    join.getRightNode().executeOn("undecided");
+                    join.getRightNode().executeOn(UNDECIDED);
                     right.setBroadcast(false);
                     right.build();
                     join.setRightNode(right);
@@ -197,7 +236,7 @@ public class DataNodeChooser {
             String maxRowCountDataNode = subNodes.get(0).getDataNode();
             for (int i = 0; i < subNodes.size(); i++) {
                 QueryTreeNode child = (QueryTreeNode) subNodes.get(i);
-                child = shardQuery(child, parameterSettings, extraCmd);
+                child = shardQuery(child, parameterSettings, extraCmd, traceIn);
                 subNodes.set(i, child);
                 Cost childCost = CostEsitimaterFactory.estimate(child);
                 if (childCost.getRowCount() > maxRowCount) {
@@ -221,8 +260,7 @@ public class DataNodeChooser {
         return qtn;
     }
 
-    private static ASTNode shardInsert(InsertNode dne, Map<Integer, ParameterContext> parameterSettings,
-                                       Map<String, Object> extraCmd) {
+    private static ASTNode shardInsert(InsertNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
 
         String indexName = null;
         if (dne.getNode() instanceof KVIndexNode) {
@@ -231,71 +269,317 @@ public class DataNodeChooser {
             indexName = dne.getNode().getTableMeta().getPrimaryIndex().getName();
         }
 
-        // 根据规则计算
-        IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
-        List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
-        TargetDB itarget = dataNodeChoosed.get(0);
-        dne.executeOn(itarget.getDbIndex());
-        if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null && itarget.getTableNameMap().size() == 1) {
-            KVIndexNode query = new KVIndexNode(indexName);
-            // 设置为物理的表
-            query.executeOn(itarget.getDbIndex());
-            query.setActualTableName(itarget.getTableNameMap().keySet().iterator().next());
-            dne = query.insert(dne.getColumns(), dne.getValues());
-            dne.executeOn(query.getDataNode());
-            dne.build();
-            return dne;
+        // 处理batch
+        if (parameterSettings != null && parameterSettings.isBatch()) {
+            int i = 0;
+            Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
+            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+                // 做一下绑定变量
+                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                // 根据规则计算
+                IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
+                List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+                TargetDB itarget = dataNodeChoosed.get(0);
+                if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                    && itarget.getTableNameMap().size() == 1) {
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(itarget.getDbIndex(), itarget.getTableNameMap()
+                        .keySet()
+                        .iterator()
+                        .next());
+                    List<Integer> ids = indexs.get(dbAndTab);
+                    if (ids == null) {
+                        ids = new ArrayList<Integer>();
+                        indexs.put(dbAndTab, ids);
+                    }
+                    ids.add(i);
+                } else {
+                    throw new OptimizerException("insert not support muti tables, parameter is " + parameterSettings);
+                }
+
+                i++;
+            }
+
+            List<InsertNode> nodes = new ArrayList<InsertNode>();
+            for (Map.Entry<List<String>, List<Integer>> entry : indexs.entrySet()) {
+                InsertNode node = buildOneInsertNode(dne, indexName, entry.getKey().get(0), entry.getKey().get(1));
+                node.setBatchIndexs(entry.getValue());
+                nodes.add(node);
+            }
+
+            if (nodes.size() > 1) {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (ASTNode node : nodes) {
+                    merge.merge(node);
+                }
+
+                merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                return merge;
+            } else {
+                return nodes.get(0);
+            }
+        } else if (dne.isMultiValues()) {// 处理下insert多value
+            int multiSize = dne.getMultiValuesSize();
+            Map<List<String>, List<List<Object>>> multiValues = new HashMap<List<String>, List<List<Object>>>();
+            for (int i = 0; i < multiSize; i++) {
+                // 根据规则计算
+                List<Object> values = dne.getValues(i);
+                IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues(i));
+                List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+                TargetDB itarget = dataNodeChoosed.get(0);
+                if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                    && itarget.getTableNameMap().size() == 1) {
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(itarget.getDbIndex(), itarget.getTableNameMap()
+                        .keySet()
+                        .iterator()
+                        .next());
+                    List<List<Object>> vv = multiValues.get(dbAndTab);
+                    if (vv == null) {
+                        vv = new ArrayList<List<Object>>();
+                        multiValues.put(dbAndTab, vv);
+                    }
+
+                    vv.add(values);
+                } else {
+                    throw new OptimizerException("insert not support muti tables");
+                }
+            }
+
+            if (multiValues.size() == 1) {
+                List<String> names = multiValues.keySet().iterator().next();
+                return buildOneInsertNode(dne, indexName, names.get(0), names.get(1));
+            } else {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (Map.Entry<List<String>, List<List<Object>>> entry : multiValues.entrySet()) {
+                    List<String> names = entry.getKey();
+                    InsertNode node = buildOneInsertNode(dne, indexName, names.get(0), names.get(1));
+                    node.setMultiValues(entry.getValue()); // 修改一下对应的multiValues
+                    merge.merge(node);
+                }
+
+                merge.executeOn(merge.getChild().getDataNode()).setExtra(merge.getChild().getExtra());
+                return merge;
+            }
         } else {
-            throw new OptimizerException("insert not support muti tables");
+            // 根据规则计算
+            IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
+            List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+            TargetDB itarget = dataNodeChoosed.get(0);
+            dne.executeOn(itarget.getDbIndex());
+            if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                && itarget.getTableNameMap().size() == 1) {
+                return buildOneInsertNode(dne, indexName, itarget.getDbIndex(), itarget.getTableNameMap()
+                    .keySet()
+                    .iterator()
+                    .next());
+            } else {
+                throw new OptimizerException("insert not support muti tables");
+            }
         }
     }
 
-    private static ASTNode shardUpdate(UpdateNode dne, Map<Integer, ParameterContext> parameterSettings,
-                                       Map<String, Object> extraCmd) throws QueryException {
-        QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd);
-        List<ASTNode> subs = new ArrayList();
-        if (qtn instanceof MergeNode) {
-            subs.addAll(qtn.getChildren());
+    private static ASTNode shardUpdate(UpdateNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                                  throws QueryException {
+
+        // 处理batch
+        // case1 :
+        // update xxx where id > ? and id < ?
+        // 针对绑定变量：
+        // a. id > 1 and id < 4 , 会得到 2, 3
+        // b. id > 2 and id < 5 , 会得到 3, 4
+        // 会得到3个表的batch. 2(a) 3(a,b) 4(b)
+        //
+        // case 2 :
+        // update xxx where id in (?,?)
+        // 针对绑定变量：
+        // a. id in (2, 3) , 会得到 2, 3
+        // b. id in (3, 4) , 会得到 3, 4
+        // 会得到3个表的batch. 2(a) 3(a,b) 4(b)
+        // 注意:发送给表的sql均为 id in (?,?) ，这里不会是经过in优化的sql
+        if (parameterSettings != null && parameterSettings.isBatch()) {
+            int i = 0;
+            Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
+            QueryTreeNode whereNode = null;
+            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+                // 做一下绑定变量
+                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                // 根据规则计算,不处理in优化
+                QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, false);
+                List<ASTNode> subs = new ArrayList();
+                if (qtn instanceof MergeNode) {
+                    subs.addAll(qtn.getChildren());
+                } else {
+                    subs.add(qtn);
+                }
+
+                // 一定会有个where node
+                whereNode = (QueryTreeNode) subs.get(0);
+                for (ASTNode sub : subs) {
+                    if (!(sub instanceof TableNode)) {
+                        throw new NotSupportException("update中暂不支持按照索引进行查询");
+                    }
+
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(sub.getDataNode(), ((TableNode) sub).getActualTableName());
+                    List<Integer> ids = indexs.get(dbAndTab);
+                    if (ids == null) {
+                        ids = new ArrayList<Integer>();
+                        indexs.put(dbAndTab, ids);
+                    }
+                    ids.add(i);
+                }
+
+                i++;
+            }
+
+            List<UpdateNode> nodes = new ArrayList<UpdateNode>();
+            for (Map.Entry<List<String>, List<Integer>> entry : indexs.entrySet()) {
+                UpdateNode node = buildOneQueryUpdate(whereNode.copy(),
+                    dne,
+                    entry.getKey().get(0),
+                    entry.getKey().get(1));
+                node.setBatchIndexs(entry.getValue());
+                nodes.add(node);
+            }
+
+            if (nodes.size() > 1) {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (ASTNode node : nodes) {
+                    merge.merge(node);
+                }
+
+                merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                return merge;
+            } else {
+                return nodes.get(0);
+            }
         } else {
-            subs.add(qtn);
-        }
+            QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, true);
+            List<ASTNode> subs = new ArrayList();
+            if (qtn instanceof MergeNode) {
+                subs.addAll(qtn.getChildren());
+            } else {
+                subs.add(qtn);
+            }
 
-        if (subs.size() == 1) {
-            return buildOneQueryUpdate((QueryTreeNode) subs.get(0), dne.getColumns(), dne.getValues());
-        }
+            if (subs.size() > 1) {
+                MergeNode updateMerge = new MergeNode();
+                for (ASTNode sub : subs) {
+                    updateMerge.merge(buildOneQueryUpdate((QueryTreeNode) sub, dne));
+                }
+                updateMerge.executeOn(updateMerge.getChild().getDataNode());
+                return updateMerge;
+            } else {
+                return buildOneQueryUpdate((QueryTreeNode) subs.get(0), dne);
+            }
 
-        MergeNode updateMerge = new MergeNode();
-        for (ASTNode sub : subs) {
-            updateMerge.merge(buildOneQueryUpdate((QueryTreeNode) sub, dne.getColumns(), dne.getValues()));
         }
-        updateMerge.executeOn(updateMerge.getChild().getDataNode());
-        return updateMerge;
     }
 
-    private static ASTNode shardDelete(DeleteNode dne, Map<Integer, ParameterContext> parameterSettings,
-                                       Map<String, Object> extraCmd) throws QueryException {
-        QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd);
-        List<ASTNode> subs = new ArrayList();
-        if (qtn instanceof MergeNode) {
-            subs.addAll(qtn.getChildren());
+    private static ASTNode shardDelete(DeleteNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                                  throws QueryException {
+
+        // 处理batch
+        // case1 :
+        // update xxx where id > ? and id < ?
+        // 针对绑定变量：
+        // a. id > 1 and id < 4 , 会得到 2, 3
+        // b. id > 2 and id < 5 , 会得到 3, 4
+        // 会得到3个表的batch. 2(a) 3(a,b) 4(b)
+        //
+        // case 2 :
+        // update xxx where id in (?,?)
+        // 针对绑定变量：
+        // a. id in (2, 3) , 会得到 2, 3
+        // b. id in (3, 4) , 会得到 3, 4
+        // 会得到3个表的batch. 2(a) 3(a,b) 4(b)
+        // 注意:发送给表的sql均为 id in (?,?) ，这里不会是经过in优化的sql
+
+        if (parameterSettings != null && parameterSettings.isBatch()) {
+            int i = 0;
+            Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
+            QueryTreeNode whereNode = null;
+            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+                // 做一下绑定变量
+                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                // 根据规则计算, batch不处理in优化
+                QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, false);
+                List<ASTNode> subs = new ArrayList();
+                if (qtn instanceof MergeNode) {
+                    subs.addAll(qtn.getChildren());
+                } else {
+                    subs.add(qtn);
+                }
+
+                // 一定会有个where node
+                whereNode = (QueryTreeNode) subs.get(0);
+                for (ASTNode sub : subs) {
+                    if (!(sub instanceof TableNode)) {
+                        throw new NotSupportException("update中暂不支持按照索引进行查询");
+                    }
+
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(sub.getDataNode(), ((TableNode) sub).getActualTableName());
+                    List<Integer> ids = indexs.get(dbAndTab);
+                    if (ids == null) {
+                        ids = new ArrayList<Integer>();
+                        indexs.put(dbAndTab, ids);
+                    }
+                    ids.add(i);
+                }
+
+                i++;
+            }
+
+            List<DeleteNode> nodes = new ArrayList<DeleteNode>();
+            for (Map.Entry<List<String>, List<Integer>> entry : indexs.entrySet()) {
+                DeleteNode node = buildOneQueryDelete(whereNode.copy(),
+                    dne,
+                    entry.getKey().get(0),
+                    entry.getKey().get(1));
+                node.setBatchIndexs(entry.getValue());
+                nodes.add(node);
+            }
+
+            if (nodes.size() > 1) {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (ASTNode node : nodes) {
+                    merge.merge(node);
+                }
+
+                merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                return merge;
+            } else {
+                return nodes.get(0);
+            }
         } else {
-            subs.add(qtn);
-        }
+            QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, true);
+            List<ASTNode> subs = new ArrayList();
+            if (qtn instanceof MergeNode) {
+                subs.addAll(qtn.getChildren());
+            } else {
+                subs.add(qtn);
+            }
 
-        if (subs.size() == 1) {
-            return buildOneQueryDelete((QueryTreeNode) subs.get(0));
+            if (subs.size() > 1) {
+                MergeNode deleteMerge = new MergeNode();
+                for (ASTNode sub : subs) {
+                    deleteMerge.merge(buildOneQueryDelete((QueryTreeNode) sub, dne));
+                }
+                deleteMerge.executeOn(deleteMerge.getChild().getDataNode());
+                return deleteMerge;
+            } else {
+                return buildOneQueryDelete((QueryTreeNode) subs.get(0), dne);
+            }
         }
-
-        MergeNode deleteMerge = new MergeNode();
-        for (ASTNode sub : subs) {
-            deleteMerge.merge(buildOneQueryDelete((QueryTreeNode) sub));
-        }
-        deleteMerge.executeOn(deleteMerge.getChild().getDataNode());
-        return deleteMerge;
     }
 
-    private static ASTNode shardPut(PutNode dne, Map<Integer, ParameterContext> parameterSettings,
-                                    Map<String, Object> extraCmd) {
+    private static ASTNode shardPut(PutNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
         String indexName = null;
         if (dne.getNode() instanceof KVIndexNode) {
             indexName = ((KVIndexNode) dne.getNode()).getIndexName();
@@ -303,20 +587,115 @@ public class DataNodeChooser {
             indexName = dne.getNode().getTableMeta().getPrimaryIndex().getName();
         }
 
-        IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
-        List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
-        TargetDB itarget = dataNodeChoosed.get(0);
-        dne.executeOn(itarget.getDbIndex());
-        if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null && itarget.getTableNameMap().size() == 1) {
-            KVIndexNode query = new KVIndexNode(indexName);
-            query.executeOn(itarget.getDbIndex());
-            query.setActualTableName(itarget.getTableNameMap().keySet().iterator().next());
-            dne = query.put(dne.getColumns(), dne.getValues());
-            dne.executeOn(query.getDataNode());
-            dne.build();
-            return dne;
+        // 处理batch
+        if (parameterSettings != null && parameterSettings.isBatch()) {
+            int i = 0;
+            Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
+            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+                // 做一下绑定变量
+                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                // 根据规则计算
+                IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
+                List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+                TargetDB itarget = dataNodeChoosed.get(0);
+                if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                    && itarget.getTableNameMap().size() == 1) {
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(itarget.getDbIndex(), itarget.getTableNameMap()
+                        .keySet()
+                        .iterator()
+                        .next());
+                    List<Integer> ids = indexs.get(dbAndTab);
+                    if (ids == null) {
+                        ids = new ArrayList<Integer>();
+                        indexs.put(dbAndTab, ids);
+                    }
+                    ids.add(i);
+                } else {
+                    throw new OptimizerException("insert not support muti tables");
+                }
+
+                i++;
+            }
+
+            List<PutNode> nodes = new ArrayList<PutNode>();
+            for (Map.Entry<List<String>, List<Integer>> entry : indexs.entrySet()) {
+                PutNode node = buildOnePutNode(dne, indexName, entry.getKey().get(0), entry.getKey().get(1));
+                node.setBatchIndexs(entry.getValue());
+                nodes.add(node);
+            }
+
+            if (nodes.size() > 1) {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (ASTNode node : nodes) {
+                    merge.merge(node);
+                }
+
+                merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                return merge;
+            } else {
+                return nodes.get(0);
+            }
+        } else if (dne.isMultiValues()) { // 处理下insert多value
+            int multiSize = dne.getMultiValuesSize();
+            Map<List<String>, List<List<Object>>> multiValues = new HashMap<List<String>, List<List<Object>>>();
+            for (int i = 0; i < multiSize; i++) {
+                // 根据规则计算
+                List<Object> values = dne.getValues(i);
+                IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues(i));
+                List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+                TargetDB itarget = dataNodeChoosed.get(0);
+                if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                    && itarget.getTableNameMap().size() == 1) {
+                    // 构造key
+                    List<String> dbAndTab = Arrays.asList(itarget.getDbIndex(), itarget.getTableNameMap()
+                        .keySet()
+                        .iterator()
+                        .next());
+                    List<List<Object>> vv = multiValues.get(dbAndTab);
+                    if (vv == null) {
+                        vv = new ArrayList<List<Object>>();
+                        multiValues.put(dbAndTab, vv);
+                    }
+
+                    vv.add(values);
+                } else {
+                    throw new OptimizerException("put not support muti tables");
+                }
+            }
+
+            if (multiValues.size() == 1) {
+                List<String> names = multiValues.keySet().iterator().next();
+                return buildOnePutNode(dne, indexName, names.get(0), names.get(1));
+            } else {
+                // 构造merge
+                MergeNode merge = new MergeNode();
+                for (Map.Entry<List<String>, List<List<Object>>> entry : multiValues.entrySet()) {
+                    List<String> names = entry.getKey();
+                    PutNode node = buildOnePutNode(dne, indexName, names.get(0), names.get(1));
+                    node.setMultiValues(entry.getValue()); // 修改一下对应的multiValues
+                    merge.merge(node);
+                }
+
+                merge.executeOn(merge.getChild().getDataNode()).setExtra(merge.getChild().getExtra());
+                return merge;
+            }
         } else {
-            throw new OptimizerException("insert not support muti tables");
+            // 根据规则计算
+            IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
+            List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
+            TargetDB itarget = dataNodeChoosed.get(0);
+            dne.executeOn(itarget.getDbIndex());
+            if (dataNodeChoosed.size() == 1 && itarget.getTableNameMap() != null
+                && itarget.getTableNameMap().size() == 1) {
+                return buildOnePutNode(dne, indexName, itarget.getDbIndex(), itarget.getTableNameMap()
+                    .keySet()
+                    .iterator()
+                    .next());
+            } else {
+                throw new OptimizerException("put not support muti tables");
+            }
         }
     }
 
@@ -342,6 +721,7 @@ public class DataNodeChooser {
             logger.warn("isWrite:" + isWrite);
         }
 
+        long time = System.currentTimeMillis();
         String tableName = logicalName.split("\\.")[0];
         OptimizerContext.getContext().getSchemaManager().getTable(tableName); // 验证下表是否存在
         List<TargetDB> dataNodeChoosed = OptimizerContext.getContext().getRule().shard(logicalName, f, isWrite);
@@ -349,6 +729,10 @@ public class DataNodeChooser {
             throw new EmptyResultFilterException("无对应执行节点");
         }
 
+        time = Monitor.monitorAndRenewTime(Monitor.KEY1,
+            Monitor.KEY2_TDDL_PARSE,
+            Monitor.Key3Success,
+            System.currentTimeMillis() - time);
         return dataNodeChoosed;
     }
 
@@ -361,23 +745,42 @@ public class DataNodeChooser {
     /**
      * 根据执行的目标节点，构建MergeNode
      */
-    private static QueryTreeNode buildMergeTable(TableNode table, List<TargetDB> dataNodeChoosed) {
+    private static QueryTreeNode buildMergeTable(TableNode table, List<TargetDB> dataNodeChoosed,
+                                                 Map<String, Object> extraCmd, boolean traceIn) {
         long maxRowCount = 0;
         String maxRowCountDataNode = dataNodeChoosed.get(0).getDbIndex();
         List<List<QueryTreeNode>> subs = new ArrayList();
         // 单库单表是大多数场景，此时无需复制执行计划
-        boolean needCopy = true;
-        if (dataNodeChoosed != null && dataNodeChoosed.size() == 1
-            && dataNodeChoosed.get(0).getTableNameMap().size() == 1) {
-            needCopy = false;
+        // 大部分情况只有一张表
+        boolean needCopy = false;
+        if (dataNodeChoosed.size() > 0 && dataNodeChoosed.get(0).getTableNameMap().size() > 0) {
+            Map<String, Field> tabMap = dataNodeChoosed.get(0).getTableNameMap();
+            Entry<String, Field> entry = tabMap.entrySet().iterator().next();
+            // 如果存在in，则必须使用复制
+            if (traceIn && entry.getValue() != null) {
+                needCopy |= traceSourceInFilter(table.getKeyFilter(), entry.getValue().getSourceKeys(), true);
+                needCopy |= traceSourceInFilter(table.getResultFilter(), entry.getValue().getSourceKeys(), true);
+            }
+
+            if (!chooseShareNode(extraCmd) && tabMap.size() > 1) {
+                // 如果不使用share模式，并且多于一张表，那就采用复制模式
+                needCopy = true;
+            }
+
+            if (!needCopy && tabMap.size() > 1) {
+                table = table.copy(); // 针对share模式，需要复制一份
+            }
+
         }
 
+        int index = 0;
         for (TargetDB target : dataNodeChoosed) {
-            OneDbNodeWithCount oneDbNodeWithCount = buildMergeTableInOneDB(table, target, needCopy);
+            OneDbNodeWithCount oneDbNodeWithCount = buildMergeTableInOneDB(table, target, index, needCopy, traceIn);
             if (!oneDbNodeWithCount.subs.isEmpty()) {
                 subs.add(oneDbNodeWithCount.subs);
             }
 
+            index += target.getTableNameMap().size();
             if (oneDbNodeWithCount.totalRowCount > maxRowCount) {
                 maxRowCount = oneDbNodeWithCount.totalRowCount;
                 maxRowCountDataNode = target.getDbIndex();
@@ -392,11 +795,11 @@ public class DataNodeChooser {
         } else {
             // 多库执行
             MergeNode merge = new MergeNode();
-            merge.executeOn(LOCAL);// 随意的一个名字
             merge.setAlias(table.getAlias());
             merge.setSubQuery(table.isSubQuery());
             merge.setSubAlias(table.getSubAlias());
             merge.executeOn(maxRowCountDataNode);
+            merge.setSubqueryOnFilterId(table.getSubqueryOnFilterId());
             for (List<QueryTreeNode> subList : subs) {
                 for (QueryTreeNode sub : subList) {
                     merge.merge(sub);
@@ -411,36 +814,38 @@ public class DataNodeChooser {
     /**
      * 构建单库的执行节点
      */
-    private static OneDbNodeWithCount buildMergeTableInOneDB(TableNode table, TargetDB targetDB, boolean needCopy) {
+    private static OneDbNodeWithCount buildMergeTableInOneDB(TableNode table, TargetDB targetDB, int baseIndex,
+                                                             boolean needCopy, boolean traceIn) {
         long totalRowCount = 0;
         OneDbNodeWithCount oneDbNodeWithCount = new OneDbNodeWithCount();
         Map<String, Field> tabMap = targetDB.getTableNameMap();
+        int i = baseIndex;
         for (String targetTable : tabMap.keySet()) {
-            TableNode node = null;
+            TableNode node = table;
             if (needCopy) {
                 node = table.copy();
+
+                // tddl的traceSource在分库不分表，和全表扫描时无法使用 mengshi
+                if (traceIn && tabMap.get(targetTable) != null && tabMap.get(targetTable).getSourceKeys() != null) {
+                    traceSourceInFilter(node.getKeyFilter(), tabMap.get(targetTable).getSourceKeys(), false);
+                    traceSourceInFilter(node.getResultFilter(), tabMap.get(targetTable).getSourceKeys(), false);
+                }
+            }
+
+            if (needCopy) {
+                node.setActualTableName(targetTable);
+                node.executeOn(targetDB.getDbIndex());
+                node.setExtra(getIdentifierExtra((KVIndexNode) node, 0));// 设置标志
+                oneDbNodeWithCount.subs.add(node);
             } else {
-                node = table;
+                node.setActualTableName(targetTable, i);
+                node.executeOn(targetDB.getDbIndex(), i);
+                node.setExtra(getIdentifierExtra((KVIndexNode) node, i), i);// 设置标志
+                // 添加一个代理对象
+                oneDbNodeWithCount.subs.add((QueryTreeNode) new NodeDelegate(node, i).getProxy());
+                i = i + 1;
             }
 
-            // tddl的traceSource在分库不分表，和全表扫描时无法使用 mengshi
-            if (tabMap.get(targetTable) != null && tabMap.get(targetTable).getSourceKeys() != null) {
-                if (node.getKeyFilter() != null) {
-                    IFilter keyFilterAfterTraceSource = (IFilter) node.getKeyFilter().copy();
-                    traceSourceInFilter(keyFilterAfterTraceSource, tabMap.get(targetTable).getSourceKeys());
-                    node.setKeyFilter(keyFilterAfterTraceSource);
-                }
-
-                if (node.getResultFilter() != null) {
-                    IFilter valueFilterAfterTraceSource = (IFilter) node.getResultFilter().copy();
-                    traceSourceInFilter(valueFilterAfterTraceSource, tabMap.get(targetTable).getSourceKeys());
-                    node.setResultFilter(valueFilterAfterTraceSource);
-                }
-            }
-
-            node.setActualTableName(targetTable);
-            node.executeOn(targetDB.getDbIndex());
-            node.setExtra(getIdentifierExtra((KVIndexNode) node));// 设置标志
             // 暂时先用逻辑表名，以后可能是索引名
             String indexName = null;
             if (node instanceof KVIndexNode) {
@@ -449,9 +854,7 @@ public class DataNodeChooser {
                 indexName = node.getTableMeta().getPrimaryIndex().getName();
             }
             node.setBroadcast(OptimizerContext.getContext().getRule().isBroadCast(indexName));
-
             totalRowCount += CostEsitimaterFactory.estimate(node).getRowCount();
-            oneDbNodeWithCount.subs.add(node);
         }
 
         oneDbNodeWithCount.totalRowCount = totalRowCount;
@@ -461,9 +864,9 @@ public class DataNodeChooser {
     /**
      * 更新in操作的values
      */
-    private static void traceSourceInFilter(IFilter filter, Map<String, Set<Object>> sourceKeys) {
+    private static boolean traceSourceInFilter(IFilter filter, Map<String, Set<Object>> sourceKeys, boolean dryRun) {
         if (sourceKeys == null || filter == null) {
-            return;
+            return false;
         }
 
         if (filter instanceof IBooleanFilter) {
@@ -471,49 +874,107 @@ public class DataNodeChooser {
                 ISelectable s = (ISelectable) ((IBooleanFilter) filter).getColumn();
                 Set<Object> sourceKey = sourceKeys.get(s.getColumnName());
                 if (sourceKey != null && !sourceKey.isEmpty()) {
-                    ((IBooleanFilter) filter).setValues(new ArrayList(sourceKey));
+                    if (!dryRun) {
+                        // 可能只是验证下是否需要做in处理
+                        ((IBooleanFilter) filter).setValues(new ArrayList(sourceKey));
+                    }
+                    return true;
                 }
             }
         } else if (filter instanceof ILogicalFilter) {
+            boolean existIn = false;
             for (IFilter subFilter : ((ILogicalFilter) filter).getSubFilter()) {
                 if (subFilter.getOperation().equals(OPERATION.IN)) {
                     ISelectable s = (ISelectable) ((IBooleanFilter) subFilter).getColumn();
                     Set<Object> sourceKey = sourceKeys.get(s.getColumnName());
                     if (sourceKey != null && !sourceKey.isEmpty()) {// 走了规则,在in中有sourceTrace
-                        ((IBooleanFilter) subFilter).setValues(new ArrayList(sourceKey));
+                        if (!dryRun) {
+                            // 可能只是验证下是否需要做in处理
+                            ((IBooleanFilter) subFilter).setValues(new ArrayList(sourceKey));
+                        }
+                        existIn = true;
                     }
                 }
             }
+            return existIn;
         }
+
+        return false;
     }
 
-    private static UpdateNode buildOneQueryUpdate(QueryTreeNode sub, List columns, List values) {
+    private static InsertNode buildOneInsertNode(InsertNode dne, String indexName, String dbIndex, String tableName) {
+        KVIndexNode query = new KVIndexNode(indexName);
+        // 设置为物理的表
+        query.executeOn(dbIndex);
+        query.setActualTableName(tableName);
+
+        InsertNode insert = dne.copySelf();
+        insert.setNode(query);
+        insert.executeOn(query.getDataNode());
+        insert.build();
+        return insert;
+    }
+
+    private static PutNode buildOnePutNode(PutNode dne, String indexName, String dbIndex, String tableName) {
+        KVIndexNode query = new KVIndexNode(indexName);
+        // 设置为物理的表
+        query.executeOn(dbIndex);
+        query.setActualTableName(tableName);
+
+        PutNode put = dne.copySelf();
+        put.setNode(query);
+        put.executeOn(query.getDataNode());
+        put.build();
+        return put;
+    }
+
+    private static UpdateNode buildOneQueryUpdate(QueryTreeNode sub, UpdateNode dne, String dbIndex, String tableName) {
         if (sub instanceof TableNode) {
-            UpdateNode update = ((TableNode) sub).update(columns, values);
-            update.executeOn(sub.getDataNode());
-            return update;
+            // 不能使用QueryTreeNode.update()生成node
+            // 因为使用了代理模式后，update中会将this做为构造参数，而this并不是生成的代理类对象
+            ((TableNode) sub).executeOn(dbIndex);
+            ((TableNode) sub).setActualTableName(tableName);
+            return buildOneQueryUpdate(sub, dne);
         } else {
             throw new NotSupportException("update中暂不支持按照索引进行查询");
         }
     }
 
-    private static DeleteNode buildOneQueryDelete(QueryTreeNode sub) {
+    private static UpdateNode buildOneQueryUpdate(QueryTreeNode sub, UpdateNode dne) {
+        UpdateNode update = dne.copySelf();
+        update.setNode((TableNode) sub);
+        update.executeOn(sub.getDataNode());
+        return update;
+    }
+
+    private static DeleteNode buildOneQueryDelete(QueryTreeNode sub, DeleteNode dne, String dbIndex, String tableName) {
         if (sub instanceof TableNode) {
-            DeleteNode delete = ((TableNode) sub).delete();
-            delete.executeOn(sub.getDataNode());
-            return delete;
+            // 不能使用QueryTreeNode.update()生成node
+            // 因为使用了代理模式后，update中会将this做为构造参数，而this并不是生成的代理类对象
+            ((TableNode) sub).executeOn(dbIndex);
+            ((TableNode) sub).setActualTableName(tableName);
+
+            return buildOneQueryDelete(sub, dne);
         } else {
             throw new NotSupportException("delete中暂不支持按照索引进行查询");
         }
     }
 
-    private static QueryTreeNode buildMergeQuery(QueryNode query, MergeNode mergeNode) {
+    private static DeleteNode buildOneQueryDelete(QueryTreeNode sub, DeleteNode dne) {
+        DeleteNode delete = dne.copySelf();
+        delete.setNode((TableNode) sub);
+        delete.executeOn(sub.getDataNode());
+        return delete;
+    }
+
+    private static QueryTreeNode buildMergeQuery(QueryNode query, MergeNode mergeNode, Map<String, Object> extraCmd) {
         List<QueryNode> mergeQuerys = new LinkedList<QueryNode>();
+
         for (ASTNode child : mergeNode.getChildren()) {
             // 在未做shard之前就有存在mergeNode的可能，要识别出来
             // 比如OR条件，可能会被拆分为两个Query的Merge，这个经过build之后，会是Merge套Merge或者是Merge套Query
             if (!(child instanceof MergeNode) && child.getExtra() != null) {
-                QueryNode newQuery = query.copy();
+                QueryNode newQuery = query.copySelf();// 只复制自己，不复制子节点
                 newQuery.setChild((QueryTreeNode) child);
                 newQuery.executeOn(child.getDataNode());
                 newQuery.setExtra(child.getExtra());
@@ -527,6 +988,10 @@ public class DataNodeChooser {
             merge.setAlias(query.getAlias());
             merge.setSubQuery(query.isSubQuery());
             merge.setSubAlias(query.getSubAlias());
+            // 复制子节点的limit/to信息
+            merge.setLimitFrom(query.getLimitFrom());
+            merge.setLimitTo(query.getLimitTo());
+            merge.setSubqueryOnFilterId(query.getSubqueryOnFilterId());
             for (QueryNode q : mergeQuerys) {
                 merge.merge(q);
             }
@@ -542,11 +1007,15 @@ public class DataNodeChooser {
     }
 
     private static boolean chooseJoinMergeJoinByRule(Map<String, Object> extraCmd) {
-        return GeneralUtil.getExtraCmdBoolean(extraCmd, ExtraCmd.JOIN_MERGE_JOIN_JUDGE_BY_RULE, true);
+        return GeneralUtil.getExtraCmdBoolean(extraCmd, ConnectionProperties.JOIN_MERGE_JOIN_JUDGE_BY_RULE, true);
     }
 
     private static boolean chooseJoinMergeJoinForce(Map<String, Object> extraCmd) {
-        return GeneralUtil.getExtraCmdBoolean(extraCmd, ExtraCmd.JOIN_MERGE_JOIN, false);
+        return GeneralUtil.getExtraCmdBoolean(extraCmd, ConnectionProperties.JOIN_MERGE_JOIN, false);
+    }
+
+    private static boolean chooseShareNode(Map<String, Object> extraCmd) {
+        return true;
     }
 
     private static class PartitionJoinResult {
@@ -641,7 +1110,14 @@ public class DataNodeChooser {
             List<ColumnMeta> columns = new ArrayList<ColumnMeta>();
             TableMeta tableMeta = ((KVIndexNode) qtn).getTableMeta();
             for (String shardColumn : shardColumns) {
-                columns.add(tableMeta.getColumn(shardColumn));
+                ColumnMeta column = tableMeta.getColumn(shardColumn);
+                if (column == null) {
+                    // 可能是一个不存在的分库字段
+                    result.flag = false;
+                    return result;
+                }
+
+                columns.add(column);
             }
 
             String tableName = ((KVIndexNode) qtn).getTableName();
@@ -695,7 +1171,18 @@ public class DataNodeChooser {
         return false;
     }
 
-    private static QueryTreeNode buildJoinMergeJoin(JoinNode join, QueryTreeNode left, QueryTreeNode right) {
+    private static QueryTreeNode buildJoinMergeJoin(JoinNode join, QueryTreeNode left, QueryTreeNode right,
+                                                    Map<String, Object> extraCmd) {
+        // 存在聚合计算，不能展开
+        if (left.isExistAggregate() || left.getLimitFrom() != null || left.getLimitTo() != null) {
+            return null;
+        }
+
+        // 存在聚合计算，不能展开
+        if (right.isExistAggregate() || right.getLimitFrom() != null || right.getLimitTo() != null) {
+            return null;
+        }
+
         // 根据表名的后缀来判断两个表是不是对应的表
         // 底下的节点已经被优先处理
         // 1. 如果是KvIndexNode，没必要转化为join merge join，直接join即可
@@ -730,10 +1217,7 @@ public class DataNodeChooser {
             return join;// 两个广播表之间的join，直接返回
         } else if (leftBroadCast) {// 左边是广播表
             for (QueryTreeNode r : rights) {
-                if (r.isExistAggregate()) {// 存在聚合计算，不能展开
-                    return null;
-                }
-                JoinNode newj = join.copy();
+                JoinNode newj = join.copySelf();
                 QueryTreeNode newL = left.copy();
                 setExecuteOn(newL, r.getDataNode());// 广播表的执行节点跟着右边走
                 newj.setLeftNode(newL);
@@ -744,12 +1228,9 @@ public class DataNodeChooser {
             }
         } else if (rightBroadCast) {
             for (QueryTreeNode l : lefts) {
-                if (l.isExistAggregate()) {// 存在聚合计算，不能展开
-                    return null;
-                }
+                JoinNode newj = join.copySelf();
                 QueryTreeNode newR = right.copy();
                 setExecuteOn(newR, l.getDataNode());// 广播表的执行节点跟着右边走
-                JoinNode newj = join.copy();
                 newj.setLeftNode(l);
                 newj.setRightNode(newR);
                 newj.executeOn(l.getDataNode());
@@ -759,16 +1240,12 @@ public class DataNodeChooser {
         } else {
             // 根据后缀，找到匹配的表，生成join
             for (QueryTreeNode r : rights) {
-                QueryTreeNode l = leftIdentifierExtras.get(r.getExtra());
+                QueryTreeNode l = leftIdentifierExtras.remove(r.getExtra());
                 if (l == null) {
                     return null; // 转化失败，直接退回merge join merge的处理
                 }
 
-                if (l.isExistAggregate() || r.isExistAggregate()) {// 存在聚合计算，不能展开
-                    return null;
-                }
-
-                JoinNode newj = join.copy();
+                JoinNode newj = join.copySelf();
                 newj.setLeftNode(l);
                 newj.setRightNode(r);
                 newj.executeOn(l.getDataNode());
@@ -783,6 +1260,7 @@ public class DataNodeChooser {
                 merge.merge(j);
             }
 
+            merge.setSubqueryOnFilterId(joins.get(0).getSubqueryOnFilterId());
             merge.executeOn(joins.get(0).getDataNode()).setExtra(joins.get(0).getExtra());
             merge.build();
             return merge;
@@ -814,17 +1292,17 @@ public class DataNodeChooser {
      *    此时executeNode就是库名，已经可以唯一确定一张表
      * </pre>
      */
-    private static String getIdentifierExtra(KVIndexNode child) {
-        String tableName = child.getActualTableName();
+    private static String getIdentifierExtra(KVIndexNode child, int shareIndex) {
+        String tableName = child.getActualTableName(shareIndex);
         if (tableName == null) {
             tableName = child.getIndexName();
         }
 
         Matcher matcher = suffixPattern.matcher(tableName);
         if (matcher.find()) {
-            return (child.getDataNode() + "_" + matcher.group());
+            return (child.getDataNode(shareIndex) + "_" + matcher.group());
         } else {
-            return child.getDataNode();
+            return child.getDataNode(shareIndex);
         }
     }
 
@@ -834,7 +1312,7 @@ public class DataNodeChooser {
             IBooleanFilter f = ASTNodeFactory.getInstance().createBooleanFilter();
             f.setOperation(OPERATION.EQ);
             f.setColumn(columns.get(0));
-            f.setValue(values.get(0));
+            f.setValue(getValue(values.get(0)));
             insertFilter = f;
         } else {
             ILogicalFilter and = ASTNodeFactory.getInstance().createLogicalFilter();
@@ -844,12 +1322,26 @@ public class DataNodeChooser {
                 IBooleanFilter f = ASTNodeFactory.getInstance().createBooleanFilter();
                 f.setOperation(OPERATION.EQ);
                 f.setColumn(c);
-                f.setValue(values.get(i));
+                f.setValue(getValue(values.get(i)));
                 and.addSubFilter(f);
             }
 
             insertFilter = and;
         }
         return insertFilter;
+    }
+
+    private static Object getValue(Object val) {
+        if (val instanceof IFunction) {
+            IFunction func = (IFunction) val;
+            if ("NOW".equalsIgnoreCase(func.getFunctionName())) {
+                return new Date();
+            }
+        } else if (val instanceof IBindVal) {
+            // 针对batch时，不替换BindVal
+            return ((IBindVal) val).getValue();
+        }
+
+        return val;
     }
 }

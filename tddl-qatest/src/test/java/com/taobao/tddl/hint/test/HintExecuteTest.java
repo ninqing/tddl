@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.executor.MatrixExecutor;
+import com.taobao.tddl.executor.common.ConnectionHolder;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.ResultCursor;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -33,6 +34,7 @@ public class HintExecuteTest {
 
         ExecutionContext context = new ExecutionContext();
         context.setExecutorService(Executors.newCachedThreadPool());
+        context.setConnectionHolder(new ConnectionHolder());
 
         Merge merge = new Merge();
         DataNodeExecutor sub1 = new Query();

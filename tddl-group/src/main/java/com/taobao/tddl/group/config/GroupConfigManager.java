@@ -9,11 +9,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import javax.sql.DataSource;
 
@@ -26,7 +21,8 @@ import com.taobao.tddl.atom.TAtomDsStandard;
 import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.model.DataSourceType;
 import com.taobao.tddl.common.utils.TStringUtil;
-import com.taobao.tddl.common.utils.thread.NamedThreadFactory;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataHandlerFactory;
 import com.taobao.tddl.config.ConfigDataListener;
@@ -43,9 +39,7 @@ import com.taobao.tddl.group.jdbc.DataSourceFetcher;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.group.listener.DataSourceChangeListener;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 
 /**
  * 一个ConfigManager对应一个TGroupDataSource，
@@ -125,7 +119,7 @@ public class GroupConfigManager {
 
         parse(dsWeightCommaStr);
         // 已经使用过的配置移除
-        // destroyConfigHoderFactory();
+        // destoryConfigHoderFactory();
     }
 
     /**
@@ -295,7 +289,7 @@ public class GroupConfigManager {
         if ((dsWeightCommaStr == null) || (dsWeightCommaStr = dsWeightCommaStr.trim()).length() == 0) {
             throw new ConfigException("与dbGroupKey:'" + tGroupDataSource.getFullDbGroupKey() + "'对应的配置信息不能为null且长度要大于0");
         }
-        return buildDataSourceWrapperParallel(dsWeightCommaStr, new MyDataSourceFetcher());
+        return buildDataSourceWrapperSequential(dsWeightCommaStr, new MyDataSourceFetcher());
     }
 
     /**
@@ -360,37 +354,13 @@ public class GroupConfigManager {
         this.dataSourceChangeListener = dataSourceChangeListener;
     }
 
-    /*
-     * //返回的数组元素个数固定是2，第1个是read，第二个是write private DBSelector[]
-     * createDBSelectors(List<String> dbKeyAndWeightList) { DBSelector
-     * r_DBSelector = null; DBSelector w_DBSelector = null;
-     * //如果只有一个db，则用OneDBSelector if (dbKeyAndWeightList.size() == 1) { String[]
-     * dbKeyAndWeight = split(dbKeyAndWeightList.get(0), ":"); DataSourceWrapper
-     * dsw = createDataSourceWrapper(dbKeyAndWeight[0], (dbKeyAndWeight.length
-     * == 2 ? dbKeyAndWeight[1] : null), 0); //只有一个数据源时，数据源索引为0 r_DBSelector =
-     * new OneDBSelector(dsw); r_DBSelector.setDbType(dsw.getDBType());
-     * w_DBSelector = r_DBSelector; } else { List<List<DataSourceWrapper>>
-     * rDataSourceWrappers = new ArrayList<List<DataSourceWrapper>>();
-     * List<List<DataSourceWrapper>> wDataSourceWrappers = new
-     * ArrayList<List<DataSourceWrapper>>(); for (int i = 0; i <
-     * dbKeyAndWeightList.size(); i++) { String[] dbKeyAndWeight =
-     * split(dbKeyAndWeightList.get(i), ":"); DataSourceWrapper dsw =
-     * createDataSourceWrapper(dbKeyAndWeight[0], (dbKeyAndWeight.length == 2 ?
-     * dbKeyAndWeight[1] : null), i); insertSort(rDataSourceWrappers, dsw,
-     * true); insertSort(wDataSourceWrappers, dsw, false); } r_DBSelector =
-     * createDBSelector(rDataSourceWrappers, true); w_DBSelector =
-     * createDBSelector(wDataSourceWrappers, false); }
-     * r_DBSelector.setReadable(true); w_DBSelector.setReadable(false); return
-     * new DBSelector[] { r_DBSelector, w_DBSelector }; }
-     */
-
     /**
      * 将给定的k 优先级 加入这个优先级对应的V list 里面。 ----因为可能有多个DS具有相同的优先级 ---add by
      * mazhidan.pt
      */
     private static <K, V> void add2LinkedListMap(Map<K, List<V>> m, K key, V value) {
         // 从Map中先取出这个优先级的List
-        List<V> c = (List<V>) m.get(key);
+        List<V> c = m.get(key);
         // 如果为空，则new一个
         if (c == null) {
             c = new LinkedList<V>();
@@ -430,46 +400,24 @@ public class GroupConfigManager {
         return dsw;
     }
 
-    public static List<DataSourceWrapper> buildDataSourceWrapperParallel(String dsWeightCommaStr,
-                                                                         final DataSourceFetcher fetcher) {
+    public static List<DataSourceWrapper> buildDataSourceWrapperSequential(String dsWeightCommaStr,
+                                                                           final DataSourceFetcher fetcher) {
         final String[] dsWeightArray = dsWeightCommaStr.split(","); // 逗号分隔：db0:rwp1q1i0,
         // db1:rwp0q0i1
         List<DataSourceWrapper> dss = new ArrayList<DataSourceWrapper>(dsWeightArray.length);
 
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(2,
-            2,
-            5,
-            TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(),
-            new NamedThreadFactory("TDDL_GROUP_INIT"),
-            new ThreadPoolExecutor.CallerRunsPolicy());
-
-        Map<String, Future<DataSourceWrapper>> m = new HashMap<String, Future<DataSourceWrapper>>();
         for (int i = 0; i < dsWeightArray.length; i++) {
             final int j = i;
             final String[] dsAndWeight = dsWeightArray[j].split(":"); // 冒号分隔：db0:rwp1q1i0
             final String dsKey = dsAndWeight[0].trim();
-            Future<DataSourceWrapper> f = executor.submit(new Callable<DataSourceWrapper>() {
-
-                @Override
-                public DataSourceWrapper call() throws Exception {
-                    String weightStr = dsAndWeight.length == 2 ? dsAndWeight[1] : null;
-                    return getDataSourceWrapper(dsKey, weightStr, j, fetcher);
-                }
-            });
-
-            m.put(dsKey, f);
-        }
-
-        for (Map.Entry<String, Future<DataSourceWrapper>> en : m.entrySet()) {
+            String weightStr = dsAndWeight.length == 2 ? dsAndWeight[1] : null;
             try {
-                dss.add(en.getValue().get());
+                dss.add(getDataSourceWrapper(dsKey, weightStr, j, fetcher));
             } catch (Exception e) {
-                throw new RuntimeException("init ds error! atom key is " + en.getKey(), e);
+                throw new RuntimeException("init ds error! atom key is " + dsKey, e);
             }
         }
 
-        executor.shutdown();
         return dss;
     }
 
@@ -655,10 +603,12 @@ public class GroupConfigManager {
             this.configManager = configManager;
         }
 
+        @Override
         public void onDataRecieved(String dataId, String data) {
             try {
                 String oldData = this.configManager.tGroupDataSource.getDsKeyAndWeightCommaArray();
-                logger.warn("group ds data received !dataId:" + dataId + ", new data:" + data + ", old data:" + oldData);
+                LoggerInit.TDDL_DYNAMIC_CONFIG.info("group ds data received !dataId:" + dataId + ", new data:" + data
+                                                    + ", old data:" + oldData);
                 parse(data);
             } catch (Throwable t) {
                 logger.error("动态解析配置信息时出现错误:" + data, t);
@@ -670,7 +620,7 @@ public class GroupConfigManager {
 
         @Override
         public void onDataRecieved(String dataId, String data) {
-            logger.info("receive group extra data:" + data);
+            LoggerInit.TDDL_DYNAMIC_CONFIG.info("receive group extra data:" + data);
             parseExtraConfig(data);
         }
     }

@@ -30,7 +30,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Integer getInteger(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.IntegerType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -41,7 +41,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Long getLong(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.LongType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -52,7 +52,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public String getString(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.StringType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -63,7 +63,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Boolean getBoolean(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.BooleanType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -74,7 +74,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Short getShort(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.ShortType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -85,7 +85,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Float getFloat(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.FloatType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -96,7 +96,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Double getDouble(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.DoubleType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -107,7 +107,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public byte[] getBytes(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.BytesType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -118,7 +118,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Date getDate(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.DateType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -129,7 +129,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Timestamp getTimestamp(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.TimestampType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -140,7 +140,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public Time getTime(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.TimeType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -151,7 +151,7 @@ public abstract class AbstractRowSet implements IRowSet {
 
     @Override
     public BigDecimal getBigDecimal(int index) {
-        ColumnMeta cm = iCursorMeta.getColumns().get(index);
+        ColumnMeta cm = iCursorMeta.getColumnMeta(index);
         return DataType.BigDecimalType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
     }
 
@@ -170,10 +170,11 @@ public abstract class AbstractRowSet implements IRowSet {
         StringBuilder sb = new StringBuilder();
 
         for (ColumnMeta cm : this.getParentCursorMeta().getColumns()) {
-            int index = this.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName());
+            int index = this.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName(), cm.getAlias());
 
             sb.append(cm.getName() + ":" + this.getValues().get(index) + " ");
         }
         return sb.toString();
     }
+
 }

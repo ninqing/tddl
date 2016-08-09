@@ -195,6 +195,10 @@
 		</properties>
 	</group>
 	
+	<group name="demo_group" type="demo">
+
+	</group>
+	
 	<!-- hbase group 
 	<group name="andor_hbase_group" type="HBASE_CLIENT">
 		<properties>

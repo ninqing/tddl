@@ -4,17 +4,15 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
-@Ignore
 @RunWith(EclipseParameterized.class)
 public class SelectSubQueryTest extends BaseMatrixTestCase {
 
@@ -60,20 +58,14 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
               + " where module_name='" + modlueName + "')";
         selectContentSameAssert(sql, columnParam, null);
 
-        con = getConnection();
-        andorCon = us.getConnection();
         sql = "select *  from " + host_info + " where hostgroup_id <=(select module_id from " + module_info
               + " where module_name='" + modlueName + "')";
         selectContentSameAssert(sql, columnParam, null);
 
-        con = getConnection();
-        andorCon = us.getConnection();
         sql = "select *  from " + host_info + " where hostgroup_id >(select module_id from " + module_info
               + " where module_name='" + modlueName + "')";
         selectContentSameAssert(sql, columnParam, null);
 
-        con = getConnection();
-        andorCon = us.getConnection();
         sql = "select *  from " + host_info + " where hostgroup_id >=(select module_id from " + module_info
               + " where module_name='" + modlueName + "')";
         selectContentSameAssert(sql, columnParam, null);
@@ -124,7 +116,7 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
               + " where module_name like 'module%' order by  module_id limit 1) order by host_id limit 2";
         selectOrderAssert(sql, columnParam, null);
 
-        sql = "select count(host_id), host_name from "
+        sql = "/* ANDOR ALLOW_TEMPORARY_TABLE=True */select count(host_id), host_name from "
               + host_info
               + " where hostgroup_id >(select module_id from "
               + module_info
@@ -149,9 +141,6 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
         selectContentSameAssert(sql, columnParam, null);
 
         sql = "select *  from " + host_info + " where hostgroup_id =(select min(hostgroup_id) from " + hostgroup + ")";
-        selectContentSameAssert(sql, columnParam, null);
-
-        sql = "select *  from " + host_info + " where hostgroup_id =(select avg(hostgroup_id) from " + hostgroup + ")";
         selectContentSameAssert(sql, columnParam, null);
 
         sql = "select *  from " + host_info + " where hostgroup_id <(select count(*) from " + hostgroup + ")";
@@ -213,6 +202,7 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
      * 
      * @throws Exception
      */
+
     @Test
     public void existsTest() throws Exception {
         String sql = "select * from " + host_info + " where EXISTS (select * from " + hostgroup + " where " + host_info
@@ -220,14 +210,15 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
         String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
         selectContentSameAssert(sql, columnParam, null);
 
-        sql = "select * from " + host_info + " where NOT EXISTS (select * from " + hostgroup + " where " + host_info
+        sql = "select * from " + host_info + " where not EXISTS (select * from " + hostgroup + " where " + host_info
               + ".hostgroup_id=" + hostgroup + ".hostgroup_id)";
         selectContentSameAssert(sql, columnParam, null);
-
-        sql = "select distinct host_name from " + host_info + " where EXISTS (select * from " + hostgroup + " where "
-              + host_info + ".hostgroup_id=" + hostgroup + ".hostgroup_id)";
-        String[] columnParam1 = { "host_name" };
-        selectContentSameAssert(sql, columnParam1, null);
+        sql = "select  * from " + host_info + " where EXISTS (select * from " + hostgroup + " where " + hostgroup
+              + ".hostgroup_id=" + host_info + ".hostgroup_id)";
+        selectContentSameAssert(sql, columnParam, null);
+        sql = "select  * from " + host_info + " where EXISTS (select * from " + hostgroup + " where " + host_info
+              + ".hostgroup_id=" + hostgroup + ".hostgroup_id)";
+        selectContentSameAssert(sql, columnParam, null);
     }
 
     /**
@@ -237,14 +228,50 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
      */
     @Test
     public void associationTest() throws Exception {
-        String sql = "select * from " + host_info + " as host where host_id in (select module_id from " + module_info
+        String sql = "select * from " + host_info + " as host where host_id = (select module_id from " + module_info
                      + " as info where host.hostgroup_id=info.module_id)";
         String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
         selectContentSameAssert(sql, columnParam, null);
 
-        sql = "select * from " + host_info + " as host where host_id = (select module_id from " + module_info
-              + " as info where host.hostgroup_id=info.module_id)";
+    }
+
+    @Test
+    public void associationTestIn() throws Exception {
+        String sql = "select * from " + host_info + " as host where host.host_id in (select module_id from "
+                     + module_info + " as info where host.hostgroup_id=info.module_id)";
+        String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
         selectContentSameAssert(sql, columnParam, null);
+
+    }
+
+    @Test
+    public void associationExistsTest2() throws Exception {
+        String sql = "select * from " + host_info + " as host where exists (select module_id from " + module_info
+                     + " as info where host.hostgroup_id=info.module_id and exists(select module_id from "
+                     + module_info + " as info2 where info2.module_id=info.module_id))";
+        String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
+        selectContentSameAssert(sql, columnParam, null);
+
+    }
+
+    @Test
+    public void associationExistsTest3() throws Exception {
+        String sql = "select * from " + host_info + " as host where exists (select module_id from " + module_info
+                     + " as info where host.hostgroup_id=info.module_id and exists(select module_id from "
+                     + module_info
+                     + " as info2 where info2.module_id=info.module_id and info.module_id in (select module_id from "
+                     + module_info + " as info3 where info2.module_id=info3.module_id)))";
+        String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
+        selectContentSameAssert(sql, columnParam, null);
+    }
+
+    @Test
+    public void associationExistsTest() throws Exception {
+        String sql = "select * from " + host_info + " as host where exists (select module_id from " + module_info
+                     + " as info where host.hostgroup_id=info.module_id)";
+        String[] columnParam = { "host_id", "host_name", "hostgroup_id" };
+        selectContentSameAssert(sql, columnParam, null);
+
     }
 
     /**
@@ -272,7 +299,7 @@ public class SelectSubQueryTest extends BaseMatrixTestCase {
         String[] columnParam = { "host_id", "name" };
         selectContentSameAssert(sql, columnParam, null);
 
-        sql = "select host_id ,(select hostgroup_name from " + hostgroup
+        sql = "/* ANDOR ALLOW_TEMPORARY_TABLE=True */select host_id ,(select hostgroup_name from " + hostgroup
               + " where hostgroup_name like'hostgroupname%' " + "group by hostgroup_name order by hostgroup_id limit 1"
               + " )as name from " + host_info;
         selectContentSameAssert(sql, columnParam, null);

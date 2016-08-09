@@ -32,22 +32,4 @@ public class TDatasourceTest {
         ps.close();
         conn.close();
     }
-    
-    public static void main(String[] args) throws Throwable {
-    	  TDataSource ds = new TDataSource();
-          ds.setAppName("andor_show");
-          ds.setTopologyFile("test_matrix.xml");
-          ds.setSchemaFile("test_schema.xml");
-          ds.init();
-
-          Connection conn = ds.getConnection();
-          PreparedStatement ps = conn.prepareStatement("select * from bmw_users limit 10");
-          ResultSet rs = ps.executeQuery();
-
-          Assert.assertTrue(rs.next());
-
-          rs.close();
-          ps.close();
-          conn.close();
-	}
 }

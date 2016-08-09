@@ -102,7 +102,7 @@ public class RepoSchemaManager extends AbstractLifecycle implements SchemaManage
     /**
      * 需要各Repo来实现
      * 
-     * @param tableName
+     * @param tableNames
      * @param actualTableName
      */
     protected TableMeta getTable0(String logicalTableName, String actualTableName) {
@@ -110,7 +110,7 @@ public class RepoSchemaManager extends AbstractLifecycle implements SchemaManage
     }
 
     @Override
-    protected void dodestroy() throws TddlException {
+    protected void doDestroy() throws TddlException {
         if (local != null && local.isInited()) {
             local.destroy();
         }

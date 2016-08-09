@@ -12,6 +12,7 @@ import com.alibaba.cobar.parser.ast.fragment.SortOrder;
 import com.alibaba.cobar.parser.ast.fragment.tableref.TableReference;
 import com.alibaba.cobar.parser.ast.fragment.tableref.TableReferences;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement;
+import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement.LockMode;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement.SelectDuplicationStrategy;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement.SelectOption;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectUnionStatement;
@@ -23,6 +24,7 @@ import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
 
 /**
  * select表达式的解析
@@ -31,9 +33,22 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
  */
 public class MySqlSelectVisitor extends EmptySQLASTVisitor {
 
+    private QueryTreeNode parent;
     private QueryTreeNode tableNode;
 
+    public MySqlSelectVisitor(){
+
+    }
+
+    public MySqlSelectVisitor(QueryTreeNode parent){
+        this.parent = parent;
+    }
+
     public QueryTreeNode getTableNode() {
+        if (parent != null && tableNode != null) {
+            tableNode.setParent(parent);
+        }
+
         return tableNode;
     }
 
@@ -110,11 +125,14 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
         for (Pair<Expression, String> item : items) {
             Expression expr = item.getKey();
 
-            MySqlExprVisitor ev = new MySqlExprVisitor();
+            MySqlExprVisitor ev = new MySqlExprVisitor(this.tableNode);
             expr.accept(ev);
-            Comparable obj = ev.getColumnOrValue();
+            Object obj = ev.getColumnOrValue();
             if (!(obj instanceof ISelectable)) { // 常量先转成booleanFilter
                 obj = ev.buildConstanctFilter(obj);
+                if (ev.getNodeSql() != null) {
+                    ((ISelectable) obj).setColumnName(ev.getNodeSql());
+                }
             }
 
             ((ISelectable) obj).setAlias(item.getValue());
@@ -130,10 +148,16 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
                 obj.setDistinct(true);
             }
         }
+
+        if (option.lockMode == LockMode.FOR_UPDATE) {
+            tableNode.setLockMode(LOCK_MODE.EXCLUSIVE_LOCK);
+        } else if (option.lockMode == LockMode.LOCK_IN_SHARE_MODE) {
+            tableNode.setLockMode(LOCK_MODE.SHARED_LOCK);
+        }
     }
 
     private void handleWhereCondition(Expression whereExpr) {
-        MySqlExprVisitor mev = new MySqlExprVisitor();
+        MySqlExprVisitor mev = new MySqlExprVisitor(this.tableNode);
         whereExpr.accept(mev);
         if (this.tableNode != null) {
             IFilter whereFilter = null;
@@ -154,7 +178,7 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
         List<Pair<Expression, SortOrder>> olist = orderBy.getOrderByList();
         for (Pair<Expression, SortOrder> p : olist) {
             Expression expr = p.getKey();
-            MySqlExprVisitor v = new MySqlExprVisitor();
+            MySqlExprVisitor v = new MySqlExprVisitor(this.tableNode);
             expr.accept(v);
             SortOrder sorder = p.getValue();
             this.tableNode = tableNode.orderBy((ISelectable) v.getColumnOrValue(),
@@ -166,7 +190,7 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
         List<Pair<Expression, SortOrder>> glist = groupBy.getOrderByList();
         for (Pair<Expression, SortOrder> p : glist) {
             Expression expr = p.getKey();
-            MySqlExprVisitor v = new MySqlExprVisitor();
+            MySqlExprVisitor v = new MySqlExprVisitor(this.tableNode);
             expr.accept(v);
             SortOrder sorder = p.getValue();
             this.tableNode = tableNode.groupBy((ISelectable) v.getColumnOrValue(),
@@ -179,7 +203,7 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
     }
 
     private void handleHavingCondition(Expression havingExpr) {
-        MySqlExprVisitor mev = new MySqlExprVisitor();
+        MySqlExprVisitor mev = new MySqlExprVisitor(this.tableNode);
         havingExpr.accept(mev);
         IFilter havingFilter = mev.getFilter();
         if (this.tableNode == null) {

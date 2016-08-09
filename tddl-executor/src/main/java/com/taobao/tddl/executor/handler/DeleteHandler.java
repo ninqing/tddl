@@ -17,7 +17,6 @@ import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.plan.IPut;
-import com.taobao.tddl.optimizer.core.plan.IPut.PUT_TYPE;
 
 public class DeleteHandler extends PutHandlerCommon {
 
@@ -34,22 +33,28 @@ public class DeleteHandler extends PutHandlerCommon {
         IPut delete = put;
         ISchematicCursor conditionCursor = null;
         IRowSet rowSet = null;
-        CloneableRecord key = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
-            .getCodec(meta.getKeyColumns())
-            .newEmptyRecord();
+
         try {
             conditionCursor = ExecutorContext.getContext()
                 .getTopologyExecutor()
                 .execByExecPlanNode(delete.getQueryTree(), executionContext);
+
+            List<CloneableRecord> keysToDelete = new ArrayList();
             while ((rowSet = conditionCursor.next()) != null) {
+                CloneableRecord key = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
+                    .getCodec(meta.getKeyColumns())
+                    .newEmptyRecord();
                 affect_rows++;
                 for (ColumnMeta cm : meta.getKeyColumns()) {
                     Object val = getValByColumnMeta(rowSet, cm);
                     key.put(cm.getName(), val);
                 }
-                // CloneableRecord key =
-                // ExecUtils.convertToClonableRecord(rowSet);
-                prepare(transaction, table, rowSet, null, null, PUT_TYPE.DELETE);
+
+                keysToDelete.add(key);
+
+            }
+
+            for (CloneableRecord key : keysToDelete) {
                 table.delete(executionContext, key, meta, put.getTableName());
             }
         } catch (Exception e) {
@@ -67,7 +72,7 @@ public class DeleteHandler extends PutHandlerCommon {
     }
 
     private Object getValByColumnMeta(IRowSet kv, ColumnMeta cm) {
-        Object val = ExecUtils.getValueByTableAndName(kv, cm.getTableName(), cm.getName());
+        Object val = ExecUtils.getValueByTableAndName(kv, cm.getTableName(), cm.getName(), cm.getAlias());
         return val;
     }
 

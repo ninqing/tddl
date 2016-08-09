@@ -35,8 +35,8 @@ public class FullJoinTest extends BaseMatrixTestCase {
     }
 
     public void prepareDate() throws Exception {
-        andorUpdateData("delete from " + normaltblTableName, null);
-        andorUpdateData("delete from " + studentTableName, null);
+        tddlUpdateData("delete from " + normaltblTableName, null);
+        tddlUpdateData("delete from " + studentTableName, null);
         normaltblPrepare(0, 20);
         studentPrepare(0, 20);
     }

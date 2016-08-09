@@ -4,7 +4,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Set;
 
-import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.rule.model.DateEnumerationParameter;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 

@@ -7,7 +7,7 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode.FilterType;
@@ -89,7 +89,7 @@ public class FilterSpliterTest extends BaseOptimizerTest {
         table.build();
 
         Map<String, Object> extraCmd = new HashMap<String, Object>();
-        extraCmd.put(ExtraCmd.CHOOSE_INDEX, true);
+        extraCmd.put(ConnectionProperties.CHOOSE_INDEX, true);
         IndexMeta index = IndexChooser.findBestIndex(table.getTableMeta(),
             new ArrayList<ISelectable>(),
             FilterUtils.toDNFNode(table.getWhereFilter()),

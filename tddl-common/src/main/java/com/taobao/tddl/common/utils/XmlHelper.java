@@ -3,7 +3,6 @@ package com.taobao.tddl.common.utils;
 import java.io.InputStream;
 import java.io.Writer;
 
-import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -13,9 +12,6 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.Schema;
-import javax.xml.validation.SchemaFactory;
 
 import org.w3c.dom.Document;
 import org.xml.sax.ErrorHandler;
@@ -34,13 +30,8 @@ public class XmlHelper {
 
     public static Document createDocument(InputStream xml, InputStream schema) {
         try {
-            // schema
-            SchemaFactory sf = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-            Schema s = sf.newSchema(new StreamSource(schema));
-            // document
+
             DocumentBuilderFactory bf = DocumentBuilderFactory.newInstance();
-            bf.setNamespaceAware(true);
-            bf.setSchema(s);
             DocumentBuilder builder = bf.newDocumentBuilder();
             builder.setErrorHandler(new ErrorHandler() {
 
@@ -69,7 +60,6 @@ public class XmlHelper {
         try {
             Source source = new DOMSource(doc);
             Result result = new StreamResult(w);
-
             Transformer xformer = TransformerFactory.newInstance().newTransformer();
             xformer.setOutputProperty(OutputKeys.INDENT, "yes");
             xformer.setOutputProperty(OutputKeys.ENCODING, encoding);

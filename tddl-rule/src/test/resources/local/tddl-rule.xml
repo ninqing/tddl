@@ -7,6 +7,7 @@
       <property name="tableRules">
          <map>
             <entry key="nserch" value-ref="nserch" />
+            <entry key="string" value-ref="string" />
          </map>
       </property>
    </bean>
@@ -17,6 +18,16 @@
       </property>
       <property name="dbRuleArray">
           <value>"NSEARCH_GROUP_"+(#message_id,24# % 3+1)</value>
+      </property>
+      <property name="allowFullTableScan" value="true"/>
+   </bean>
+   
+   <bean id="string" class="com.taobao.tddl.rule.TableRule">
+      <property name="tbRuleArray">
+         <value>"string_"+(#name,1_string,24#.toString().hashCode() % 24)</value>
+      </property>
+      <property name="dbRuleArray">
+          <value>"STRING_"+(#name,1_string,24#.toString().hashCode() % 3+1)</value>
       </property>
       <property name="allowFullTableScan" value="true"/>
    </bean>

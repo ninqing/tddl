@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import org.apache.commons.lang.StringUtils;
-
 import com.taobao.diamond.client.impl.DiamondEnv;
 import com.taobao.diamond.client.impl.DiamondEnvRepo;
 import com.taobao.diamond.client.impl.DiamondUnitSite;
@@ -19,8 +17,10 @@ import com.taobao.tddl.common.utils.mbean.TddlMBean;
 import com.taobao.tddl.common.utils.mbean.TddlMBeanServer;
 import com.taobao.tddl.config.ConfigDataListener;
 import com.taobao.tddl.config.impl.UnitConfigDataHandler;
+
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+
 
 /**
  * 持久配置中心diamond实现
@@ -31,7 +31,7 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  * @since 1.6
  * @date 2011-1-11 11:22:29
  */
-@Activate(order = 1)
+@Activate(order = 2)
 public class DiamondConfigDataHandler extends UnitConfigDataHandler {
 
     private static final Logger logger  = LoggerFactory.getLogger(DiamondConfigDataHandler.class);
@@ -45,12 +45,11 @@ public class DiamondConfigDataHandler extends UnitConfigDataHandler {
         mbeanId = dataId + System.currentTimeMillis();
 
         // TODO 外部直接指定ip进行访问
-        if(StringUtils.isEmpty(unitName)){
-            env = DiamondEnvRepo.defaultEnv;
-        }else{
+        if (unitName != null && !"".equals(unitName.trim())) {
             env = DiamondUnitSite.getDiamondUnitEnv(unitName);
+        } else {
+            env = DiamondEnvRepo.defaultEnv;
         }
-
 
         if (initialData == null) {
             initialData = getData(TIMEOUT, FIRST_SERVER_STRATEGY);
@@ -62,7 +61,7 @@ public class DiamondConfigDataHandler extends UnitConfigDataHandler {
     public String getNullableData(long timeout, String strategy) {
         String data = null;
         try {
-            data = env.getConfig(dataId, null, Constants.GETCONFIG_LOCAL_SNAPSHOT_SERVER, timeout);
+            data = env.getConfig(dataId, null, Constants.GETCONFIG_LOCAL_SERVER_SNAPSHOT, timeout);
         } catch (IOException e) {
             // 不抛异常，只记录一下
             logger.error(e);
@@ -80,7 +79,7 @@ public class DiamondConfigDataHandler extends UnitConfigDataHandler {
     public String getData(long timeout, String strategy) {
         String data = null;
         try {
-            data = env.getConfig(dataId, null, Constants.GETCONFIG_LOCAL_SNAPSHOT_SERVER, timeout);
+            data = env.getConfig(dataId, null, Constants.GETCONFIG_LOCAL_SERVER_SNAPSHOT, timeout);
         } catch (IOException e) {
             throw new RuntimeException("get diamond data error!dataId:" + dataId, e);
         }
@@ -115,7 +114,7 @@ public class DiamondConfigDataHandler extends UnitConfigDataHandler {
         }
     }
 
-    protected void dodestroy() throws TddlException {
+    protected void doDestory() throws TddlException {
         closeUnderManager();
     }
 

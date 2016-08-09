@@ -20,10 +20,9 @@ public class ReplaceMyHandler extends PutMyHandlerCommon {
     protected ISchematicCursor executePut(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta,
                                           My_JdbcHandler myJdbcHandler) throws TddlException {
         try {
-            myJdbcHandler.executeUpdate(executionContext, put, table, meta);
+            return myJdbcHandler.executeUpdate(executionContext, put, table, meta);
         } catch (SQLException e) {
             throw new TddlException(e);
         }
-        return myJdbcHandler.getResultCursor();
     }
 }

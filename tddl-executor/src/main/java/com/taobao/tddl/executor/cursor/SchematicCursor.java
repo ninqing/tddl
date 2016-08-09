@@ -24,7 +24,7 @@ public class SchematicCursor extends AbstractCursor implements ISchematicCursor 
 
     public List<IOrderBy> orderBys = Collections.emptyList();
 
-    public SchematicCursor(Cursor cursor){
+    public SchematicCursor(Cursor cursor) throws TddlException{
         super(cursor);
         if (cursor != null && cursor instanceof ISchematicCursor) {
             orderBys = ((ISchematicCursor) cursor).getOrderBy();
@@ -47,11 +47,13 @@ public class SchematicCursor extends AbstractCursor implements ISchematicCursor 
         this.orderBys = orderBys;
     }
 
-    public List<IOrderBy> getOrderBy() {
+    @Override
+    public List<IOrderBy> getOrderBy() throws TddlException {
         return orderBys;
     }
 
-    public List<List<IOrderBy>> getJoinOrderBys() {
+    @Override
+    public List<List<IOrderBy>> getJoinOrderBys() throws TddlException {
         return Arrays.asList(orderBys);
     }
 

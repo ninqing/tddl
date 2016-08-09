@@ -46,7 +46,7 @@ public class BigDecimalType extends CommonType<BigDecimal> {
                                                        if (i2.equals(BigDecimal.ZERO)) {
                                                            return null;
                                                        }
-                                                       return i1.divide(i2, 6, BigDecimal.ROUND_HALF_UP);
+                                                       return i1.divide(i2, 4, BigDecimal.ROUND_HALF_UP);
                                                    }
 
                                                    @Override

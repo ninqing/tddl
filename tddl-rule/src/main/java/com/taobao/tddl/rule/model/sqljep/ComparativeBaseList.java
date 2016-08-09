@@ -7,6 +7,7 @@ import java.util.List;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * Comparative List,作用是持有多个Comparative，是对and 节点和or节点的一种公共抽象。
  * 

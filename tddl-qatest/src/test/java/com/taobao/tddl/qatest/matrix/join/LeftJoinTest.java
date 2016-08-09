@@ -6,7 +6,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.junit.After;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized.Parameters;
@@ -38,8 +37,6 @@ public class LeftJoinTest extends BaseMatrixTestCase {
     }
 
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
 
         hostgroupPrepare(0, 10);
         hostinfoPrepare(5, 20);
@@ -47,7 +44,7 @@ public class LeftJoinTest extends BaseMatrixTestCase {
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
@@ -110,6 +107,22 @@ public class LeftJoinTest extends BaseMatrixTestCase {
                      + host_info + ".hostgroup_id where " + hostgroup + ".hostgroup_name like 'hostgroupname%'"
                      + " and  (" + hostgroup + ".hostgroup_name='hostgroupname1' or " + host_info
                      + ".host_name is null)";
+
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void leftJoinWithAndOrTrueTest() throws Exception {
+        if (hostgroup.startsWith("ob") && host_info.startsWith("ob")) {
+            // ob is true和mysql不太一致
+            // where中的条件会在join之前就进行过滤
+            return;
+        }
+
+        String sql = "select * from " + hostgroup + " left join " + host_info + " on " + hostgroup + ".hostgroup_id="
+                     + host_info + ".hostgroup_id where " + hostgroup + ".hostgroup_name like 'hostgroupname%'"
+                     + " and  (" + hostgroup + ".hostgroup_name='hostgroupname1' or " + host_info
+                     + ".host_name is true)";
 
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
@@ -182,7 +195,6 @@ public class LeftJoinTest extends BaseMatrixTestCase {
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
-    @Ignore
     // null的排序bdb和mysql理解不一样 bdb 理解的是最大的， mysql理解的是最小的
     @Test
     public void leftJoinWithOrderLimitTest() throws Exception {
@@ -191,15 +203,15 @@ public class LeftJoinTest extends BaseMatrixTestCase {
                      + " as b left join "
                      + host_info
                      + " as a "
-                     + "on b.hostgroup_id=a.hostgroup_id where  b.hostgroup_name like 'hostgroupname%' order by a.host_id  limit 2,5";
-        selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
+                     + "on b.hostgroup_id=a.hostgroup_id where  b.hostgroup_name like 'hostgroupname%' order by a.host_id,b.hostgroup_name";
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
         sql = "/* ANDOR ALLOW_TEMPORARY_TABLE=True */ select a.host_id,a.host_name,a.hostgroup_id,b.hostgroup_name from "
               + hostgroup
               + " as b left join "
               + host_info
               + " as a "
-              + "on b.hostgroup_id=a.hostgroup_id where  b.hostgroup_name like 'hostgroupname%' order by a.host_id desc limit 2,5";
-        selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
+              + "on b.hostgroup_id=a.hostgroup_id where  b.hostgroup_name like 'hostgroupname%' order by a.host_id,b.hostgroup_name desc";
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
     @Test
@@ -216,7 +228,6 @@ public class LeftJoinTest extends BaseMatrixTestCase {
 
     @Test
     public void leftJoinWithSubQueryTest() throws Exception {
-
         if (hostgroup.startsWith("ob") && host_info.startsWith("ob")) {
             // TODO:ob join bug，对别名支持不好
             return;

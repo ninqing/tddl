@@ -1,7 +1,6 @@
 package com.taobao.tddl.common;
 
-import com.taobao.tddl.common.model.ThreadLocalString;
-import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 
 /**
  * 提供给单独使用GroupDataSource的用户指定数据源以及相关执行信息
@@ -9,6 +8,16 @@ import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
  * @author junyu
  */
 public class GroupDataSourceRouteHelper {
+
+    /**
+     * 让GroupDataSource在指定序号的DATASOURCE上执行操作
+     */
+    public static final String DATASOURCE_INDEX      = "DATASOURCE_INDEX";
+
+    /**
+     * 如果指定了ds_index，如果对应库又不可用，应用希望让这个查询还是能够做，那么 让这个查询再走下权重(如果没有权重，也走下单库重试)
+     */
+    public static final String RETRY_IF_SET_DS_INDEX = "RETRY_IF_SET_DS_INDEX";
 
     /**
      * 从一组数据源中选择一个指定序号上的数据源执行SQL。 如：groupKey=ExampleGroup 对应的content为
@@ -25,12 +34,12 @@ public class GroupDataSourceRouteHelper {
      * @param dataSourceIndex 在指定Group中，所需要执行的db序号
      */
     public static void executeByGroupDataSourceIndex(int dataSourceIndex) {
-        ThreadLocalMap.put(ThreadLocalString.DATASOURCE_INDEX, dataSourceIndex);
+        ThreadLocalMap.put(DATASOURCE_INDEX, dataSourceIndex);
     }
 
     public static void executeByGroupDataSourceIndex(int dataSourceIndex, boolean failRetry) {
-        ThreadLocalMap.put(ThreadLocalString.DATASOURCE_INDEX, dataSourceIndex);
-        ThreadLocalMap.put(ThreadLocalString.RETRY_IF_SET_DS_INDEX, failRetry);
+        ThreadLocalMap.put(DATASOURCE_INDEX, dataSourceIndex);
+        ThreadLocalMap.put(RETRY_IF_SET_DS_INDEX, failRetry);
     }
 
     /**
@@ -41,6 +50,6 @@ public class GroupDataSourceRouteHelper {
      * GroupDataSourceRouteHelper.removeGroupDataSourceIndex(); }
      */
     public static void removeGroupDataSourceIndex() {
-        ThreadLocalMap.remove(ThreadLocalString.DATASOURCE_INDEX);
+        ThreadLocalMap.remove(DATASOURCE_INDEX);
     }
 }

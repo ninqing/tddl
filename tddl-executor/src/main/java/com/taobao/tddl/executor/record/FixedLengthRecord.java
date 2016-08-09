@@ -7,11 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.IRecord;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
+import com.taobao.tddl.rule.exceptions.TddlRuleException;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author mengshi.sunmengshi 2013-12-3 下午1:51:05
@@ -23,20 +25,34 @@ public class FixedLengthRecord extends CloneableRecord {
     protected Object[]             values;
 
     protected Map<String, Integer> index;
+    private final List<ColumnMeta> metas;
 
-    public FixedLengthRecord(Map<String, Integer> index, int mapSizeCache){
+    public FixedLengthRecord(Map<String, Integer> index, List<ColumnMeta> metas){
+
+        if (metas == null) {
+            throw new TddlRuleException("metas miss");
+        }
         this.index = index;
         this.values = new Object[index.size()];
+        this.metas = metas;
+
     }
 
-    public FixedLengthRecord(List<ColumnMeta> keys){
-        this.index = new HashMap(keys.size());
-        for (ColumnMeta key : keys) {
+    public FixedLengthRecord(List<ColumnMeta> metas){
+
+        if (metas == null) {
+            throw new TddlRuleException("metas miss");
+        }
+
+        this.index = new HashMap(metas.size());
+        for (ColumnMeta key : metas) {
             if (!index.containsKey(key.getName())) {
                 index.put(key.getName(), index.size());
             }
         }
         this.values = new Object[index.size()];
+        this.metas = metas;
+
     }
 
     @Override
@@ -236,14 +252,17 @@ public class FixedLengthRecord extends CloneableRecord {
 
     @Override
     public DataType getType(int index) {
-        // TODO Auto-generated method stub
-        return null;
+
+        return metas.get(index).getDataType();
     }
 
     @Override
     public DataType getType(String columnName) {
-        // TODO Auto-generated method stub
-        return null;
+        Integer indexNum = index.get(columnName);
+        if (indexNum == null) {
+            throw new IllegalArgumentException("can't find key :" + columnName + " . current indexes is " + index);
+        }
+        return metas.get(indexNum).getDataType();
     }
 
 }

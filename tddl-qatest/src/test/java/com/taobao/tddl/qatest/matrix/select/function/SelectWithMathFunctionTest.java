@@ -30,13 +30,11 @@ public class SelectWithMathFunctionTest extends BaseMatrixTestCase {
 
     @Before
     public void prepare() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         normaltblPrepare(0, 20);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
@@ -186,9 +184,9 @@ public class SelectWithMathFunctionTest extends BaseMatrixTestCase {
 
     @Test
     public void countWithDistinctAndGroupByTest() throws Exception {
-        String sql = "/* TDDL ALLOW_TEMPORARY_TABLE=True */ SELECT COUNT(distinct id) FROM " + normaltblTableName
+        String sql = "/* TDDL ALLOW_TEMPORARY_TABLE=True */ SELECT COUNT(DISTINCT ID) c FROM " + normaltblTableName
                      + " group by name";
-        String[] columnParam = { "COUNT(distinct id)" };
+        String[] columnParam = { "c" };
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
@@ -233,6 +231,15 @@ public class SelectWithMathFunctionTest extends BaseMatrixTestCase {
     public void divTest() throws Exception {
         if (!normaltblTableName.startsWith("ob")) {
             String sql = "select SUM(id) div sum(pk) as d FROM " + normaltblTableName;
+            String[] columnParam1 = { "d" };
+            selectContentSameAssert(sql, columnParam1, Collections.EMPTY_LIST);
+        }
+    }
+
+    @Test
+    public void divisionTest() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = "select SUM(id) / sum(pk) as d FROM " + normaltblTableName;
             String[] columnParam1 = { "d" };
             selectContentSameAssert(sql, columnParam1, Collections.EMPTY_LIST);
         }

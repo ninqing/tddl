@@ -13,6 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * 带内存汇总功能的日志输出工具的另一种实现, 使用 SoftReference/WeakReferece 解决 BufferedLogWriter
  * OldGen 内存占用和 FullGC的问题。 <br />

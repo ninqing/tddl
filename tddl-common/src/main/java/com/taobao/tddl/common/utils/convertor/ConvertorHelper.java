@@ -6,6 +6,7 @@ import java.sql.Blob;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -163,6 +164,7 @@ public class ConvertorHelper {
         Convertor stringToDate = new StringAndDateConvertor.StringToDate();
         Convertor stringToCalendar = new StringAndDateConvertor.StringToCalendar();
         Convertor stringToSqlDate = new StringAndDateConvertor.StringToSqlDate();
+        Convertor stringToSqlTime = new StringAndDateConvertor.StringToSqlTime();
         Convertor sqlDateToString = new StringAndDateConvertor.SqlDateToString();
         Convertor sqlTimeToString = new StringAndDateConvertor.SqlTimeToString();
         Convertor sqlTimestampToString = new StringAndDateConvertor.SqlTimestampToString();
@@ -172,8 +174,9 @@ public class ConvertorHelper {
         // 注册默认的String <-> Date的处理
         repository.registerConvertor(String.class, Date.class, stringToDate);
         repository.registerConvertor(String.class, Calendar.class, stringToCalendar);
+        repository.registerConvertor(String.class, GregorianCalendar.class, stringToCalendar);
+        repository.registerConvertor(String.class, java.sql.Time.class, stringToSqlTime);
         repository.registerConvertor(String.class, java.sql.Date.class, stringToSqlDate);
-        repository.registerConvertor(String.class, java.sql.Time.class, stringToSqlDate);
         repository.registerConvertor(String.class, java.sql.Timestamp.class, stringToSqlDate);
         // 如果是date，默认用timestamp
         repository.registerConvertor(java.util.Date.class, String.class, sqlTimestampToString);
@@ -181,6 +184,7 @@ public class ConvertorHelper {
         repository.registerConvertor(java.sql.Time.class, String.class, sqlTimeToString);
         repository.registerConvertor(java.sql.Timestamp.class, String.class, sqlTimestampToString);
         repository.registerConvertor(Calendar.class, String.class, calendarToString);
+        repository.registerConvertor(GregorianCalendar.class, String.class, calendarToString);
         repository.registerConvertor(java.util.Date.class, Long.class, dateToLong);
         repository.registerConvertor(java.sql.Date.class, Long.class, dateToLong);
         repository.registerConvertor(java.sql.Time.class, Long.class, dateToLong);

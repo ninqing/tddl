@@ -27,7 +27,11 @@
 			<artifactId>tddl-parser</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-		
+
+		<dependency>
+			<groupId>cglib</groupId>
+			<artifactId>cglib-nodep</artifactId>
+		</dependency>
 		<!-- Test libs -->
 		<dependency>
 			<groupId>junit</groupId>

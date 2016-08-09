@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.common.utils.logger.Logger;
@@ -62,6 +63,11 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
     ExecutionContext            executionContext = null;
 
     /**
+     * 是否阶段超出行数的数据
+     */
+    boolean                     cutRows          = false;
+
+    /**
      * @param cursorFactory
      * @param repo
      * @param cursor
@@ -80,6 +86,14 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
         this.repo = repo;
         this.requestID = requestID;
         this.executionContext = executionContext;
+
+        sizeProtection = GeneralUtil.getExtraCmdLong(executionContext.getExtraCmds(),
+            ConnectionProperties.TEMP_TABLE_MAX_ROWS,
+            100000);
+
+        cutRows = GeneralUtil.getExtraCmdBoolean(executionContext.getExtraCmds(),
+            ConnectionProperties.TEMP_TABLE_CUT_ROWS,
+            false);
     }
 
     private void initTTSC() throws TddlException {
@@ -116,7 +130,7 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
             // 因为tempTable里面的表名不是外部所用的表名，而是使用tmp作为表名，所以需要先变成外部表名. 这里非常hack..
             // 因为实际做cursor的表名匹配的时候，使用的是截取法。。取第一个"."之前的作为匹配标志。
             tableName = oldTableName + ".tmp." + System.currentTimeMillis() + "." + seed + "requestID." + requestID;
-
+            // tableName = oldTableName;
             if (logger.isDebugEnabled()) {
                 logger.warn("tempTableName:\n" + tableName);
             }
@@ -169,7 +183,7 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
                      * 会在这里被合并，导致后面取值有问题。现在准备将临时表中的columnName改成
                      * tableName.columnName的形式。顺序不变可以将后面的取值完成 有点hack..
                      */
-                    Object o = ExecUtils.getValueByTableAndName(rowSet, column.getTableName(), colName);
+                    Object o = ExecUtils.getValueByTableAndName(rowSet, column.getTableName(), colName, null);
                     key.put(column.getName(), o);
                 }
                 if (values != null && values.size() != 0) {
@@ -189,7 +203,7 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
                          * 会在这里被合并，导致后面取值有问题。现在准备将临时表中的columnName改成
                          * tableName.columnName的形式。顺序不变可以将后面的取值完成 有点hack..
                          */
-                        Object o = ExecUtils.getValueByTableAndName(rowSet, valueColumn.getTableName(), colName);
+                        Object o = ExecUtils.getValueByTableAndName(rowSet, valueColumn.getTableName(), colName, null);
                         value.put(valueColumn.getName(), o);
                     }
                 }
@@ -223,10 +237,14 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
 
         List<TddlException> exs = new ArrayList();
         exs = cursor.close(exs);
+
+        this.cursor = ret;
+
         if (!exs.isEmpty()) {
             throw GeneralUtil.mergeException(exs);
         }
-        if (protection) {
+
+        if (protection && !cutRows) {
             exs = this.close(exs);
             if (!exs.isEmpty()) {
                 throw GeneralUtil.mergeException(exs);
@@ -234,7 +252,6 @@ public class TempTableSortCursor extends SortCursor implements ITempTableSortCur
             throw new IllegalStateException("temp table size protection , check your sql or enlarge the limination size . ");
         }
 
-        this.cursor = ret;
         returnMeta = CursorMetaImp.buildNew(retColumns);
         return ret;
     }

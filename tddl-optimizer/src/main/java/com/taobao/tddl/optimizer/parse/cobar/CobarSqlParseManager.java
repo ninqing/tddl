@@ -9,6 +9,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.monitor.Monitor;
 import com.taobao.tddl.optimizer.exceptions.SqlParserException;
 import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 import com.taobao.tddl.optimizer.parse.SqlParseManager;
@@ -18,7 +19,7 @@ import com.taobao.tddl.optimizer.parse.SqlParseManager;
  */
 public class CobarSqlParseManager extends AbstractLifecycle implements SqlParseManager {
 
-    private int                                cacheSize  = 1000;
+    private long                               cacheSize  = 1000;
     private long                               expireTime = TddlConstants.DEFAULT_OPTIMIZER_EXPIRE_TIME;
     private static Cache<String, SQLStatement> cache      = null;
 
@@ -27,16 +28,18 @@ public class CobarSqlParseManager extends AbstractLifecycle implements SqlParseM
         cache = CacheBuilder.newBuilder()
             .maximumSize(cacheSize)
             .expireAfterWrite(expireTime, TimeUnit.MILLISECONDS)
+            .softValues()
             .build();
     }
 
     @Override
-    protected void dodestroy() {
+    protected void doDestroy() {
         cache.invalidateAll();
     }
 
     @Override
     public SqlAnalysisResult parse(final String sql, boolean cached) throws SqlParserException {
+        long time = System.currentTimeMillis();
         SQLStatement statement = null;
         try {
             // 只缓存sql的解析结果
@@ -63,11 +66,15 @@ public class CobarSqlParseManager extends AbstractLifecycle implements SqlParseM
         // AstNode visitor结果不能做缓存
         CobarSqlAnalysisResult result = new CobarSqlAnalysisResult();
         result.build(sql, statement);
+        time = Monitor.monitorAndRenewTime(Monitor.KEY1,
+            Monitor.KEY2_TDDL_PARSE,
+            Monitor.Key3Success,
+            System.currentTimeMillis() - time);
         return result;
 
     }
 
-    public void setCacheSize(int cacheSize) {
+    public void setCacheSize(long cacheSize) {
         this.cacheSize = cacheSize;
     }
 

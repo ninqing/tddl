@@ -13,8 +13,6 @@ public interface SnapshotValuesOutputCallBack {
 
     public static class Key {
 
-        public static final String replicationQueueSize          = "_replicationQueueSize";
-        public static final String replicationPoolSize           = "_replicationPoolSize";
         public static final String parserCacheSize               = "_parserCacheSize";
 
         public static final String THREAD_COUNT                  = "THREAD_COUNT";

@@ -12,7 +12,11 @@ public interface IFilter<RT extends IFilter> extends IFunction<RT> {
 
         AND(0), OR(1), GT(2), LT(3), GT_EQ(4), LT_EQ(5), EQ(6), LIKE(7), IS_NULL(8), IS_NOT_NULL(9), NOT_EQ(10),
         IN(11), IS(12), CONSTANT(13), NULL_SAFE_EQUAL(14), XOR(15), IS_FALSE(16), IS_NOT_FALSE(17), IS_TRUE(18),
-        IS_NOT_TRUE(19);
+        IS_NOT_TRUE(19), EXISTS(20),
+        // ALL
+        GT_ALL(30), LT_ALL(31), GT_EQ_ALL(32), LT_EQ_ALL(33), EQ_ALL(34), NOT_EQ_ALL(35),
+        // ANY
+        GT_ANY(40), LT_ANY(41), GT_EQ_ANY(42), LT_EQ_ANY(43), EQ_ANY(44), NOT_EQ_ANY(45);
 
         private final int i;
 
@@ -20,11 +24,26 @@ public interface IFilter<RT extends IFilter> extends IFunction<RT> {
             this.i = i;
         }
 
+        public int getValue() {
+            return i;
+        }
+
         public static OPERATION valueOf(int i) {
-            if (i < 0 || i >= values().length) {
-                throw new IndexOutOfBoundsException("Invalid ordinal");
+            for (OPERATION op : values()) {
+                if (op.i == i) {
+                    return op;
+                }
             }
-            return values()[i];
+
+            throw new IndexOutOfBoundsException("Invalid ordinal");
+        }
+
+        public boolean isAllOp() {
+            return i >= OPERATION.GT_ALL.getValue() && i <= OPERATION.NOT_EQ_ALL.getValue();
+        }
+
+        public boolean isAnyOp() {
+            return i >= OPERATION.GT_ANY.getValue() && i <= OPERATION.NOT_EQ_ANY.getValue();
         }
 
         @Override
@@ -74,6 +93,32 @@ public interface IFilter<RT extends IFilter> extends IFunction<RT> {
                     return "IS FALSE";
                 case IS_NOT_FALSE:
                     return "IS NOT FALSE";
+                case EXISTS:
+                    return "EXISTS";
+                case GT_ALL:
+                    return "> ALL";
+                case LT_ALL:
+                    return "< ALL";
+                case GT_EQ_ALL:
+                    return ">= ALL";
+                case LT_EQ_ALL:
+                    return "<= ALL";
+                case EQ_ALL:
+                    return "= ALL";
+                case NOT_EQ_ALL:
+                    return "!= ALL";
+                case GT_ANY:
+                    return "> ANY";
+                case LT_ANY:
+                    return "< ANY";
+                case GT_EQ_ANY:
+                    return ">= ANY";
+                case LT_EQ_ANY:
+                    return "<= ANY";
+                case EQ_ANY:
+                    return "= ANY";
+                case NOT_EQ_ANY:
+                    return "!= ANY";
                 default:
                     return null;
             }

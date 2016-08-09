@@ -8,10 +8,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.TreeMap;
 
 import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.executor.common.IRowsValueScaner;
 import com.taobao.tddl.executor.common.RowsValueScanerImp;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
@@ -19,6 +21,7 @@ import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.ColumnMessage;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.rule.exceptions.TddlRuleException;
 
 public class CursorMetaImp implements ICursorMeta {
 
@@ -28,12 +31,25 @@ public class CursorMetaImp implements ICursorMeta {
         this.columns = new ArrayList<ColumnMeta>();
         this.indexRange = indexRange;
         int index = 0;
+
         for (ColumnMessage cm : columns) {
             String colName = cm.getName();
             String tabName = name;
             addAColumn(tabName, colName, cm.getAlias(), index);
-            this.columns.add(new ColumnMeta(name, cm.getName(), cm.getDataType(), cm.getAlias(), cm.getNullable()));
+
+            ColumnMeta columnMeta = new ColumnMeta(name,
+                cm.getName(),
+                cm.getDataType(),
+                cm.getAlias(),
+                cm.getNullable());
+            this.columns.add(columnMeta);
+
+            this.indexToColumnMeta.put(index, columnMeta);
             index++;
+        }
+
+        if (indexMap == null) {
+            throw new TddlRuleException("impossible, indexMap is null");
         }
     }
 
@@ -41,30 +57,66 @@ public class CursorMetaImp implements ICursorMeta {
         // this.name = name;
         this.columns = new ArrayList<ColumnMeta>();
         Iterator<Integer> iteratorIndex = indexes.iterator();
+
+        this.columns = new ArrayList(columns.size());
+
         for (ColumnMessage cm : columns) {
             if (!iteratorIndex.hasNext()) {
                 throw new IllegalArgumentException("iterator and columns not match");
             }
             String colName = cm.getName();
             String tabName = name;
-            addAColumn(tabName, colName, cm.getAlias(), iteratorIndex.next());
-            this.columns.add(new ColumnMeta(name, cm.getName(), cm.getDataType(), cm.getAlias(), cm.getNullable()));
+
+            Integer index = iteratorIndex.next();
+            addAColumn(tabName, colName, cm.getAlias(), index);
+
+            ColumnMeta columnMeta = new ColumnMeta(name,
+                cm.getName(),
+                cm.getDataType(),
+                cm.getAlias(),
+                cm.getNullable());
+            this.columns.add(columnMeta);
+
+            this.indexToColumnMeta.put(index, columnMeta);
         }
         this.indexRange = indexRange;
+
+        if (indexMap == null) {
+            throw new TddlRuleException("impossible, indexMap is null");
+        }
+
     }
 
     private CursorMetaImp(List<ColumnMeta> columns, List<Integer> indexes, Integer indexRange){
-        this.columns = new ArrayList<ColumnMeta>(columns);
         Iterator<Integer> iteratorIndex = indexes.iterator();
+
+        this.columns = new ArrayList(columns.size());
+
         for (ColumnMeta cm : columns) {
             if (!iteratorIndex.hasNext()) {
                 throw new IllegalArgumentException("iterator and columns not match");
             }
             String colName = cm.getName();
             String tabName = cm.getTableName();
-            addAColumn(tabName, colName, cm.getAlias(), iteratorIndex.next());
+
+            Integer index = iteratorIndex.next();
+            addAColumn(tabName, colName, cm.getAlias(), index);
+
+            ColumnMeta columnMeta = new ColumnMeta(cm.getTableName(),
+                cm.getName(),
+                cm.getDataType(),
+                cm.getAlias(),
+                cm.isNullable());
+            this.columns.add(columnMeta);
+
+            this.indexToColumnMeta.put(index, cm);
         }
         this.indexRange = indexRange;
+
+        if (indexMap == null) {
+            throw new TddlRuleException("impossible, indexMap is null");
+        }
+
     }
 
     private CursorMetaImp(List<ColumnMeta> columns, Integer indexRange){
@@ -75,9 +127,18 @@ public class CursorMetaImp implements ICursorMeta {
             String colName = cm.getName();
             String tabName = cm.getTableName();
             addAColumn(tabName, colName, cm.getAlias(), index);
+
+            this.indexToColumnMeta.put(index, cm);
+
             index++;
+
         }
         this.indexRange = indexRange;
+
+        if (indexMap == null) {
+            throw new TddlRuleException("impossible, indexMap is null");
+        }
+
     }
 
     private CursorMetaImp(List<ColumnMeta> columns){
@@ -88,11 +149,16 @@ public class CursorMetaImp implements ICursorMeta {
             String colName = cm.getName();
             String tabName = cm.getTableName();
             addAColumn(tabName, colName, cm.getAlias(), index);
+
+            this.indexToColumnMeta.put(index, cm);
+
             index++;
+
         }
         if (indexMap == null) {
             indexMap = new HashMap<String, CursorMetaImp.ColumnHolder>();
         }
+
         this.indexRange = index;
     }
 
@@ -152,11 +218,13 @@ public class CursorMetaImp implements ICursorMeta {
 
     private List<ColumnMeta>                                         columns;
 
-    private Map<String/* 列名字哦。注意，不是表名，因为列名更长取，量也更大 */, ColumnHolder> indexMap = null;
+    private Map<String/* 列名字哦。注意，不是表名，因为列名更长取，量也更大 */, ColumnHolder> indexMap          = new TreeMap<String, CursorMetaImp.ColumnHolder>(String.CASE_INSENSITIVE_ORDER);
 
     private Integer                                                  indexRange;
 
     private boolean                                                  isSureLogicalIndexEqualActualIndex;
+
+    private Map<Integer, ColumnMeta>                                 indexToColumnMeta = new HashMap();
 
     @Override
     public Integer getIndexRange() {
@@ -174,7 +242,23 @@ public class CursorMetaImp implements ICursorMeta {
     }
 
     @Override
-    public Integer getIndex(String tableName, String columnName) {
+    public Integer getIndex(String tableName, String columnName, String columnAlias) {
+
+        Integer index = null;
+        if (columnAlias != null) {
+            index = getIndex(tableName, columnAlias);
+        }
+
+        if (index == null) {
+            index = getIndex(tableName, columnName);
+
+        }
+
+        return index;
+
+    }
+
+    private Integer getIndex(String tableName, String columnName) {
         tableName = ExecUtils.getLogicTableName(tableName);
         ColumnHolder ch = indexMap.get(columnName);
         if (ch == null) {
@@ -198,14 +282,12 @@ public class CursorMetaImp implements ICursorMeta {
                 return index;
             }
         }
-        // throw new IllegalArgumentException("can't find Index by tableName : "
-        // + tableName + " colname : " + columnName + " .index Map : "
-        // + indexMap);
-        return null;
+
+        return ch.index;
     }
 
     private static Integer findTableName(String tableName, ColumnHolder ch) {
-        if (StringUtils.equals(tableName, ch.tablename)) {
+        if (TStringUtil.equals(tableName, ch.tablename)) {
             return ch.index;
         }
         return null;
@@ -237,13 +319,6 @@ public class CursorMetaImp implements ICursorMeta {
     }
 
     protected void addAColumn(String tableName, String colName, String colAlias, Integer index) {
-        if (indexMap == null) {
-            indexMap = new HashMap<String, CursorMetaImp.ColumnHolder>();
-        }
-
-        // if (aliasIndexMap == null) {
-        // aliasIndexMap = new HashMap<String, CursorMetaImp.ColumnHolder>();
-        // }
 
         tableName = ExecUtils.getLogicTableName(tableName);
         ColumnHolder ch = indexMap.get(colName);
@@ -251,7 +326,6 @@ public class CursorMetaImp implements ICursorMeta {
             ch = new ColumnHolder(null, tableName, index);
             indexMap.put(colName, ch);
 
-            // if (colAlias != null) aliasIndexMap.put(colAlias, ch);
             return;
         }
 
@@ -400,5 +474,16 @@ public class CursorMetaImp implements ICursorMeta {
     public static ICursorMeta buildEmpty() {
         List<ColumnMeta> empty = Collections.emptyList();
         return new CursorMetaImp(empty);
+    }
+
+    @Override
+    public ColumnMeta getColumnMeta(Integer index) {
+        if (this.indexToColumnMeta.containsKey(index)) {
+            return this.indexToColumnMeta.get(index);
+        }
+
+        throw new TddlRuleException("index is not in cursor meta, indexToColumnMeta is " + this.indexToColumnMeta
+                                    + ", " + this);
+
     }
 }

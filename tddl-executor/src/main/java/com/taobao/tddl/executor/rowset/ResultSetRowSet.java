@@ -37,6 +37,10 @@ public class ResultSetRowSet extends AbstractRowSet implements IRowSet {
             // if (obValue instanceof Date || (obValue instanceof Time)) {
             // obValue = rs.getTimestamp(actIndex);
             // }
+
+            if (obValue != null) {
+                return obValue;
+            }
             if (rs.wasNull()) {
                 return null;
             }
@@ -55,16 +59,6 @@ public class ResultSetRowSet extends AbstractRowSet implements IRowSet {
     public List<Object> getValues() {
         List<Object> res = new ArrayList<Object>();
         for (int i = 0; i < getParentCursorMeta().getColumns().size(); i++) {
-            // Object obValue = rs.getObject(i);
-            // if (obValue instanceof BigDecimal) {
-            // obValue = ((BigDecimal) obValue).longValue();
-            // } else if (obValue instanceof BigInteger) {
-            // obValue = ((BigInteger) obValue).longValue();
-            // }
-            // if(obValue instanceof Date || (obValue instanceof Time))
-            // {
-            // obValue = rs.getTimestamp(i);
-            // }
             res.add(this.getObject(i));
         }
         return res;

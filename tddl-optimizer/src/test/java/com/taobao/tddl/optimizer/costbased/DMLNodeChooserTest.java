@@ -28,12 +28,12 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
         UpdateNode update = ((TableNode) table.query("ID>=5 AND ID<=100")).update("NAME", values);
         IDataNodeExecutor plan = optimizer.optimizeAndAssignment(update, null, null);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
 
         String sql = "UPDATE TABLE1 SET NAME = NAME WHERE ID>=5 AND ID<=100";
         plan = optimizer.optimizeAndAssignment(sql, null, null, false);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
     }
 
     public void testUpdate_范围更新生成merge() throws QueryException {
@@ -42,12 +42,12 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
         UpdateNode update = ((TableNode) table.query("ID>=5")).update("NAME", values);
         IDataNodeExecutor plan = optimizer.optimizeAndAssignment(update, null, null);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
 
         String sql = "UPDATE TABLE1 SET NAME = NAME WHERE ID>=5";
         plan = optimizer.optimizeAndAssignment(sql, null, null, false);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
     }
 
     @Test
@@ -83,12 +83,12 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
         ASTNode delete = ((TableNode) table).delete();// .delete();
         IDataNodeExecutor plan = optimizer.optimizeAndAssignment(delete, null, null);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
 
         String sql = "DELETE FROM TABLE1 WHERE ID>=5 AND ID<=100";
         plan = optimizer.optimizeAndAssignment(sql, null, null, false);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
 
     }
 
@@ -98,12 +98,12 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
         DeleteNode delete = ((TableNode) table.query("ID>=5")).delete();
         IDataNodeExecutor plan = optimizer.optimizeAndAssignment(delete, null, null);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
 
         String sql = "DELETE FROM TABLE1 WHERE ID>=5";
         plan = optimizer.optimizeAndAssignment(sql, null, null, false);
         Assert.assertTrue(plan instanceof IMerge);
-        Assert.assertEquals(8, ((IMerge) plan).getSubNode().size());
+        Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
     }
 
     @Test

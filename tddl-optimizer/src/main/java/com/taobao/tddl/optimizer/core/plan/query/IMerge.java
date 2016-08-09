@@ -8,11 +8,16 @@ import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 /**
  * @since 5.0.0
  */
-public interface IMerge extends IParallelizableQueryTree<IQueryTree> {
+public interface IMerge extends IQueryTree<IQueryTree> {
 
-    public List<IDataNodeExecutor> getSubNode();
+    public List<IDataNodeExecutor> getSubNodes();
 
-    public IMerge setSubNode(List<IDataNodeExecutor> subNode);
+    /**
+     * 获取一个subNode
+     */
+    public IDataNodeExecutor getSubNode();
+
+    public IMerge setSubNodes(List<IDataNodeExecutor> subNode);
 
     public IMerge addSubNode(IDataNodeExecutor subNode);
 
@@ -28,4 +33,22 @@ public interface IMerge extends IParallelizableQueryTree<IQueryTree> {
     public Boolean isUnion();
 
     public IMerge setUnion(boolean isUnion);
+
+    /**
+     * 是否为group by分库键
+     * 
+     * @return
+     */
+    public boolean isGroupByShardColumns();
+
+    public IMerge setGroupByShardColumns(boolean groupByShardColumns);
+
+    /**
+     * 是否为group by分库键
+     * 
+     * @return
+     */
+    public boolean isDistinctByShardColumns();
+
+    public IMerge setDistinctByShardColumns(boolean distinctByShardColumns);
 }

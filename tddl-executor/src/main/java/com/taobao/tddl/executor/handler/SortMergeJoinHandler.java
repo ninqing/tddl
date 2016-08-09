@@ -41,7 +41,7 @@ public class SortMergeJoinHandler extends QueryHandlerCommon {
                 cursor_left,
                 getOrderBy(join.getLeftJoinOnColumns()),
                 true,
-                executor.getRequestID());
+                executor.getRequestId());
             left_match = MATCH;
         }
         /*
@@ -57,7 +57,7 @@ public class SortMergeJoinHandler extends QueryHandlerCommon {
                 cursor_right,
                 getOrderBy(join.getRightJoinOnColumns()),
                 true,
-                executor.getRequestID());
+                executor.getRequestId());
 
             right_match = MATCH;
         }

@@ -31,8 +31,8 @@ public class LocalStatManager extends AbstractLifecycle implements StatManager {
         tableCache = new ConcurrentHashMap<String, TableStat>();
     }
 
-    protected void dodestroy() throws TddlException {
-        super.dodestroy();
+    protected void doDestroy() throws TddlException {
+        super.doDestroy();
         kvIndexCache.clear();
         tableCache.clear();
     }

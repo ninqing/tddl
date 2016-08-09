@@ -24,6 +24,7 @@ import com.taobao.tddl.rule.virtualnode.TableSlotMap;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * 对原类做一些重构，避免污染主类的可阅读性<br/>
  * 1. 抽取showTopology <br/>

@@ -6,9 +6,7 @@ import static com.taobao.tddl.optimizer.utils.OptimizerToString.printFilterStrin
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -16,6 +14,7 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
+import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 public class Join extends QueryTree implements IJoin {
 
@@ -37,10 +36,6 @@ public class Join extends QueryTree implements IJoin {
     protected List<ISelectable> rightColumns = new LinkedList<ISelectable>(); ;
 
     /**
-     * 非column=column的join列
-     */
-    protected IFilter           otherJoinOnFilter;
-    /**
      * join的策略 ，具体请看对应解说
      */
     protected JoinStrategy      joinStrategy;
@@ -57,33 +52,13 @@ public class Join extends QueryTree implements IJoin {
     public IJoin copy() {
         IJoin join = ASTNodeFactory.getInstance().createJoin();
         copySelfTo((QueryTree) join);
-        join.setJoinNodes(this.getLeftNode(), this.getRightNode());
+        join.setJoinNodes((IQueryTree) this.getLeftNode().copy(), (IQueryTree) this.getRightNode().copy());
         join.setJoinOnColumns(this.getLeftJoinOnColumns(), this.getRightJoinOnColumns());
         join.setJoinStrategy(this.getJoinStrategy());
         join.setLeftOuter(this.getLeftOuter());
         join.setRightOuter(this.getRightOuter());
-        join.setOtherJoinOnFilter((IFilter) (otherJoinOnFilter == null ? null : otherJoinOnFilter.copy()));
-        join.setWhereFilter(this.getWhereFilter());
+        join.setWhereFilter(OptimizerUtils.copyFilter(this.getWhereFilter()));
         return join;
-    }
-
-    public Join assignment(Map<Integer, ParameterContext> parameterSettings) {
-        super.assignment(parameterSettings);
-        IQueryTree left = getLeftNode();
-        if (left != null) {
-            left.assignment(parameterSettings);
-        }
-
-        IQueryTree right = getRightNode();
-        if (right != null) {
-            right.assignment(parameterSettings);
-        }
-
-        if (this.otherJoinOnFilter != null) {
-            otherJoinOnFilter = (IFilter) otherJoinOnFilter.assignment(parameterSettings);
-        }
-
-        return this;
     }
 
     public void accept(PlanVisitor visitor) {
@@ -165,15 +140,6 @@ public class Join extends QueryTree implements IJoin {
         return this;
     }
 
-    public IFilter getOtherJoinOnFilter() {
-        return otherJoinOnFilter;
-    }
-
-    public IJoin setOtherJoinOnFilter(IFilter otherJoinOnFilter) {
-        this.otherJoinOnFilter = otherJoinOnFilter;
-        return this;
-    }
-
     public IFilter getWhereFilter() {
         return whereFilter;
     }
@@ -227,6 +193,9 @@ public class Join extends QueryTree implements IJoin {
         appendField(sb, "columns", this.getColumns(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
         appendField(sb, "strategy", this.getJoinStrategy(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
         appendField(sb, "executeOn", this.getDataNode(), tabContent);
 
         // if(this.getThread()!=null)

@@ -1,8 +1,5 @@
 package com.taobao.tddl.optimizer.core.plan;
 
-import java.util.Map;
-
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.CanVisit;
 
 /**
@@ -11,6 +8,8 @@ import com.taobao.tddl.optimizer.core.CanVisit;
  * @since 5.0.0
  */
 public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisit {
+
+    public String USE_LAST_DATA_NODE = "_USE_LAST_DATA_NODE_";
 
     /**
      * 设定当前的查询在哪里执行
@@ -64,14 +63,14 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
      * @param requestId
      * @return
      */
-    RT setRequestID(Long requestId);
+    RT setRequestId(Long requestId);
 
     /**
      * 获取这个请求的requestID
      * 
      * @return
      */
-    Long getRequestID();
+    Long getRequestId();
 
     /**
      * 设置子请求ID. 用于标记一个查询是否能够被trace.如果能够被trace
@@ -80,7 +79,7 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
      * @param subRequestID
      * @return
      */
-    RT setSubRequestID(Integer subRequestID);
+    RT setSubRequestId(Long subRequestID);
 
     /**
      * 获取子请求ID 用于标记一个查询是否能够被trace.如果能够被trace
@@ -88,7 +87,7 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
      * 
      * @return
      */
-    Integer getSubRequestID();
+    Long getSubRequestId();
 
     /**
      * 用于输出带缩进的字符串
@@ -107,8 +106,6 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
      */
     public RT setThread(Integer thread);
 
-    public RT assignment(Map<Integer, ParameterContext> parameterSettings);
-
     public Object getExtra();
 
     public RT setExtra(Object obj);
@@ -125,7 +122,12 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
 
     public RT setSql(String sql);
 
+    public boolean lazyLoad();
+
+    public void setLazyLoad(boolean lazyLoad);
+
     // ------------------复制----------------
 
     public RT copy();
+
 }

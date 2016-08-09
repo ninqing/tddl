@@ -7,17 +7,21 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.sql.DataSource;
 
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.executor.common.ConnectionHolder;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.cursor.IAffectRowCursor;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.impl.AffectRowCursor;
-import com.taobao.tddl.executor.cursor.impl.ResultSetCursor;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.spi.ITable;
@@ -27,12 +31,10 @@ import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.repo.mysql.common.ResultSetAutoCloseConnection;
-import com.taobao.tddl.repo.mysql.common.ResultSetRemeberIfClosed;
+import com.taobao.tddl.repo.mysql.common.ResultSetWrapper;
+import com.taobao.tddl.repo.mysql.cursor.ResultSetCursor;
 import com.taobao.tddl.repo.mysql.sqlconvertor.MysqlPlanVisitorImpl;
 import com.taobao.tddl.repo.mysql.sqlconvertor.SqlAndParam;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * jdbc 方法执行相关的数据封装. 每个需要执行的cursor都可以持有这个对象进行数据库操作。 ps .. fuxk java
@@ -70,25 +72,31 @@ public class My_JdbcHandler implements GeneralQueryHandler {
     public void executeQuery(ICursorMeta meta, boolean isStreaming) throws SQLException {
         setContext(meta, isStreaming);
         SqlAndParam sqlAndParam = null;
-        boolean isControlSql = false;
+        if (executionContext.getParams() != null) {
 
+            // 查询语句不支持batch模式
+            if (executionContext.getParams().isBatch()) {
+                throw new TddlRuntimeException("batch not supported query sql");
+            }
+        }
         sqlAndParam = new SqlAndParam();
         if (plan instanceof IQuery && ((IQuery) plan).getSql() != null) {
             sqlAndParam.sql = ((IQuery) plan).getSql();
             if (executionContext.getParams() != null) {
-                sqlAndParam.param = executionContext.getParams();
+
+                sqlAndParam.param = executionContext.getParams().getCurrentParameter();
             } else {
                 sqlAndParam.param = new HashMap<Integer, ParameterContext>();
             }
-            isControlSql = true;
         } else {
             cursorMeta.setIsSureLogicalIndexEqualActualIndex(true);
+
             if (plan instanceof IQueryTree) {
                 ((IQueryTree) plan).setTopQuery(true);
-                MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(plan, null, null, true);
+                MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(plan, null, null, null, null, true);
                 plan.accept(visitor);
                 sqlAndParam.sql = visitor.getString();
-                sqlAndParam.param = visitor.getParamMap();
+                sqlAndParam.param = visitor.getOutPutParamMap();
             }
         }
 
@@ -102,34 +110,31 @@ public class My_JdbcHandler implements GeneralQueryHandler {
 
             if (executionContext.getGroupHint() != null) {
                 // 如果有group hint，传递一下hint
-                ps = connection.prepareStatement(executionContext.getGroupHint() + sqlAndParam.sql);
+                ps = prepareStatement(executionContext.getGroupHint() + sqlAndParam.sql, connection);
             } else {
-                ps = connection.prepareStatement(sqlAndParam.sql);
+                ps = prepareStatement(sqlAndParam.sql, connection);
             }
             if (isStreaming) {
                 // 当prev的时候 不能设置
                 setStreamingForStatement(ps);
             }
+
             Map<Integer, ParameterContext> map = sqlAndParam.param;
             ParameterMethod.setParameters(ps, map);
-            ResultSet rs = new ResultSetRemeberIfClosed(ps.executeQuery());
-            if (isControlSql) {
-                rs = new ResultSetAutoCloseConnection(rs, connection, ps);
-            }
+            ResultSet rs = new ResultSetWrapper(ps.executeQuery(), this);
+
             this.resultSet = rs;
         } catch (Throwable e) {
-            if (myTransaction.isAutoCommit()) {
-                // 关闭自提交的链接
-                close();
-            }
+            // 关闭自提交的链接
+            close();
 
             if (e.getMessage()
                 .contains("only select, insert, update, delete,replace,truncate,create,drop,load,merge sql is supported")) {
                 // 返回一个空结果
                 ps = connection.prepareStatement("select 1");
-                this.resultSet = new ResultSetRemeberIfClosed(new ResultSetAutoCloseConnection(ps.executeQuery(),
+                this.resultSet = new ResultSetWrapper(new ResultSetAutoCloseConnection(ps.executeQuery(),
                     connection,
-                    ps));
+                    ps), this);
             } else {
                 throw new TddlRuntimeException("sql generated is :\n" + sqlAndParam.toString(), e);
             }
@@ -137,23 +142,31 @@ public class My_JdbcHandler implements GeneralQueryHandler {
     }
 
     @Override
-    public void executeUpdate(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)
-                                                                                                        throws SQLException {
+    public IAffectRowCursor executeUpdate(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)
+                                                                                                                    throws SQLException {
         SqlAndParam sqlAndParam = new SqlAndParam();
         if (put.getSql() != null) {
             sqlAndParam.sql = put.getSql();
             if (executionContext.getParams() != null) {
-                sqlAndParam.param = executionContext.getParams();
+                sqlAndParam.param = executionContext.getParams().getCurrentParameter();
             } else {
                 sqlAndParam.param = new HashMap<Integer, ParameterContext>();
             }
         } else {
-            MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(put, null, null, true);
+            MysqlPlanVisitorImpl visitor = new MysqlPlanVisitorImpl(plan,
+                executionContext.getParams() != null ? executionContext.getParams().getFirstParameter() : null,
+                null,
+                null,
+                null,
+                true);
             put.accept(visitor);
 
             sqlAndParam.sql = visitor.getString();
-            sqlAndParam.param = visitor.getParamMap();
+            sqlAndParam.param = visitor.getOutPutParamMap();
+            sqlAndParam.newParamIndexToOld = visitor.getNewParamIndexToOldMap();
         }
+
+        boolean isBatch = executionContext.getParams() != null ? executionContext.getParams().isBatch() : false;
         try {
             // 可能执行过程有失败，需要释放链接
             connection = myTransaction.getConnection(groupName, ds);
@@ -163,41 +176,68 @@ public class My_JdbcHandler implements GeneralQueryHandler {
             } else {
                 ps = prepareStatement(sqlAndParam.sql, connection);
             }
-            ParameterMethod.setParameters(ps, sqlAndParam.param);
-            if (logger.isDebugEnabled()) {
-                logger.warn("sqlAndParam:\n" + sqlAndParam);
+            int affectRows = 0;
+            if (isBatch) {
+                for (Object o : put.getBatchIndexs()) {
+                    Integer batchIndex = (Integer) o;
+
+                    Map<Integer, ParameterContext> params = executionContext.getParams()
+                        .getBatchParameters()
+                        .get(batchIndex);
+
+                    if (sqlAndParam.newParamIndexToOld != null) {
+                        for (Entry<Integer, Integer> newIndexAndOld : sqlAndParam.newParamIndexToOld.entrySet()) {
+                            sqlAndParam.param.get(newIndexAndOld.getKey())
+                                .setValue(params.get(newIndexAndOld.getValue()).getValue());
+                        }
+                    } else {
+                        sqlAndParam.param = params; // 使用hint+batch时,绑定变量下标不会做变化
+                    }
+
+                    ParameterMethod.setParameters(ps, sqlAndParam.param);
+                    ps.addBatch();
+                }
+
+                int[] nn = ps.executeBatch();
+                for (int n : nn) {
+                    affectRows += n;
+                }
+            } else {
+                ParameterMethod.setParameters(ps, sqlAndParam.param);
+                if (logger.isDebugEnabled()) {
+                    logger.warn("sqlAndParam:\n" + sqlAndParam);
+                }
+
+                affectRows = ps.executeUpdate();
             }
-            int tmpNum = ps.executeUpdate();
-            UpdateResultWrapper urw = new UpdateResultWrapper(tmpNum, this);
+            UpdateResultWrapper urw = new UpdateResultWrapper(affectRows, this);
             executionType = ExecutionType.PUT;
             this.resultSet = urw;
-        } catch (Throwable e) {
-            if (myTransaction.isAutoCommit()) {
-                close();
-            }
 
+            int i = resultSet.getInt(UpdateResultWrapper.AFFECT_ROW);
+            IAffectRowCursor isc = new AffectRowCursor(i);
+            return isc;
+
+        } catch (Throwable e) {
             throw new SQLException(e);
+        } finally {
+            close();
         }
     }
 
     @Override
     public ISchematicCursor getResultCursor() {
-        try {
-            if (executionType == ExecutionType.PUT) {
-                int i = resultSet.getInt(UpdateResultWrapper.AFFECT_ROW);
-                ISchematicCursor isc = new AffectRowCursor(i);
-                close();
-                return isc;
-            } else if (executionType == ExecutionType.GET) {
-                // get的时候只会有一个结果集
-                ResultSet rs = resultSet;
-                return new ResultSetCursor(rs);
-            } else {
-                return null;
-            }
-        } catch (SQLException e) {
-            throw new TddlRuntimeException(e);
+
+        if (executionType == ExecutionType.PUT) {
+            throw new IllegalAccessError("impossible");
+        } else if (executionType == ExecutionType.GET) {
+            // get的时候只会有一个结果集
+            ResultSet rs = resultSet;
+            return new ResultSetCursor(rs, this);
+        } else {
+            return null;
         }
+
     }
 
     protected PreparedStatement getPs() {
@@ -235,8 +275,14 @@ public class My_JdbcHandler implements GeneralQueryHandler {
         return ds;
     }
 
+    protected boolean closeStreaming(Statement stmt, ResultSet rs) throws SQLException {
+        stmt.cancel();
+        return false;
+    }
+
     @Override
     public void close() throws SQLException {
+        boolean hasRealClose = false;
         try {
             /*
              * 非流计算的时候，用普通的close方法，而如果是streaming的情况下 将按以下模式关闭：
@@ -251,7 +297,19 @@ public class My_JdbcHandler implements GeneralQueryHandler {
             } else {
                 try {
                     if (resultSet != null && !resultSet.isClosed()) {
-                        My_Transaction.closeStreaming(myTransaction, groupName, ds);
+                        boolean hasNext = true;
+                        try {
+                            hasNext = resultSet.next();
+                        } catch (SQLException e) { // 可能已经关闭了，直接忽略
+                            hasNext = false;
+                        }
+
+                        if (hasNext) { // 尝试获取一下是否有后续记录，如果数据已经取完了，那就直接关闭
+                            hasRealClose = closeStreaming(this.ps, resultSet);
+                        } else {
+                            resultSet.close();
+                            resultSet = null;
+                        }
                     }
                 } catch (Throwable e) {
                     if (resultSet != null && !resultSet.isClosed()) {
@@ -263,22 +321,18 @@ public class My_JdbcHandler implements GeneralQueryHandler {
                 }
             }
         } finally {
-            try {
-                if (ps != null) {
-                    ps.setFetchSize(0);
-                    ps.close();
-                    ps = null;
-                }
-            } finally {
-                // 针对自动提交的事务,链接不会进行重用，各自关闭
-                if (connection != null && myTransaction.isAutoCommit()) {
-                    if (!isStreaming) {
-                        connection.close();
-                    } else {
-                        My_Transaction.closeStreaming(connection);
-                    }
-                }
+            if (!hasRealClose && ps != null) {
+                ps.setFetchSize(0);
+                ps.close();
+                ps = null;
+            } else {
+                ps = null;
             }
+        }
+
+        ConnectionHolder connectionHolder = this.getExecutionContext().getConnectionHolder();
+        if (this.connection != null) {
+            connectionHolder.tryClose(this.connection);
         }
 
         executionType = null;
@@ -321,7 +375,28 @@ public class My_JdbcHandler implements GeneralQueryHandler {
         if (myJdbcHandler == null) {
             throw new IllegalStateException("should not be here");
         }
-        PreparedStatement ps = myJdbcHandler.prepareStatement(sql);
+
+        int autoGeneratedKeys = executionContext.getAutoGeneratedKeys();
+        int[] columnIndexes = executionContext.getColumnIndexes();
+        String[] columnNames = executionContext.getColumnNames();
+        int resultSetType = executionContext.getResultSetType();
+        int resultSetConcurrency = executionContext.getResultSetConcurrency();
+        int resultSetHoldability = executionContext.getResultSetHoldability();
+        PreparedStatement ps = null;
+        if (resultSetType != -1 && resultSetConcurrency != -1 && resultSetHoldability != -1) {
+            ps = myJdbcHandler.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability);
+        } else if (resultSetType != -1 && resultSetConcurrency != -1) {
+            ps = myJdbcHandler.prepareStatement(sql, resultSetType, resultSetConcurrency);
+        } else if (autoGeneratedKeys != -1) {
+            ps = myJdbcHandler.prepareStatement(sql, autoGeneratedKeys);
+        } else if (columnIndexes != null) {
+            ps = myJdbcHandler.prepareStatement(sql, columnIndexes);
+        } else if (columnNames != null) {
+            ps = myJdbcHandler.prepareStatement(sql, columnNames);
+        } else {
+            ps = myJdbcHandler.prepareStatement(sql);
+        }
+
         this.ps = ps;
         return ps;
     }
@@ -357,7 +432,7 @@ public class My_JdbcHandler implements GeneralQueryHandler {
 
     @Override
     public boolean isInited() {
-        return executionType != null;
+        return resultSet != null;
     }
 
     @Override

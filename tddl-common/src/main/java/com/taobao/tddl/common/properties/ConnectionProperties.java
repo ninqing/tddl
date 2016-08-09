@@ -7,9 +7,6 @@ package com.taobao.tddl.common.properties;
  */
 public class ConnectionProperties {
 
-    /**
-     * 是否开启优化器cache
-     */
     public static final String OPTIMIZER_CACHE                             = "OPTIMIZER_CACHE";
 
     /**
@@ -63,12 +60,6 @@ public class ConnectionProperties {
     public static final String OPTIMIZER_CACHE_SIZE                        = "OPTIMIZER_CACHE_SIZE";
 
     /**
-     * 开启优先选择临时表模式，比如order by/group by，选择临时表缓存数据，默认为false，使用多链接缓存数据
-     * 只有在ALLOW_TEMPORARY_TABLE参数设置为true时，该参数才会生效.
-     */
-    public static final String CHOOSE_TEMPORARY_TABLE                      = "CHOOSE_TEMPORARY_TABLE";
-
-    /**
      * 如果这个值为true,则允许使用临时表。 而如果为空。或者为false,则不允许使用临时表。
      * 从性能和实际需求来说，默认值应该为false.也就是不允许使用临时表。
      */
@@ -80,18 +71,10 @@ public class ConnectionProperties {
     public static final String CHOOSE_STREAMING                            = "CHOOSE_STREAMING";
 
     /**
-     * 广播表是否开启多写
-     */
-    public static final String CHOOSE_BROADCAST_WRITE                      = "CHOOSE_BROADCAST_WRITE";
-
-    /**
      * 创建cursor后是否立马执行
      */
     public static final String EXECUTE_QUERY_WHEN_CREATED                  = "EXECUTE_QUERY_WHEN_CREATED";
 
-    /**
-     * hbase的faimly/rowkey和表结构的映射配置文件
-     */
     public static final String HBASE_MAPPING_FILE                          = "HBASE_MAPPING_FILE";
 
     /**
@@ -148,10 +131,5 @@ public class ConnectionProperties {
      * index nested loop中从右表返回的最大行数
      */
     public static final String MAX_ROW_RETURN_FROM_RIGHT_INDEX_NESTED_LOOP = "MAX_ROW_RETURN_FROM_RIGHT_INDEX_NESTED_LOOP";
-
-    /**
-     * Sequence表名
-     */
-    public static final String SEQUENCE_TABLE_NAME                         = "SEQUENCE_TABLE_NAME";
 
 }

@@ -1,9 +1,7 @@
 package com.taobao.tddl.optimizer.core.expression.bean;
 
-import java.util.Map;
-
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
@@ -24,7 +22,8 @@ public class Column implements IColumn {
     protected String   tableName;
     protected DataType dataType;
     protected boolean  distinct;
-    private boolean    isNot = false;
+    protected boolean  isNot               = false;
+    protected Long     correlateOnFilterId = 0L;
 
     public Column(){
     }
@@ -36,7 +35,7 @@ public class Column implements IColumn {
     }
 
     @Override
-    public IColumn assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public IColumn assignment(Parameters parameterSettings) {
         return this;
     }
 
@@ -134,7 +133,8 @@ public class Column implements IColumn {
             .setDataType(dataType)
             .setTableName(tableName)
             .setDistinct(isDistinct())
-            .setIsNot(isNot);
+            .setIsNot(isNot)
+            .setCorrelateOnFilterId(correlateOnFilterId);
         return newColumn;
     }
 
@@ -146,6 +146,17 @@ public class Column implements IColumn {
     @Override
     public void accept(PlanVisitor visitor) {
         visitor.visit(this);
+    }
+
+    @Override
+    public Long getCorrelateOnFilterId() {
+        return correlateOnFilterId;
+    }
+
+    @Override
+    public IColumn setCorrelateOnFilterId(Long correlateOnFilterId) {
+        this.correlateOnFilterId = correlateOnFilterId;
+        return this;
     }
 
     // ================== hashcode/equals/toString不要随意改动=================
@@ -186,10 +197,6 @@ public class Column implements IColumn {
             }
         }
 
-        // if (dataType != other.dataType)
-        // return false;
-        // if (distinct != other.distinct)
-        // return false;
         if (columName == null) {
             if (other.columName != null) return false;
         } else if (!columName.equals(other.columName)) return false;

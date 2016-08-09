@@ -90,7 +90,7 @@ public class JoinSchematicCursor extends SchematicCursor {
         return rightOutJoin;
     }
 
-    protected void buildSchemaInJoin(ICursorMeta leftCursorMeta, ICursorMeta rightCursorMeta) {
+    protected void buildSchemaInJoin(ICursorMeta leftCursorMeta, ICursorMeta rightCursorMeta) throws TddlException {
         if (schemaInited) {
             return;
         }
@@ -121,7 +121,8 @@ public class JoinSchematicCursor extends SchematicCursor {
 
     }
 
-    protected void buildSchemaFromReturnColumns(List<ColumnMeta> leftColumns, List<ColumnMeta> rightColumns) {
+    protected void buildSchemaFromReturnColumns(List<ColumnMeta> leftColumns, List<ColumnMeta> rightColumns)
+                                                                                                            throws TddlException {
         if (schemaInited) {
             return;
         }
@@ -144,15 +145,13 @@ public class JoinSchematicCursor extends SchematicCursor {
     private void addIndexToNewIndexes(ICursorMeta cursorMeta, List<ColumnMeta> columns, List<Integer> indexes,
                                       int offset) {
         for (ColumnMeta cm : columns) {
-            Integer index = cursorMeta.getIndex(cm.getTableName(), cm.getName());
-            if (index == null) {
-                index = cursorMeta.getIndex(cm.getTableName(), cm.getAlias());
-            }
+            Integer index = cursorMeta.getIndex(cm.getTableName(), cm.getName(), cm.getAlias());
+
             indexes.add(offset + index);
         }
     }
 
-    public IRowSet joinRecord(IRowSet kv1, IRowSet kv2) {
+    public IRowSet joinRecord(IRowSet kv1, IRowSet kv2) throws TddlException {
         ICursorMeta leftCursorMeta = null;
         ICursorMeta rightCursorMeta = null;
         if (kv1 != null) {
@@ -167,7 +166,7 @@ public class JoinSchematicCursor extends SchematicCursor {
         return joinedRowSet;
     }
 
-    private void setOrderBy(ISchematicCursor left_cursor) {
+    private void setOrderBy(ISchematicCursor left_cursor) throws TddlException {
         List<IOrderBy> orderBys = left_cursor.getOrderBy();
         setOrderBy(orderBys);
     }

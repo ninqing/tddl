@@ -14,6 +14,9 @@ import junit.framework.TestCase;
 
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+
 /**
  * @author jianghang 2011-6-21 下午09:43:46
  */

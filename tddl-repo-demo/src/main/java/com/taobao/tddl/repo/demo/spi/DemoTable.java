@@ -4,7 +4,6 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.SchematicCursor;
@@ -23,26 +22,18 @@ import com.taobao.tddl.repo.demo.cursor.DemoUtil;
  */
 public class DemoTable implements ITable {
 
-    private final static String                         DUAL_TABLE = "dual";
-    private final NavigableMap<Object, CloneableRecord> map        = new TreeMap<Object, CloneableRecord>();
-    private final TableMeta                             tableMeta;
+    private final NavigableMap<Object, CloneableRecord> map = new TreeMap<Object, CloneableRecord>();
+    private final TableMeta                             TableMeta;
 
     public DemoTable(TableMeta TableMeta){
         super();
-        this.tableMeta = TableMeta;
-
-        if (tableMeta.getTableName().equalsIgnoreCase(DUAL_TABLE)) {
-            map.put(1,
-                CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
-                    .getCodec(tableMeta.getPrimaryIndex().getValueColumns())
-                    .newEmptyRecord());
-        }
+        this.TableMeta = TableMeta;
 
     }
 
     @Override
     public TableMeta getSchema() {
-        return tableMeta;
+        return TableMeta;
     }
 
     @Override
@@ -54,10 +45,6 @@ public class DemoTable implements ITable {
     @Override
     public void put(ExecutionContext executionContext, CloneableRecord key, CloneableRecord value, IndexMeta indexMeta,
                     String dbName) throws TddlException {
-
-        if (tableMeta.getTableName().equalsIgnoreCase(DUAL_TABLE)) {
-            return;
-        }
         Object valOfKeys = DemoUtil.getValueOfKey(key);
         map.put(valOfKeys, value);
     }
@@ -65,10 +52,6 @@ public class DemoTable implements ITable {
     @Override
     public void delete(ExecutionContext executionContext, CloneableRecord key, IndexMeta indexMeta, String dbName)
                                                                                                                   throws TddlException {
-
-        if (tableMeta.getTableName().equalsIgnoreCase(DUAL_TABLE)) {
-            return;
-        }
         Object valOfKeys = DemoUtil.getValueOfKey(key);
         map.remove(valOfKeys);
 

@@ -48,9 +48,10 @@ public class QueryHandler extends QueryHandlerCommon {
         } else {
             ITable table = null;
             IndexMeta meta = null;
-            buildTableAndMeta(query, executionContext);
-            table = executionContext.getTable();
-            meta = executionContext.getMeta();
+            TableAndIndex ti = new TableAndIndex();
+            buildTableAndMeta(query, ti, executionContext);
+            table = ti.table;
+            meta = ti.index;
             cursor = table.getCursor(executionContext, meta, (IQuery) executor);
         }
 
@@ -59,13 +60,7 @@ public class QueryHandler extends QueryHandlerCommon {
         IFilter keyFilter = query.getKeyFilter();
         if (keyFilter != null) {
             if (keyFilter instanceof IBooleanFilter) {
-                // 外键约束好像没用
-                // if (meta.getRelationship() == Relationship.MANY_TO_MANY) {
-                // cursor = manageToReverseIndex(cursor, executor, repo,
-                // transaction, executionContext.getTable(), meta,
-                // keyFilter);
-                // } else {}
-                // 非倒排索引,即普通索引,走的查询方式
+
                 cursor = manageToBooleanRangeCursor(executionContext, cursor, repo, keyFilter);
             } else if (keyFilter instanceof ILogicalFilter) {
                 ILogicalFilter lf = (ILogicalFilter) keyFilter;

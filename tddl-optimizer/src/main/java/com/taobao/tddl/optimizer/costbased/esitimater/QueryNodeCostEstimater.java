@@ -7,6 +7,7 @@ import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.KVIndexStat;
@@ -61,13 +62,19 @@ public class QueryNodeCostEstimater implements QueryTreeCostEstimater {
         if (this.isAllEqualOrIS(keyFilters) && index != null && index.isPrimaryKeyIndex()) {
             rowCount = 1;
             scanRowCount = 1;
-        } else if (query.getLimitFrom() != null
-                   && (query.getLimitFrom() instanceof Long || query.getLimitFrom() instanceof Long)
-                   && (Long) query.getLimitFrom() != 0 && query.getLimitTo() != null
-                   && (query.getLimitTo() instanceof Long || query.getLimitTo() instanceof Long)
-                   && (Long) query.getLimitTo() != 0) {
+        } else if (query.getLimitFrom() != null && query.getLimitTo() != null) {
+            Object from = query.getLimitFrom();
+            if (from instanceof IBindVal) {
+                from = ((IBindVal) from).getValue();
+            }
+            Object to = query.getLimitTo();
+            if (to instanceof IBindVal) {
+                to = ((IBindVal) from).getValue();
+            }
             // 对于包含limit的查询，使用limit提供的结果
-            rowCount = (Long) query.getLimitTo() - (Long) query.getLimitFrom();
+            if (from instanceof Long && to instanceof Long) {
+                rowCount = ((Long) query.getLimitTo() - (Long) query.getLimitFrom());
+            }
             scanRowCount = CostEsitimaterFactory.estimateRowCount(initRowCount, keyFilters, index, indexStat);
         } else if (query.getLimitFrom() != null || query.getLimitTo() != null) {
             rowCount = CostEsitimaterFactory.estimateRowCount(initRowCount, keyFilters, index, indexStat) / 2;

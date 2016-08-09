@@ -3,10 +3,12 @@ package com.taobao.tddl.repo.mysql.spi;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -30,6 +32,7 @@ import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
@@ -44,7 +47,6 @@ public class My_Cursor implements Cursor {
     protected IDataNodeExecutor query;
     protected ICursorMeta       meta;
     protected boolean           inited        = false;
-    // private boolean directlyExecuteSql = false;
 
     protected boolean           isStreaming   = false;
     protected List<ColumnMeta>  returnColumns = null;
@@ -88,16 +90,35 @@ public class My_Cursor implements Cursor {
         if (inited) {
             return;
         }
+
         try {
             myJdbcHandler.executeQuery(meta, isStreaming);
-            // ResultSetMetaData rsmd =
-            // this.myJdbcHandler.getResultSet().getMetaData();
-            returnColumns = new ArrayList();
-            // 使用meta做为returncolumns
-            // resultset中返回的meta信是物理表名，会导致join在构造返回对象时找不到index(表名不同/为null)
-            if (meta != null) {
-                returnColumns.addAll(meta.getColumns());
-            } else {
+
+            buildReturnColumns();
+        } catch (SQLException e) {
+            throw new TddlException(e);
+        }
+        inited = true;
+
+    }
+
+    void buildReturnColumns() throws TddlException {
+        if (returnColumns != null) {
+            return;
+        }
+
+        returnColumns = new ArrayList();
+
+        // 使用meta做为returncolumns
+        // resultset中返回的meta信是物理表名，会导致join在构造返回对象时找不到index(表名不同/为null)
+        if (meta != null) {
+            returnColumns.addAll(meta.getColumns());
+        } else {
+            try {
+                if (this.myJdbcHandler.getResultSet() == null) {
+                    myJdbcHandler.executeQuery(meta, isStreaming);
+                }
+
                 ResultSetMetaData rsmd = this.myJdbcHandler.getResultSet().getMetaData();
                 for (int i = 1; i <= rsmd.getColumnCount(); i++) {
                     boolean isUnsigned = StringUtils.containsIgnoreCase(rsmd.getColumnTypeName(i), "unsigned");
@@ -109,11 +130,11 @@ public class My_Cursor implements Cursor {
 
                 meta = CursorMetaImp.buildNew(returnColumns);
                 myJdbcHandler.setContext(meta, isStreaming);
+            } catch (Exception e) {
+                throw new TddlException(e);
             }
-            inited = true;
-        } catch (SQLException e) {
-            throw new TddlException(e);
         }
+
     }
 
     public ISchematicCursor getResultSet() throws TddlException {
@@ -191,6 +212,7 @@ public class My_Cursor implements Cursor {
         }
         try {
             myJdbcHandler.close();
+
         } catch (Exception e) {
             exs.add(new TddlException(e));
         }
@@ -205,27 +227,45 @@ public class My_Cursor implements Cursor {
                                                                    boolean keyFilterOrValueFilter) throws TddlException {
 
         IQuery tmpQuery = (IQuery) query.copy();
-        List<Object> values = new ArrayList<Object>();
-        String cm = keys.get(0).getColumnList().get(0);
-        for (CloneableRecord key : keys) {
-            values.add(key.get(cm));
+        IBooleanFilter ibf = ASTNodeFactory.getInstance().createBooleanFilter();
+        ibf.setOperation(OPERATION.IN);
+        ibf.setValues(new ArrayList<Object>());
+        String colName = null;
+        for (CloneableRecord record : keys) {
+            Map<String, Object> recordMap = record.getMap();
+            if (recordMap.size() == 1) {
+                // 单字段in
+                Entry<String, Object> entry = recordMap.entrySet().iterator().next();
+                Object comp = entry.getValue();
+                colName = entry.getKey();
+                IColumn col = ASTNodeFactory.getInstance()
+                    .createColumn()
+                    .setColumnName(colName)
+                    .setDataType(record.getType(0));
+
+                col.setTableName(tmpQuery.getAlias());
+                ibf.setColumn(col);
+                ibf.getValues().add(comp);
+            } else {
+                // 多字段in
+                if (ibf.getColumn() == null) {
+                    ibf.setColumn(buildRowFunction(recordMap.keySet(), true, record));
+                }
+
+                ibf.getValues().add(buildRowFunction(recordMap.values(), false, record));
+
+            }
         }
-        IColumn ic = ASTNodeFactory.getInstance().createColumn();
-        ic.setColumnName(cm);
 
-        IBooleanFilter targetFilter = ASTNodeFactory.getInstance().createBooleanFilter();
-        targetFilter.setOperation(OPERATION.IN);
-        targetFilter.setColumn(ic);
-        targetFilter.setValues(values);
-
-        tmpQuery.setKeyFilter(FilterUtils.and(tmpQuery.getKeyFilter(), targetFilter));
-
+        tmpQuery.setKeyFilter(FilterUtils.and(tmpQuery.getKeyFilter(), ibf));
         myJdbcHandler.setPlan(tmpQuery);
         try {
             myJdbcHandler.executeQuery(this.meta, isStreaming);
         } catch (SQLException e) {
             throw new TddlException(e);
         }
+
+        buildReturnColumns();
         Map<CloneableRecord, DuplicateKVPair> res = buildDuplicateKVPair(keys);
         return res;
     }
@@ -317,8 +357,10 @@ public class My_Cursor implements Cursor {
 
     @Override
     public List<ColumnMeta> getReturnColumns() throws TddlException {
-        init();
+
+        buildReturnColumns();
         return this.returnColumns;
+
     }
 
     @Override
@@ -326,4 +368,26 @@ public class My_Cursor implements Cursor {
         return true;
     }
 
+    private IFunction buildRowFunction(Collection values, boolean isColumn, CloneableRecord record) {
+        IFunction func = ASTNodeFactory.getInstance().createFunction();
+        func.setFunctionName("ROW");
+        StringBuilder columnName = new StringBuilder();
+        columnName.append('(').append(StringUtils.join(values, ',')).append(')');
+        func.setColumnName(columnName.toString());
+        if (isColumn) {
+            List<IColumn> columns = new ArrayList<IColumn>(values.size());
+            for (Object value : values) {
+                IColumn col = ASTNodeFactory.getInstance()
+                    .createColumn()
+                    .setColumnName((String) value)
+                    .setDataType(record.getType((String) value));
+                columns.add(col);
+            }
+
+            func.setArgs(columns);
+        } else {
+            func.setArgs(new ArrayList(values));
+        }
+        return func;
+    }
 }

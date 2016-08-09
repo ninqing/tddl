@@ -4,14 +4,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
-import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
-import com.taobao.tddl.optimizer.core.ast.query.MergeNode;
-import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
-import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -26,20 +21,24 @@ import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
  */
 public class CostEsitimaterFactory {
 
-    private static JoinNodeCostEstimater  joinNodeCostEstimater  = new JoinNodeCostEstimater();
-    private static MergeNodeCostEstimater mergeNodeCostEstimater = new MergeNodeCostEstimater();
-    private static QueryNodeCostEstimater queryNodeCostEstimater = new QueryNodeCostEstimater();
+    public static JoinNodeCostEstimater  joinNodeCostEstimater  = new JoinNodeCostEstimater();
+    public static MergeNodeCostEstimater mergeNodeCostEstimater = new MergeNodeCostEstimater();
+    public static QueryNodeCostEstimater queryNodeCostEstimater = new QueryNodeCostEstimater();
+
+    public static Cost                   zeroCost               = new Cost();
 
     public static Cost estimate(QueryTreeNode query) throws StatisticsUnavailableException {
-        if (query instanceof JoinNode) {
-            return joinNodeCostEstimater.estimate(query);
-        } else if (query instanceof MergeNode) {
-            return mergeNodeCostEstimater.estimate(query);
-        } else if (query instanceof QueryNode || query instanceof TableNode) {
-            return queryNodeCostEstimater.estimate(query);
-        } else {
-            throw new NotSupportException();
-        }
+
+        return zeroCost;
+
+        /*
+         * if (query instanceof JoinNode) { return
+         * joinNodeCostEstimater.estimate(query); } else if (query instanceof
+         * MergeNode) { return mergeNodeCostEstimater.estimate(query); } else if
+         * (query instanceof QueryNode || query instanceof TableNode) { return
+         * queryNodeCostEstimater.estimate(query); } else { throw new
+         * NotSupportException(); }
+         */
 
     }
 
@@ -61,7 +60,7 @@ public class CostEsitimaterFactory {
 
         Map<String, Double> columnAndColumnCountItSelectivity = new HashMap();
         if (index != null && indexStat != null) {
-            Double columnCountEveryKeyColumnSelect = ((double) index.getKeyColumns().size())
+            Double columnCountEveryKeyColumnSelect = (index.getKeyColumns().size())
                                                      * (1.0 / indexStat.getDistinctKeys());
             for (ColumnMeta cm : index.getKeyColumns()) {
                 columnAndColumnCountItSelectivity.put(cm.getName(), columnCountEveryKeyColumnSelect);

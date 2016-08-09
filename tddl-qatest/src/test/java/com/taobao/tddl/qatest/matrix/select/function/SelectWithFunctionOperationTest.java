@@ -12,8 +12,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 @RunWith(EclipseParameterized.class)
 public class SelectWithFunctionOperationTest extends BaseMatrixTestCase {
@@ -29,13 +29,11 @@ public class SelectWithFunctionOperationTest extends BaseMatrixTestCase {
 
     @Before
     public void prepare() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         normaltblPrepare(0, 20);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 

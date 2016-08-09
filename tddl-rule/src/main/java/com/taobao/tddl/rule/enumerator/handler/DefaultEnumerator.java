@@ -19,6 +19,6 @@ public class DefaultEnumerator implements CloseIntervalFieldsEnumeratorHandler {
 
     public void processAllPassableFields(Comparative source, Set<Object> retValue, Integer cumulativeTimes,
                                          Comparable<?> atomIncrValue) {
-        throw new IllegalStateException("在没有提供步长和叠加次数的前提下，不能够根据当前范围条件选出对应的定义域的枚举值，sql中不要出现> < >= <=");
+        throw new IllegalStateException("默认枚举器，不能够根据当前范围条件选出对应的定义域的枚举值，sql中不要出现> < >= <=");
     }
 }

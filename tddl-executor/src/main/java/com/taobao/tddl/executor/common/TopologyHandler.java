@@ -1,36 +1,41 @@
 package com.taobao.tddl.executor.common;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.lang.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Group.GroupType;
 import com.taobao.tddl.common.model.Matrix;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.XmlHelper;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataListener;
 import com.taobao.tddl.config.impl.ConfigDataHandlerCity;
 import com.taobao.tddl.executor.spi.IGroupExecutor;
 import com.taobao.tddl.executor.spi.IRepository;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 import com.taobao.tddl.optimizer.config.table.parse.MatrixParser;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * group以及其对应的执行器
@@ -40,51 +45,51 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  */
 public class TopologyHandler extends AbstractLifecycle {
 
-    public final static Logger                               logger            = LoggerFactory.getLogger(TopologyHandler.class);
-    public final static String                               xmlHead           = "<matrix xmlns=\"https://github.com/tddl/tddl/schema/matrix\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"https://github.com/tddl/tddl/schema/matrix https://raw.github.com/tddl/tddl/master/tddl-common/src/main/resources/META-INF/matrix.xsd\">";
-    public final static MessageFormat                        topologyNullError = new MessageFormat("get topology info error, appName is:{0}, unitName is:{1}, filePath is: {2}, dataId is: {3}");
-    // public final static MessageFormat TOPOLOGY = new
-    // MessageFormat("com.taobao.and_orV0.{0}_MACHINE_TAPOLOGY");
-    public final static MessageFormat                        TOPOLOGY          = new MessageFormat("com.taobao.tddl.v1_{0}_topology");
-    public final static MessageFormat                        GROUP_TOPOLOGY    = new MessageFormat("com.taobao.tddl.v1_{0}_dbgroups");
-    private final Map<String/* group key */, IGroupExecutor> executorMap       = new HashMap<String, IGroupExecutor>();
+    public final static Logger                               logger              = LoggerFactory.getLogger(TopologyHandler.class);
+    public final static String                               xmlHead             = "<matrix xmlns=\"https://github.com/tddl/tddl/schema/matrix\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"https://github.com/tddl/tddl/schema/matrix https://raw.github.com/tddl/tddl/master/tddl-common/src/main/resources/META-INF/matrix.xsd\">";
+    public final static MessageFormat                        topologyNullError   = new MessageFormat("get topology info error, appName is:{0}, unitName is:{1}, filePath is: {2}, dataId is: {3}");
+    public final static MessageFormat                        TOPOLOGY            = new MessageFormat("com.taobao.tddl.v1_{0}_topology");
+
+    /**
+     * 为了和andor的配置兼容
+     */
+    public final static MessageFormat                        ANDOR_TOPOLOGY      = new MessageFormat("com.taobao.and_orV0.{0}_MACHINE_TAPOLOGY");
+    public final static MessageFormat                        GROUP_TOPOLOGY      = new MessageFormat("com.taobao.tddl.v1_{0}_dbgroups");
+    private final Map<String/* group key */, IGroupExecutor> executorMap         = new HashMap<String, IGroupExecutor>();
     private String                                           appName;
     private String                                           unitName;
     private String                                           topologyFilePath;
-    private ConfigDataHandler                                cdh               = null;
+    private ConfigDataHandler                                topologyFileHandler = null;
+    private Cache<String, ConfigDataHandler>                 cdhs                = CacheBuilder.newBuilder().build();
     private Matrix                                           matrix;
+    private Map                                              cp;
+    private TopologyListener                                 topologyListener;
+    private List<App>                                        subApps             = null;
+    private List<TopologyHandler>                            subTopologyHandlers = new ArrayList();
 
     public TopologyHandler(String appName, String unitName, String topologyFilePath){
         this.appName = appName;
         this.unitName = unitName;
         this.topologyFilePath = topologyFilePath;
+        this.topologyListener = new TopologyListener(this);
+    }
+
+    public TopologyHandler(String appName, String unitName, String topologyFilePath, Map cp){
+        this(appName, unitName, topologyFilePath);
+        this.cp = cp;
     }
 
     @Override
     protected void doInit() {
-        if (topologyFilePath != null) {
-            cdh = ConfigDataHandlerCity.getFileFactory(appName).getConfigDataHandler(topologyFilePath,
-                new TopologyListener(this));
-        } else {
-            cdh = ConfigDataHandlerCity.getFactory(appName, unitName)
-                .getConfigDataHandler(TOPOLOGY.format(new Object[] { appName }), new TopologyListener(this));
-        }
 
-        String data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
-        if (data == null) {
-            // 尝试读一次tddl的appName规则
-            data = generateTopologyXML(appName, unitName);
-        }
-
-        if (data == null) {
-            String dataId = TOPOLOGY.format(new Object[] { appName });
-            throw new TddlRuntimeException(topologyNullError.format(new String[] { appName, unitName, topologyFilePath,
-                    dataId }));
-        }
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("TopologyHandler start init");
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + appName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + unitName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("topologyFile is: " + this.topologyFilePath);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("subApps is: " + this.subApps);
 
         try {
-            Matrix matrix = MatrixParser.parse(data);
-            this.matrix = matrix;
+            this.matrix = initMatrix(appName, topologyFilePath);
         } catch (Exception ex) {
             logger.error("matrix topology init error,file is: " + this.getTopologyFilePath() + ", appname is: "
                          + this.getAppName(),
@@ -94,13 +99,103 @@ public class TopologyHandler extends AbstractLifecycle {
 
     }
 
-    protected void dodestroy() throws TddlException {
+    private Matrix initMatrix(final String appName, String topologyFilePath) {
+        String data = null;
+        if (topologyFilePath != null) {
+            topologyFileHandler = ConfigDataHandlerCity.getFileFactory(appName).getConfigDataHandler(topologyFilePath,
+                new TopologyListener(this));
+            data = topologyFileHandler.getData(ConfigDataHandler.GET_DATA_TIMEOUT,
+                ConfigDataHandler.FIRST_SERVER_STRATEGY);
+        } else {
+            final String dataId = TOPOLOGY.format(new Object[] { appName });
+            ConfigDataHandler cdh = null;
+            try {
+                cdh = cdhs.get(dataId, new Callable<ConfigDataHandler>() {
+
+                    @Override
+                    public ConfigDataHandler call() throws Exception {
+                        return ConfigDataHandlerCity.getFactory(appName, unitName).getConfigDataHandler(dataId,
+                            topologyListener);
+                    }
+                });
+            } catch (ExecutionException e) {
+                throw new TddlRuntimeException(e);
+            }
+
+            data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
+
+            /**
+             * tddl的topology找不到，试试andor的
+             */
+            if (data == null) {
+                final String andorDataId = ANDOR_TOPOLOGY.format(new Object[] { appName });
+                try {
+                    cdh = cdhs.get(andorDataId, new Callable<ConfigDataHandler>() {
+
+                        @Override
+                        public ConfigDataHandler call() throws Exception {
+                            return ConfigDataHandlerCity.getFactory(appName, unitName)
+                                .getConfigDataHandler(andorDataId, topologyListener);
+                        }
+                    });
+                } catch (ExecutionException e) {
+                    throw new TddlRuntimeException(e);
+                }
+
+                data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
+
+            }
+        }
+
+        if (data == null) {
+            data = generateTopologyXML(appName, unitName);
+        }
+
+        if (data == null) {
+            String dataId = TOPOLOGY.format(new Object[] { appName });
+            throw new TddlRuntimeException(topologyNullError.format(new String[] { appName, unitName, topologyFilePath,
+                    dataId }));
+        }
+
+        Matrix matrix = MatrixParser.parse(data);
+
+        if (subApps != null) {
+            for (App subApp : subApps) {
+
+                try {
+                    TopologyHandler subTopologyHandler = new TopologyHandler(subApp.getAppName(),
+                        this.unitName,
+                        subApp.getTopologyFile(),
+                        this.cp);
+                    subTopologyHandler.init();
+                    this.subTopologyHandlers.add(subTopologyHandler);
+
+                    matrix.addSubMatrix(subTopologyHandler.getMatrix());
+                } catch (TddlException e) {
+                    logger.error("sub app topology init error, sub app is :" + subApp, e);
+                }
+
+            }
+        }
+        return matrix;
+    }
+
+    @Override
+    protected void doDestroy() throws TddlException {
         Map<String, IRepository> repos = ExecutorContext.getContext().getRepositoryHolder().getRepository();
         for (IRepository repo : repos.values()) {
             repo.destroy();
         }
 
-        cdh.destroy();
+        if (topologyFileHandler != null) {
+            topologyFileHandler.destroy();
+        }
+
+        for (ConfigDataHandler cdh : cdhs.asMap().values()) {
+            cdh.destroy();
+        }
+
+        cdhs.cleanUp();
     }
 
     /**
@@ -111,9 +206,10 @@ public class TopologyHandler extends AbstractLifecycle {
      */
     public IGroupExecutor createOne(Group group) {
         group.setAppName(this.appName);
+        group.setUnitName(this.unitName);
         IRepository repo = ExecutorContext.getContext()
             .getRepositoryHolder()
-            .getOrCreateRepository(group.getType().toString(), matrix.getProperties());
+            .getOrCreateRepository(group, matrix.getProperties(), cp);
 
         IGroupExecutor groupExecutor = repo.getGroupExecutor(group);
         putOne(group.getName(), groupExecutor);
@@ -142,6 +238,14 @@ public class TopologyHandler extends AbstractLifecycle {
     public IGroupExecutor get(String key) {
         IGroupExecutor groupExecutor = executorMap.get(key);
         if (groupExecutor == null) {
+
+            for (TopologyHandler sub : this.subTopologyHandlers) {
+                groupExecutor = sub.get(key);
+
+                if (groupExecutor != null) {
+                    return groupExecutor;
+                }
+            }
             Group group = matrix.getGroup(key);
             if (group != null) {
                 synchronized (executorMap) {
@@ -159,13 +263,19 @@ public class TopologyHandler extends AbstractLifecycle {
         return groupExecutor;
     }
 
-    private String generateTopologyXML(String appName, String unitName) {
-        ConfigDataHandler groupHanlder = null;
+    private String generateTopologyXML(final String appName, final String unitName) {
         try {
-            String matrixKey = GROUP_TOPOLOGY.format(new Object[] { appName });
-            groupHanlder = ConfigDataHandlerCity.getFactory(appName, unitName).getConfigDataHandler(matrixKey);
-            String keys = groupHanlder.getData(ConfigDataHandler.GET_DATA_TIMEOUT,
-                ConfigDataHandler.FIRST_SERVER_STRATEGY);
+            final String matrixKey = GROUP_TOPOLOGY.format(new Object[] { appName });
+            ConfigDataHandler cdh = cdhs.get(matrixKey, new Callable<ConfigDataHandler>() {
+
+                @Override
+                public ConfigDataHandler call() throws Exception {
+                    return ConfigDataHandlerCity.getFactory(appName, unitName).getConfigDataHandler(matrixKey,
+                        topologyListener);
+                }
+            });
+
+            String keys = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
             if (keys == null) {
                 throw new IllegalArgumentException("dataId : " + matrixKey + " is null");
             }
@@ -195,16 +305,8 @@ public class TopologyHandler extends AbstractLifecycle {
             outwriter.close();
             String xml = baos.toString();
             return StringUtils.replace(xml, "<matrix>", xmlHead);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new TddlRuntimeException(e);
-        } catch (ParserConfigurationException e) {
-            throw new TddlRuntimeException(e);
-        } finally {
-            try {
-                groupHanlder.destroy();
-            } catch (TddlException e) {
-                throw new TddlRuntimeException(e);
-            }
         }
     }
 
@@ -215,7 +317,6 @@ public class TopologyHandler extends AbstractLifecycle {
 
     public class TopologyListener implements ConfigDataListener {
 
-        @SuppressWarnings("unused")
         private final TopologyHandler topologyHandler;
 
         public TopologyListener(TopologyHandler topologyHandler){
@@ -224,9 +325,12 @@ public class TopologyHandler extends AbstractLifecycle {
 
         @Override
         public void onDataRecieved(String dataId, String data) {
-            // do nothing
+            LoggerInit.TDDL_DYNAMIC_CONFIG.info("receive matrix dataId:" + dataId + " , data:" + data);
+            synchronized (topologyHandler) {
+                // 重载一次所有配置
+                topologyHandler.matrix = topologyHandler.initMatrix(appName, topologyFilePath);
+            }
         }
-
     }
 
     public String getAppName() {
@@ -255,5 +359,9 @@ public class TopologyHandler extends AbstractLifecycle {
 
     public Matrix getMatrix() {
         return this.matrix;
+    }
+
+    public void setSubApps(List<App> subApps) {
+        this.subApps = subApps;
     }
 }

@@ -47,14 +47,14 @@ public class SelectWithLike extends BaseMatrixTestCase {
      */
     @Test
     public void LikeAnyTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like 'zhuo%'";
+        String sql = "select * from " + normaltblTableName + "  having name like 'zhuo%'";
         String[] columnParam = { "ID", "NAME" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like '%uo%'";
+        sql = "select * from " + normaltblTableName + " having name like '%uo%'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like '%uo%u%'";
+        sql = "select * from " + normaltblTableName + " having name like '%uo%u%'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
@@ -65,14 +65,14 @@ public class SelectWithLike extends BaseMatrixTestCase {
      */
     @Test
     public void LikeOneTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like 'zhuoxu_'";
+        String sql = "select * from " + normaltblTableName + " having name like 'zhuoxu_'";
         String[] columnParam = { "ID", "NAME" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like '_huoxu_'";
+        sql = "select * from " + normaltblTableName + " having name like '_huoxu_'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like '_hu_xu_'";
+        sql = "select * from " + normaltblTableName + " having name like '_hu_xu_'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
@@ -83,12 +83,12 @@ public class SelectWithLike extends BaseMatrixTestCase {
      */
     @Test
     public void LikeSpecificTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like 'zhuoxue'";
+        String sql = "select * from " + normaltblTableName + " having name like 'zhuoxue'";
         String[] columnParam = { "ID", "NAME" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
         if (!normaltblTableName.contains("ob_")) {
-            sql = "select * from " + normaltblTableName + " where name like 'ZHuoXUE'";
+            sql = "select * from " + normaltblTableName + " having name like 'ZHuoXUE'";
             selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
         }
     }
@@ -101,7 +101,7 @@ public class SelectWithLike extends BaseMatrixTestCase {
     @Ignore("like binary暂时不支持")
     @Test
     public void LikeBinaryTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like binary 'zhuoxue'";
+        String sql = "select * from " + normaltblTableName + " having name like binary 'zhuoxue'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
 
@@ -115,11 +115,11 @@ public class SelectWithLike extends BaseMatrixTestCase {
      */
     @Test
     public void MatchCharTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like 'zhuoxue\\_yll'";
+        String sql = "select * from " + normaltblTableName + " having name like 'zhuoxue\\_yll'";
         String[] columnParam = { "ID", "NAME" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like 'zhuoxue\\%yll'";
+        sql = "select * from " + normaltblTableName + " having name like 'zhuoxue\\%yll'";
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
@@ -129,27 +129,27 @@ public class SelectWithLike extends BaseMatrixTestCase {
     @Ignore("NotLike测试，使用比较少，所以不支持")
     @Test
     public void NotLikeTest() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name not like 'zhuo%'";
+        String sql = "select * from " + normaltblTableName + " having name not like 'zhuo%'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
-        sql = "select * from " + normaltblTableName + " where name not like 'uo%'";
+        sql = "select * from " + normaltblTableName + " having name not like 'uo%'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
-        sql = "select * from " + normaltblTableName + " where name not like 'zhuoxu_'";
+        sql = "select * from " + normaltblTableName + " having name not like 'zhuoxu_'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
-        sql = "select * from " + normaltblTableName + " where name not like 'uoxu_'";
+        sql = "select * from " + normaltblTableName + " having name not like 'uoxu_'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
-        sql = "select * from " + normaltblTableName + " where name not like 'ZHuoXUE'";
+        sql = "select * from " + normaltblTableName + " having name not like 'ZHuoXUE'";
         rs = mysqlQueryData(sql, null);
         rc = andorQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
@@ -163,23 +163,23 @@ public class SelectWithLike extends BaseMatrixTestCase {
     @Test
     public void likeWithAndTest() throws Exception {
         int id = 500;
-        String sql = "select * from " + normaltblTableName + " where name like 'zhuoxue' and id>" + id;
+        String sql = "select * from " + normaltblTableName + " having name like 'zhuoxue' and id>" + id;
         String[] columnParam = { "ID", "NAME" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        sql = "select * from " + normaltblTableName + " where name like 'zhuoxue\\%yll' and id <" + id;
+        sql = "select * from " + normaltblTableName + " having name like 'zhuoxue\\%yll' and id <" + id;
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
     @Test
     public void likeWithLimit() throws Exception {
-        String sql = "select * from " + normaltblTableName + " where name like ? limit ?";
+        String sql = "select * from " + normaltblTableName + " having name like ? limit ?";
         List<Object> param = new ArrayList<Object>();
         param.add("zhuo%");
         param.add(10);
         selectConutAssert(sql, param);
 
-        sql = "select * from " + normaltblTableName + " where name like ? limit ?,?";
+        sql = "select * from " + normaltblTableName + " having name like ? limit ?,?";
         param.clear();
         param.add("%uo%");
         param.add(15);
@@ -203,7 +203,7 @@ public class SelectWithLike extends BaseMatrixTestCase {
         String[] columnParam = { "name", "gmt_timestamp" };
         String notKeyCloumn = "gmt_timestamp";
         String sql = "SELECT * from " + normaltblTableName
-                     + " where name like ? and gmt_timestamp> ? and gmt_timestamp< ? order by gmt_timestamp";
+                     + " having name like ? and gmt_timestamp> ? and gmt_timestamp< ? order by gmt_timestamp";
         List<Object> param = new ArrayList<Object>();
         param.add("%zh%xue%");
         param.add(gmtBefore);
@@ -211,21 +211,21 @@ public class SelectWithLike extends BaseMatrixTestCase {
         selectOrderAssertNotKeyCloumn(sql, columnParam, param, notKeyCloumn);
 
         sql = "SELECT * from " + normaltblTableName
-              + " where name like ? and gmt_timestamp> ? and gmt_timestamp< ? order by gmt_timestamp desc";
+              + " having name like ? and gmt_timestamp> ? and gmt_timestamp< ? order by gmt_timestamp desc";
         selectOrderAssertNotKeyCloumn(sql, columnParam, param, notKeyCloumn);
 
         sql = "SELECT * from " + normaltblTableName
-              + " as tab where (name like ? and (gmt_timestamp> ? and gmt_timestamp< ?)) order by  gmt_timestamp desc";
+              + " as tab having (name like ? and (gmt_timestamp> ? and gmt_timestamp< ?)) order by  gmt_timestamp desc";
         selectOrderAssertNotKeyCloumn(sql, columnParam, param, notKeyCloumn);
 
         sql = "SELECT * from "
               + normaltblTableName
-              + " as tab where (name like '%zhuo%' and (gmt_timestamp> '2011-1-1' and gmt_timestamp< '2018-7-9')) order by  gmt_timestamp desc limit 10";
+              + " as tab having (name like '%zhuo%' and (gmt_timestamp> '2011-1-1' and gmt_timestamp< '2018-7-9')) order by  gmt_timestamp desc limit 10";
         selectOrderAssertNotKeyCloumn(sql, columnParam, Collections.EMPTY_LIST, notKeyCloumn);
 
         sql = "SELECT * from "
               + normaltblTableName
-              + " as tab where (name like ? and (gmt_timestamp> ? and gmt_timestamp< ?)) order by  gmt_timestamp desc limit ?,?";
+              + " as tab having (name like ? and (gmt_timestamp> ? and gmt_timestamp< ?)) order by  gmt_timestamp desc limit ?,?";
         param.clear();
         param.add("%zh%xue%");
         param.add(gmtBefore);

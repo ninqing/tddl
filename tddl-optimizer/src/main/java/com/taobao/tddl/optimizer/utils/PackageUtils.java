@@ -25,7 +25,7 @@ public class PackageUtils {
         try {
             List<String> classes = Lists.newArrayList();
             String packageDirName = packageName.replace('.', '/');
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            ClassLoader classLoader = PackageUtils.class.getClassLoader();
 
             Enumeration<URL> dirEnumeration = classLoader.getResources(packageDirName);
             List<URL> dirs = Lists.newArrayList();

@@ -21,11 +21,11 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.dao.DataAccessException;
 
 import com.taobao.diamond.mockserver.MockServer;
+import com.taobao.tddl.client.sequence.exception.SequenceException;
+import com.taobao.tddl.client.sequence.impl.GroupSequence;
+import com.taobao.tddl.client.sequence.impl.GroupSequenceDao;
 import com.taobao.tddl.common.GroupDataSourceRouteHelper;
 import com.taobao.tddl.qatest.BaseAtomGroupTestCase;
-import com.taobao.tddl.sequence.exception.SequenceException;
-import com.taobao.tddl.sequence.impl.GroupSequence;
-import com.taobao.tddl.sequence.impl.GroupSequenceDao;
 
 /**
  * @author yaolingling.pt
@@ -165,7 +165,6 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
      */
     @Test
     public void startWith0GetTwoValueLessStep() throws Exception {
-
         Connection con = getConnection("qatest_normal_0");
         Statement stmt = (Statement) con.createStatement();
         stmt.executeUpdate("update sequence set value='0' where name='ni'");
@@ -208,13 +207,12 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
      */
     @Test
     public void statrWith0GreaterStep() throws Exception {
-
         Connection con = getConnection("qatest_normal_0");
         Statement stmt = (Statement) con.createStatement();
         stmt.executeUpdate("update sequence set value='0' where name='ni'");
         con = getConnection("qatest_normal_1");
         stmt = (Statement) con.createStatement();
-        stmt.executeUpdate("update sequence set value='0' where name='ni'");
+        stmt.executeUpdate("update sequence set value='100' where name='ni'");
         stmt.close();
         con.close();
 
@@ -229,7 +227,9 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
         seque.setName("ni");
         seque.setSequenceDao(sequeDao);
 
-        value = seque.nextValue();
+        for (int i = 0; i < 150; i++) {// 多取几次，保证一定能取到
+            value = seque.nextValue();
+        }
         int key1 = 0;
         int key2 = 0;
         con = getConnection("qatest_normal_0");
@@ -284,7 +284,6 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
                     } catch (InterruptedException e) {
                     }
                     try {
-                        GroupDataSourceRouteHelper.executeByGroupDataSourceIndex(0);
                         GroupSequenceDao sequeDao = (GroupSequenceDao) context.getBean("sequenceDao");
                         GroupSequence sq = new GroupSequence();
                         sq.setName("ni");
@@ -303,6 +302,7 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
             TimeUnit.MICROSECONDS.sleep(10);
         }
         Assert.assertEquals(times, set.size());
+        es.shutdownNow();
     }
 
     /**
@@ -345,13 +345,14 @@ public class GroupSequenceTest extends BaseAtomGroupTestCase {
             TimeUnit.MICROSECONDS.sleep(10);
         }
         Assert.assertEquals(times, set.size());
+        es.shutdownNow();
     }
 
     public Connection getConnection(String db) {
         Connection conn = null;
         try {
             Class.forName("com.mysql.jdbc.Driver");
-            String url = "jdbc:mysql://127.0.0.1:3306/" + db;
+            String url = "jdbc:mysql://10.232.31.154:3306/" + db;
             String user = "tddl";
             String passWord = "tddl";
             conn = (Connection) DriverManager.getConnection(url, user, passWord);

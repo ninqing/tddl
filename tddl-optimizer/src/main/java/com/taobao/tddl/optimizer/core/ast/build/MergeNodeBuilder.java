@@ -4,18 +4,23 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.MergeNode;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
+import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 /**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
  * @since 5.0.0
  */
 public class MergeNodeBuilder extends QueryTreeNodeBuilder {
@@ -38,16 +43,16 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
         if (!(this.getNode().getChild() instanceof QueryTreeNode)) {
             return;
         }
-
         this.buildAlias();
         this.buildSelected();
         this.buildWhere();
         this.buildGroupBy();
         this.buildOrderBy();
         this.buildHaving();
-        this.buildLimit();
         this.buildFunction();
         this.buildExistAggregate();
+        // 最后一个处理
+        this.buildLimit();
     }
 
     /**
@@ -56,6 +61,7 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
      * 2. substring(),to_date()等简单scalar函数(不包含条件1的函数)，推到子节点去，然后在父节点留一个字段，而不是函数
      * </pre>
      */
+    @Override
     public void buildFunction() {
         super.buildFunction();
 
@@ -103,18 +109,23 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
             ((QueryTreeNode) child).getColumnsSelected().removeAll(toRemove);// 干掉查询的min(id)+max(id)函数
             for (ISelectable f : aggregateInScalar) {
                 // 只添加min(id) ,max(id)的独立函数
-                ((QueryTreeNode) child).addColumnsSelected(f);
+                ((QueryTreeNode) child).addColumnsSelected(f.copy());
             }
 
             child.build();
         }
     }
 
+    @Override
     public void buildFunction(IFunction f, boolean findInSelectList) {
+        if (FunctionType.Aggregate == f.getFunctionType()) {
+            setExistAggregate();
+        }
+
         for (Object arg : f.getArgs()) {
             if (arg instanceof IFunction) {
                 this.buildSelectable((ISelectable) arg, findInSelectList);
-            } else if (arg instanceof ISelectable) {
+            } else if (!this.getNode().isDistinctByShardColumns() && arg instanceof ISelectable) {
                 // 针对非distinct的函数，没必要下推字段
                 if (((ISelectable) arg).isDistinct()) {
                     this.buildSelectable((ISelectable) arg, findInSelectList);
@@ -143,18 +154,25 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
 
     @Override
     public void buildHaving() {
-        if (this.getNode().getChild() instanceof QueryTreeNode) {
-            // 干掉子节点查询的having条件，转移到父节点中
-            IFilter havingFilter = ((QueryTreeNode) this.getNode().getChild()).getHavingFilter();
-            this.getNode().having(OptimizerUtils.copyFilter(havingFilter));
-            for (ASTNode child : this.getNode().getChildren()) {
-                if (child instanceof QueryTreeNode) {
-                    ((QueryTreeNode) child).having("");
+        if (this.getNode().isGroupByShardColumns()) {
+            // 如果是groupBy分库键，having条件直接底下算
+            this.getNode().having("");
+        } else if (this.getNode().getHavingFilter() == null) {
+            if (this.getNode().getChild() instanceof QueryTreeNode) {
+                IFilter havingFilter = ((QueryTreeNode) this.getNode().getChild()).getHavingFilter();
+                if (havingFilter != null) {
+                    this.getNode().having(OptimizerUtils.copyFilter(havingFilter));
+                    replaceAliasInFilter(this.getNode().getHavingFilter(),
+                        ((QueryTreeNode) this.getNode().getChild()).getAlias());
+                    // 干掉子节点查询的having条件，转移到父节点中 【暂时不清理，交由OrderByPusher来判断】
+                    // for (ASTNode child : this.getNode().getChildren()) {
+                    // if (child instanceof QueryTreeNode) {
+                    // ((QueryTreeNode) child).having("");
+                    // }
+                    // }
                 }
             }
         }
-
-        replaceAliasInFilter(this.getNode().getHavingFilter(), ((QueryTreeNode) this.getNode().getChild()).getAlias());
     }
 
     private void replaceAliasInFilter(Object filter, String alias) {
@@ -177,22 +195,52 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
 
     }
 
-    private void buildLimit() {
-        // 将子节点的limit条件转移到父节点
-        // 不能出现多级的merge节点都带着limit
-        Comparable from = ((QueryTreeNode) this.getNode().getChild()).getLimitFrom();
-        Comparable to = ((QueryTreeNode) this.getNode().getChild()).getLimitTo();
+    public void buildLimit() {
+        if (this.getNode().getLimitFrom() == null && this.getNode().getLimitTo() == null) {
 
-        this.getNode().setLimitFrom(from);
-        this.getNode().setLimitTo(to);
+            // 将子节点的limit条件转移到父节点
+            // 不能出现多级的merge节点都带着limit
+            Comparable from = ((QueryTreeNode) this.getNode().getChild()).getLimitFrom();
+            Comparable to = ((QueryTreeNode) this.getNode().getChild()).getLimitTo();
 
-        if (from instanceof Long && to instanceof Long) {
-            if ((from != null && (Long) from != -1) || (to != null && (Long) to != -1)) {
-                for (ASTNode s : this.getNode().getChildren()) {
-                    // 底下采取limit 0,from+to逻辑，上层来过滤
-                    ((QueryTreeNode) s).setLimitFrom(0L);
-                    ((QueryTreeNode) s).setLimitTo((Long) from + (Long) to);
+            if ((from instanceof IBindVal && ((IBindVal) from).getValue() != null)
+                || (to instanceof IBindVal && ((IBindVal) to).getValue() != null)) {
+                // 说明是batch中针对limit使用绑定变量，暂时不支持
+                throw new NotSupportException("batch中不支持对分库分表limit的绑定变量");
+            }
+
+            this.getNode().setLimitFrom(from);
+            this.getNode().setLimitTo(to);
+
+            if (from instanceof Long && to instanceof Long) {
+                if ((from != null && (Long) from != -1) || (to != null && (Long) to != -1)) {
+                    for (ASTNode s : this.getNode().getChildren()) {
+                        if (node.isExistAggregate()) {
+                            // 如果节点存在聚合函数，limit不能下推，干掉子节点的limit，由父节点进行计算
+                            ((QueryTreeNode) s).setLimitFrom(null);
+                            ((QueryTreeNode) s).setLimitTo(null);
+                        } else {
+                            // 底下采取limit 0,from+to逻辑，上层来过滤
+                            ((QueryTreeNode) s).setLimitFrom(0L);
+                            ((QueryTreeNode) s).setLimitTo((Long) from + (Long) to);
+                        }
+                    }
                 }
+            }
+        }
+
+    }
+
+    @Override
+    public void pusherFunction(IFunction f) {
+        // 下推select
+        // TODO 需要判断：如果having中存在函数count(JID)，但对应的JID为select中的列，此时不能下推
+        for (int i = 0; i < this.getNode().getChildren().size(); i++) {
+            QueryTreeNode sub = (QueryTreeNode) this.getNode().getChildren().get(i);
+            if (this.findColumnFromOtherNode(f, sub) == null) {
+                ISelectable copyf = f.copy();
+                sub.addColumnsSelected(copyf); // 查找一下子节点的select中是已包含对应函数列
+                sub.getBuilder().buildSelectable(copyf, true);// 单独build这一函数列
             }
         }
     }

@@ -4,13 +4,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.hadoop.hbase.rest.protobuf.generated.TableSchemaMessage.TableSchema;
+
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.common.TransactionConfig;
 import com.taobao.tddl.executor.repo.RepositoryConfig;
 import com.taobao.tddl.executor.spi.ICommandHandlerFactory;
 import com.taobao.tddl.executor.spi.ICursorFactory;
@@ -18,6 +22,7 @@ import com.taobao.tddl.executor.spi.IGroupExecutor;
 import com.taobao.tddl.executor.spi.IRepository;
 import com.taobao.tddl.executor.spi.ITable;
 import com.taobao.tddl.executor.spi.ITempTable;
+import com.taobao.tddl.executor.spi.ITransaction;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.repo.demo.executor.DemoGroupExecutor;
 
@@ -45,6 +50,11 @@ public class DemoRepository extends AbstractLifecycle implements IRepository {
     public int cleanLog() {
         // do nothing
         return 0;
+    }
+
+    // @Override
+    public boolean removeTable(TableSchema schema) throws Exception {
+        return false;
     }
 
     public IRepository getRepo() {
@@ -88,6 +98,13 @@ public class DemoRepository extends AbstractLifecycle implements IRepository {
     }
 
     @Override
+    public ITransaction createTransaction(TransactionConfig conf, ExecutionContext executionContext)
+                                                                                                    throws TddlException {
+        // TODO Auto-generated method stub
+        return new DemoTransaction();
+    }
+
+    @Override
     public RepositoryConfig getRepoConfig() {
         // TODO Auto-generated method stub
         return null;
@@ -113,7 +130,7 @@ public class DemoRepository extends AbstractLifecycle implements IRepository {
         try {
             return executors.get(group);
         } catch (ExecutionException e) {
-            throw new TddlNestableRuntimeException(e);
+            throw new TddlRuntimeException(e);
         }
     }
 

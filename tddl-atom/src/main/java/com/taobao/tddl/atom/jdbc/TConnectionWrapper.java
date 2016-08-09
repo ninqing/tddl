@@ -24,7 +24,6 @@ import java.util.concurrent.Executor;
 
 import com.taobao.tddl.atom.utils.AtomDataSourceHelper;
 import com.taobao.tddl.atom.utils.ConnRestrictSlot;
-
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 

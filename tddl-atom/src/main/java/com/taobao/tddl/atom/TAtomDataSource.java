@@ -16,6 +16,7 @@ import com.taobao.tddl.common.utils.TStringUtil;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 
 /**
  * 动态数据源，支持数据源参数动态修改
@@ -39,6 +40,11 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
     }
 
     public void init() throws Exception {
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("TAtomDataSource start init");
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + this.getAppName());
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + this.getUnitName());
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("dbGroupKey is: " + this.getDbKey());
+
         String dbName = TAtomConstants.getDbNameStr(this.getUnitName(), this.getAppName(), this.getDbKey());
         synchronized (cacheConfHandleMap) {
             TAtomDsConfHandle cacheConfHandle = cacheConfHandleMap.get(dbName);
@@ -63,7 +69,7 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
                 try {
                     handles.destroyDataSource();
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.info("destory TAtomDsConfHandle failed!", e);
                     continue;
                 }
             }

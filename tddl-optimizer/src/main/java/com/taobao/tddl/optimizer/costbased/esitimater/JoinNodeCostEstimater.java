@@ -2,6 +2,7 @@ package com.taobao.tddl.optimizer.costbased.esitimater;
 
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 
@@ -59,12 +60,18 @@ public class JoinNodeCostEstimater implements QueryTreeCostEstimater {
             scanRowCount = leftCost.getScanCount() + rightCost.getScanCount() * 2 + rightCost.getRowCount();
         }
 
-        if (query.getLimitFrom() != null
-            && (query.getLimitFrom() instanceof Long || query.getLimitFrom() instanceof Long)
-            && (Long) query.getLimitFrom() != 0 && query.getLimitTo() != null
-            && (query.getLimitTo() instanceof Long || query.getLimitTo() instanceof Long)
-            && (Long) query.getLimitTo() != 0) {
-            rowCount = ((Long) query.getLimitTo() - (Long) query.getLimitFrom());
+        if (query.getLimitFrom() != null && query.getLimitTo() != null) {
+            Object from = query.getLimitFrom();
+            if (from instanceof IBindVal) {
+                from = ((IBindVal) from).getValue();
+            }
+            Object to = query.getLimitTo();
+            if (to instanceof IBindVal) {
+                to = ((IBindVal) from).getValue();
+            }
+            if (from instanceof Long && to instanceof Long) {
+                rowCount = ((Long) query.getLimitTo() - (Long) query.getLimitFrom());
+            }
         } else if (query.getLimitFrom() != null || query.getLimitTo() != null) {
             rowCount = rowCount / 2;
         }

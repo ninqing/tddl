@@ -6,7 +6,7 @@ import java.util.Map;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
@@ -33,9 +33,25 @@ public class DataNodeChooserTest extends BaseOptimizerTest {
         KVIndexNode table7 = new KVIndexNode("TABLE1");
         table7.build();
         QueryTreeNode qtn = shard(table7, false, false);
-
         Assert.assertTrue(qtn instanceof MergeNode);
         Assert.assertEquals(8, qtn.getChildren().size());
+    }
+
+    @Test
+    public void test_Join查询_左右都是单表() {
+        KVIndexNode table1 = new KVIndexNode("TABLE1");
+        table1.keyQuery("ID = 1");
+        KVIndexNode table2 = new KVIndexNode("TABLE7");
+
+        JoinNode join = table1.join(table2, "ID", "ID");
+        join.build();
+        QueryTreeNode qtn = shard(join, false, false);
+
+        Assert.assertTrue(qtn instanceof JoinNode);
+        Assert.assertEquals("andor_group_0", ((JoinNode) qtn).getLeftNode().getDataNode());
+        Assert.assertEquals("andor_group_0", ((JoinNode) qtn).getRightNode().getDataNode());
+        Assert.assertEquals("table1_01", ((KVIndexNode) ((JoinNode) qtn).getLeftNode()).getActualTableName());
+        Assert.assertEquals("table7", ((KVIndexNode) ((JoinNode) qtn).getRightNode()).getActualTableName());
     }
 
     @Test
@@ -385,8 +401,8 @@ public class DataNodeChooserTest extends BaseOptimizerTest {
 
     private QueryTreeNode shard(QueryTreeNode qtn, boolean joinMergeJoin, boolean joinMergeJoinByRule) {
         Map<String, Object> extraCmd = new HashMap<String, Object>();
-        extraCmd.put(ExtraCmd.JOIN_MERGE_JOIN, joinMergeJoin);
-        extraCmd.put(ExtraCmd.JOIN_MERGE_JOIN_JUDGE_BY_RULE, joinMergeJoinByRule);
+        extraCmd.put(ConnectionProperties.JOIN_MERGE_JOIN, joinMergeJoin);
+        extraCmd.put(ConnectionProperties.JOIN_MERGE_JOIN_JUDGE_BY_RULE, joinMergeJoinByRule);
         return (QueryTreeNode) DataNodeChooser.shard(qtn, null, extraCmd);
     }
 }

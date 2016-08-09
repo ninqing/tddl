@@ -3,6 +3,7 @@ package com.taobao.tddl.repo.mysql.spi;
 import java.sql.SQLException;
 
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.cursor.IAffectRowCursor;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.record.CloneableRecord;
@@ -121,8 +122,8 @@ public interface GeneralQueryHandler {
      * @return
      * @throws SQLException
      */
-    public void executeUpdate(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)
-                                                                                                        throws SQLException;
+    public IAffectRowCursor executeUpdate(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)
+                                                                                                                    throws SQLException;
 
     /**
      * 用于异步化，等同于Future.isDone();

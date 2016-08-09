@@ -39,12 +39,14 @@ public enum SqlType {
     DEBUG(15),
     /** */
     EXPLAIN(16),
+    /** 存储过程 */
+    PROCEDURE(17),
     /** */
-    DEFAULT_SQL_TYPE(-100),
+    DESC(18),
+    /** 获取上一个insert id */
+    SELECT_LAST_INSERT_ID(19),
     /** */
-    SHOW_WITH_TABLE(101),
-    /** */
-    SHOW_WITHOUT_TABLE(102);
+    SELECT_WITHOUT_TABLE(20);
 
     private int i;
 

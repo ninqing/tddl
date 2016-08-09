@@ -3,8 +3,6 @@ package com.taobao.tddl.repo.mysql.handler;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.model.ExtraCmd;
-import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
@@ -23,6 +21,7 @@ import com.taobao.tddl.repo.mysql.cursor.SchematicMyCursor;
 import com.taobao.tddl.repo.mysql.spi.DatasourceMySQLImplement;
 import com.taobao.tddl.repo.mysql.spi.My_Cursor;
 import com.taobao.tddl.repo.mysql.spi.My_JdbcHandler;
+import com.taobao.tddl.repo.mysql.spi.My_Repository;
 import com.taobao.tddl.repo.mysql.utils.MysqlRepoUtils;
 
 /**
@@ -48,14 +47,15 @@ public class QueryMyHandler extends QueryHandler implements ICommandHandler {
         }
 
         IndexMeta indexMeta = null;
-        My_JdbcHandler jdbcHandler = MysqlRepoUtils.getJdbcHandler(dsGetter, executor, executionContext);
+        My_JdbcHandler jdbcHandler = ((My_Repository) executionContext.getCurrentRepository()).getJdbcHandler(dsGetter,
+            executor,
+            executionContext);
         ICursorMeta meta = ExecUtils.convertToICursorMeta((IQueryTree) executor);
         My_Cursor my_cursor = new My_Cursor(jdbcHandler, meta, executor, executor.isStreaming());
 
-        // if (executor.getSql() != null) {
-        // // TODO shenxun : 排序信息似乎丢了啊。。
-        // return my_cursor.getResultSet();
-        // }
+        if (executor.getSql() != null) {
+            return my_cursor.getResultSet();
+        }
 
         List<IOrderBy> orderBy = null;
         if (executor instanceof IJoin) {
@@ -73,20 +73,18 @@ public class QueryMyHandler extends QueryHandler implements ICommandHandler {
             if (order.getColumn().getAlias() != null) order.getColumn().setColumnName(order.getColumn().getAlias());
         }
 
-        if (GeneralUtil.getExtraCmdBoolean(executionContext.getExtraCmds(), ExtraCmd.EXECUTE_QUERY_WHEN_CREATED, false)) {
+        if (!executor.lazyLoad()) {
             my_cursor.init();
         }
-        return new SchematicMyCursor(my_cursor, meta, orderBy);
-    }
 
-    // private IQuery findLeafQuery(IDataNodeExecutor executor) {
-    // IQuery iq = (IQuery) executor;
-    // if (iq.getSubQuery() == null) {
-    // return iq;
-    // } else {
-    // return findLeafQuery(iq.getSubQuery());
-    // }
-    // }
+        ISchematicCursor cursor = new SchematicMyCursor(my_cursor, meta, orderBy);
+        if (((IQueryTree) executor).getSubqueryFilter() != null) {
+            cursor = executionContext.getCurrentRepository()
+                .getCursorFactory()
+                .valueFilterCursor(executionContext, cursor, ((IQueryTree) executor).getSubqueryFilter());
+        }
+        return cursor;
+    }
 
     protected boolean canComposeOneSql(IDataNodeExecutor executor) {
         if (executor instanceof IQuery) {

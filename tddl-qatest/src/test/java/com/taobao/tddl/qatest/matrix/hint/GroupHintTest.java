@@ -20,13 +20,13 @@ public class GroupHintTest extends BaseMatrixTestCase {
 
     public GroupHintTest(){
         BaseTestCase.normaltblTableName = "mysql_normaltbl_oneGroup_oneAtom";
-        jdbcTemplate = new JdbcTemplate(us);
+        jdbcTemplate = new JdbcTemplate(tddlDatasource);
     }
 
     @Before
     public void initData() throws Exception {
-        andorUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
-        andorUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
+        tddlUpdateData("delete from mysql_normaltbl_oneGroup_oneAtom", null);
+        tddlUpdateData("delete from mysql_normaltbl_onegroup_mutilatom", null);
     }
 
     @Test
@@ -41,18 +41,18 @@ public class GroupHintTest extends BaseMatrixTestCase {
         param.add(time);
         param.add(name);
         param.add(fl);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
 
         // 查询一次
         sql = "/*+TDDL_GROUP({groupIndex:0})*/";
         sql += "select gmt_timestamp from " + normaltblTableName + " where pk=" + RANDOM_ID;
         Map re = jdbcTemplate.queryForMap(sql);
-        Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("GMT_TIMESTAMP")).getTime() / 1000);
+        Assert.assertEquals(time.getTime() / 1000, ((Date) re.get("gmt_timestamp")).getTime() / 1000);
 
         // 删除
         sql = "/*+TDDL_GROUP({groupIndex:0})*/";
         sql += "delete from mysql_normaltbl_oneGroup_oneAtom where pk = " + RANDOM_ID;
-        andorUpdateData(sql, null);
+        tddlUpdateData(sql, null);
 
         sql = "/*+TDDL_GROUP({groupIndex:0})*/";
         sql += "select gmt_timestamp from " + normaltblTableName + " where pk=" + RANDOM_ID;

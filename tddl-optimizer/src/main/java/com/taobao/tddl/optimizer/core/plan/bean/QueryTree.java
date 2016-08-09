@@ -3,45 +3,53 @@ package com.taobao.tddl.optimizer.core.plan.bean;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
-import com.taobao.tddl.optimizer.core.datatype.DataType;
+import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.core.expression.bean.BindVal;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
-import com.taobao.tddl.optimizer.core.plan.query.IParallelizableQueryTree;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
-public abstract class QueryTree extends DataNodeExecutor<IQueryTree> implements IParallelizableQueryTree<IQueryTree> {
+public abstract class QueryTree extends DataNodeExecutor<IQueryTree> implements IQueryTree<IQueryTree> {
 
-    protected IFilter                        valueFilter;
-    protected IFilter                        havingFilter;
-    protected List<IOrderBy>                 orderBys             = Collections.emptyList();
-    protected List<IOrderBy>                 groupBys             = Collections.emptyList();
-    protected Comparable                     limitFrom;
-    protected Comparable                     limitTo;
-    protected List<ISelectable>              columns              = Collections.emptyList();
-    protected String                         alias;
+    protected IFilter           valueFilter;
+    protected IFilter           havingFilter;
+    protected IFilter           subqueryFilter;
+    protected List<IOrderBy>    orderBys             = Collections.emptyList();
+    protected List<IOrderBy>    groupBys             = Collections.emptyList();
+    protected Comparable        limitFrom;
+    protected Comparable        limitTo;
+    protected List<ISelectable> columns              = Collections.emptyList();
+    protected String            alias;
     /**
      * 查询模式，并行？串行？
      */
-    protected QUERY_CONCURRENCY              queryConcurrency     = QUERY_CONCURRENCY.SEQUENTIAL;
+    protected QUERY_CONCURRENCY queryConcurrency     = QUERY_CONCURRENCY.SEQUENTIAL;
 
     /**
      * 能否被合并成一条sql，默认可以
      */
-    protected Boolean                        canMerge             = true;
+    protected Boolean           canMerge             = true;
 
     /**
      * 是否显式使用临时表，默认不可以
      */
-    protected Boolean                        useTempTableExplicit = false;
-    protected Boolean                        isSubQuery           = false;
-    protected boolean                        isTopQuery           = false;
-    protected Map<Integer, ParameterContext> parameterSettings;
+    protected Boolean           useTempTableExplicit = false;
+    protected Boolean           isSubQuery           = false;
+    protected boolean           isTopQuery           = false;
+    /**
+     * 是否为存在聚合信息，比如出现limit/group by/count/max等，此节点就会被标记为true，不允许进行join merge
+     * join的展开优化
+     */
+    protected boolean           isExistAggregate     = false;
+
+    /**
+     * 非column=column的join列
+     */
+    protected IFilter           otherJoinOnFilter;
+    protected Long              subqueryOnFilterId   = 0L;
+    protected boolean           isCorrelatedSubquery = false;
 
     @Override
     public IFilter getValueFilter() {
@@ -51,6 +59,17 @@ public abstract class QueryTree extends DataNodeExecutor<IQueryTree> implements 
     @Override
     public IQueryTree setValueFilter(IFilter valueFilter) {
         this.valueFilter = valueFilter;
+        return this;
+    }
+
+    @Override
+    public IFilter getSubqueryFilter() {
+        return subqueryFilter;
+    }
+
+    @Override
+    public IQueryTree setSubqueryFilter(IFilter subqueryFilter) {
+        this.subqueryFilter = subqueryFilter;
         return this;
     }
 
@@ -181,7 +200,7 @@ public abstract class QueryTree extends DataNodeExecutor<IQueryTree> implements 
     }
 
     @Override
-    public IParallelizableQueryTree setQueryConcurrency(QUERY_CONCURRENCY queryConcurrency) {
+    public IQueryTree setQueryConcurrency(QUERY_CONCURRENCY queryConcurrency) {
         this.queryConcurrency = queryConcurrency;
         return this;
     }
@@ -192,60 +211,79 @@ public abstract class QueryTree extends DataNodeExecutor<IQueryTree> implements 
     }
 
     @Override
-    public IQueryTree assignment(Map<Integer, ParameterContext> parameterSettings) {
-        if (this.getColumns() != null) {
-            for (ISelectable c : this.getColumns()) {
-                if (c instanceof ISelectable) {
-                    c.assignment(parameterSettings);
-                }
-            }
-        }
+    public boolean isExistAggregate() {
+        return isExistAggregate;
+    }
 
-        IFilter rsf = getValueFilter();
-        if (rsf != null) {
-            rsf.assignment(parameterSettings);
-        }
+    @Override
+    public IQueryTree setExistAggregate(boolean isExistAggregate) {
+        this.isExistAggregate = isExistAggregate;
+        return this;
+    }
 
-        IFilter havingFilter = this.getHavingFilter();
-        if (havingFilter != null) {
-            havingFilter.assignment(parameterSettings);
-        }
+    public IFilter getOtherJoinOnFilter() {
+        return otherJoinOnFilter;
+    }
 
-        Comparable limtFrom = getLimitFrom();
-        if (limtFrom != null && limtFrom instanceof BindVal) {
-            Comparable value = (Comparable) ((BindVal) limtFrom).assignment(parameterSettings);
-            this.setLimitFrom((Comparable) OptimizerUtils.convertType(value, DataType.LongType));// 强制转化为long类型
-        }
+    public IQueryTree setOtherJoinOnFilter(IFilter otherJoinOnFilter) {
+        this.otherJoinOnFilter = otherJoinOnFilter;
+        return this;
+    }
 
-        Comparable limtTo = getLimitTo();
-        if (limtTo != null && limtTo instanceof BindVal) {
-            Comparable value = (Comparable) ((BindVal) limtTo).assignment(parameterSettings);
-            this.setLimitTo((Comparable) OptimizerUtils.convertType(value, DataType.LongType)); // 强制转化为long类型
-        }
+    public Long getSubqueryOnFilterId() {
+        return subqueryOnFilterId;
+    }
+
+    public IQueryTree setSubqueryOnFilterId(Long subqueryOnFilterId) {
+        this.subqueryOnFilterId = subqueryOnFilterId;
+        return this;
+    }
+
+    @Override
+    public boolean isCorrelatedSubquery() {
+        return isCorrelatedSubquery;
+    }
+
+    @Override
+    public IQueryTree setCorrelatedSubquery(boolean isCorrelatedSubquery) {
+        this.isCorrelatedSubquery = isCorrelatedSubquery;
         return this;
     }
 
     protected void copySelfTo(QueryTree o) {
-        o.setRequestID(this.getRequestID());
-        o.setSubRequestID(this.getSubRequestID());
+        o.setRequestId(this.getRequestId());
+        o.setSubRequestId(this.getSubRequestId());
         o.setRequestHostName(this.getRequestHostName());
-        o.setColumns(this.getColumns());
         o.setConsistent(this.getConsistent());
-        o.setGroupBys(this.getGroupBys());
-        o.setLimitFrom(this.getLimitFrom());
-        o.setLimitTo(this.getLimitTo());
-        o.setOrderBys(this.getOrderBys());
         o.setQueryConcurrency(this.getQueryConcurrency());
-        o.setValueFilter(this.getValueFilter());
         o.setAlias(this.getAlias());
         o.setCanMerge(this.canMerge());
         o.setUseTempTableExplicit(this.isUseTempTableExplicit());
         o.setThread(getThread());
-        o.having(this.getHavingFilter());
-        o.setStreaming(streaming);
-        o.setSql(sql);
-        o.setIsSubQuery(this.isSubQuery);
+        o.setStreaming(this.isStreaming());
+        o.setSql(this.getSql());
+        o.setIsSubQuery(this.isSubQuery());
+        o.setTopQuery(this.isTopQuery());
         o.executeOn(this.getDataNode());
+        o.setExistAggregate(this.isExistAggregate());
+        o.setLazyLoad(this.lazyLoad());
+        o.setColumns(OptimizerUtils.copySelectables((this.getColumns())));
+        o.setGroupBys(OptimizerUtils.copyOrderBys(this.getGroupBys()));
+        o.setOrderBys(OptimizerUtils.copyOrderBys(this.getOrderBys()));
+        o.setValueFilter(OptimizerUtils.copyFilter(this.getValueFilter()));
+        o.having(OptimizerUtils.copyFilter(this.getHavingFilter()));
+        o.setOtherJoinOnFilter(OptimizerUtils.copyFilter(this.getOtherJoinOnFilter()));
+        if (this.getLimitFrom() instanceof IBindVal) {
+            o.setLimitFrom(((IBindVal) this.getLimitFrom()).copy());
+        } else {
+            o.setLimitFrom(this.getLimitFrom());
+        }
+
+        if (this.getLimitTo() instanceof IBindVal) {
+            o.setLimitTo(((IBindVal) this.getLimitTo()).copy());
+        } else {
+            o.setLimitTo(this.getLimitTo());
+        }
     }
 
     @Override

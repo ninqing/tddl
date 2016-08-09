@@ -98,20 +98,6 @@ public class ConnectionParams {
     public static final BooleanConfigParam       ALLOW_TEMPORARY_TABLE                       = new BooleanConfigParam(ConnectionProperties.ALLOW_TEMPORARY_TABLE,
                                                                                                  false, // default
                                                                                                  false);                          // mutable
-    /**
-     * 在允许临时表的模式下，比如order by/group
-     * by，选择为true时，才采用临时表缓存数据(可减少链接使用)，默认为false，使用多链接缓存数据
-     */
-    public static final BooleanConfigParam       CHOOSE_TEMPORARY_TABLE                      = new BooleanConfigParam(ConnectionProperties.CHOOSE_TEMPORARY_TABLE,
-                                                                                                 false, // default
-                                                                                                 false);
-
-    /**
-     * 是否开启广播表多写
-     */
-    public static final BooleanConfigParam       CHOOSE_BROADCAST_WRITE                      = new BooleanConfigParam(ConnectionProperties.CHOOSE_BROADCAST_WRITE,
-                                                                                                 true, // default
-                                                                                                 true);
 
     /**
      * 创建cursor后是否立马执行
@@ -221,11 +207,4 @@ public class ConnectionParams {
     public static void addSupportedParam(ConfigParam param) {
         SUPPORTED_PARAMS.put(param.getName(), param);
     }
-
-    /**
-     * Sequence表名
-     */
-    public static final StringConfigParam SEQUENCE_TABLE_NAME = new StringConfigParam(ConnectionProperties.SEQUENCE_TABLE_NAME,
-                                                                  "sequence",
-                                                                  false);
 }

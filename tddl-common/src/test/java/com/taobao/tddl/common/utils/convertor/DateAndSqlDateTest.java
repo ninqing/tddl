@@ -6,6 +6,9 @@ import java.util.Date;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+
 public class DateAndSqlDateTest {
 
     private ConvertorHelper helper = new ConvertorHelper();

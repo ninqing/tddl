@@ -61,6 +61,21 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
     }
 
     @Test
+    public void columnBindTest() throws Exception {
+        int start = 5;
+        int end = 15;
+        String sql = "select ?,?,? from " + normaltblTableName + " where id between ? and ?";
+        List<Object> param = new ArrayList<Object>();
+        param.add("PK");
+        param.add("NAME");
+        param.add("ID");
+        param.add(start);
+        param.add(end);
+        String[] columnParam = { "PK", "NAME", "ID" };
+        selectContentSameAssert(sql, columnParam, param);
+    }
+
+    @Test
     public void constant() throws Exception {
         String sql = "select 1 a,2 from " + normaltblTableName;
         String[] columnParam = { "a", "2" };
@@ -180,7 +195,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByWithCountTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -191,7 +206,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByWithAscTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         String sql = "select count(pk),name from " + normaltblTableName + " group by name asc";
 
@@ -201,7 +216,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
     @Ignore("ob暂时不支持desc排序，而mysql会计算desc")
     @Test
     public void groupByWithDescTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         String sql = "select count(pk),name from " + normaltblTableName + " group by name desc";
         selectOrderAssert(sql, new String[] {}, Collections.EMPTY_LIST);
@@ -209,7 +224,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByWithMinMaxTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -226,7 +241,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByAvgTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -238,7 +253,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupBySumTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -246,6 +261,74 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
         String sql = "select name,sum(pk) from " + normaltblTableName + " group by name";
         String[] columnParam = { "name", "sum(pk)" };
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void groupByShadrColumnsSumTest() throws Exception {
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+        mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+
+        String sql = "select name,sum(pk) from " + normaltblTableName + " group by pk";
+        String[] columnParam = { "name", "sum(pk)" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void groupDateFunctionTest() throws Exception {
+
+        /**
+         * ob不支持group by函数
+         */
+        if (normaltblTableName.startsWith("ob")) {
+            return;
+        }
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+        mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+
+        String sql = "select date_format(gmt_create,'%m-%d') label,sum(id)/100 value ,date(gmt_create) from "
+                     + normaltblTableName + " group by date(gmt_create)";
+        String[] columnParam = { "label", "value", "date(gmt_create)" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void distinctShardColumns() throws Exception {
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+        mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+
+        String sql = "select distinct pk from " + normaltblTableName;
+        String[] columnParam = { "pk" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void countDistinctShardColumns() throws Exception {
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+        mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+
+        String sql = "select count(distinct pk) c from " + normaltblTableName;
+        String[] columnParam = { "c" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void countDistinctShardColumnsWithoutAlias() throws Exception {
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+        mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+            Arrays.asList(new Object[] { RANDOM_ID, newName }));
+
+        String sql = "select count(distinct pk) from " + normaltblTableName;
+        String[] columnParam = { "count(distinct pk)" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
     @Test
@@ -322,7 +405,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByOrderbyTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -334,7 +417,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByOrderbyFunctionCloumTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -488,7 +571,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void groupByLimitTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
@@ -501,7 +584,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
 
     @Test
     public void orderByLimitTest() throws Exception {
-        andorUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
+        tddlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));
         mysqlUpdateData("insert into " + normaltblTableName + " (pk,name) values(?,?)",
             Arrays.asList(new Object[] { RANDOM_ID, newName }));

@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 
@@ -18,12 +17,9 @@ import com.taobao.tddl.common.utils.TddlToStringStyle;
  */
 public class Parameters {
 
-    private List<Map<Integer, ParameterContext>> batchParams  = null;
-    private boolean                              batch        = false;
-    private Map<Integer, ParameterContext>       params       = new HashMap<Integer, ParameterContext>();
-    private int                                  batchSize    = 0;                                       // batch的数量
-    private int                                  batchIndex   = 0;                                       // 记录一下遍历过程中的index
-    private AtomicInteger                        sequenceSize = new AtomicInteger(0);                    // seq列的数量
+    private List<Map<Integer, ParameterContext>> batchParams = null;
+    private boolean                              batch       = false;
+    private Map<Integer, ParameterContext>       params      = new HashMap<Integer, ParameterContext>();
 
     public Parameters(){
     }
@@ -55,56 +51,18 @@ public class Parameters {
         }
     }
 
-    public Parameters cloneByBatchIndex(int batchIndex) {
-        List<Map<Integer, ParameterContext>> batchs = getBatchParameters();
-        if (batchIndex >= batchs.size()) {
-            throw new IllegalArgumentException("batchIndex is invalid");
-        }
-
-        Parameters parameters = new Parameters(batchs.get(batchIndex), isBatch());
-        parameters.setBatchSize(batchSize);
-        parameters.setBatchIndex(batchIndex);
-        parameters.setSequenceSize(sequenceSize);
-        return parameters;
-    }
-
     public void addBatch() {
         if (batchParams == null) {
             batchParams = new ArrayList();
         }
 
         batchParams.add(this.params);
-        batchSize = batchParams.size();
         params = new HashMap();
         this.batch = true;
     }
 
     public boolean isBatch() {
         return this.batch;
-    }
-
-    public void setBatchIndex(int batchIndex) {
-        this.batchIndex = batchIndex;
-    }
-
-    public int getBatchIndex() {
-        return batchIndex;
-    }
-
-    public int getBatchSize() {
-        return batchSize;
-    }
-
-    public void setBatchSize(int batchSize) {
-        this.batchSize = batchSize;
-    }
-
-    public AtomicInteger getSequenceSize() {
-        return sequenceSize;
-    }
-
-    public void setSequenceSize(AtomicInteger sequenceSize) {
-        this.sequenceSize = sequenceSize;
     }
 
     public static void setParameters(PreparedStatement ps, Map<Integer, ParameterContext> parameterSettings)

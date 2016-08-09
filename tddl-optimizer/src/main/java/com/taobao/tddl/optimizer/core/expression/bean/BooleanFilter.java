@@ -2,15 +2,15 @@ package com.taobao.tddl.optimizer.core.expression.bean;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
+import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
 
 /**
@@ -23,6 +23,11 @@ public class BooleanFilter extends Function<IBooleanFilter> implements IBooleanF
     public BooleanFilter(){
         this.args.add(null);
         this.args.add(null);
+    }
+
+    @Override
+    public String getFunctionName() {
+        return operation.getOPERATIONString();
     }
 
     @Override
@@ -54,11 +59,12 @@ public class BooleanFilter extends Function<IBooleanFilter> implements IBooleanF
 
     @Override
     public Object getValue() {
-        if (this.args.get(1) instanceof List) {
-            return null;
-        } else {
-            return this.args.get(1);
-        }
+        // if (this.args.get(1) instanceof List) {
+        // return null;
+        // } else {
+        // return this.args.get(1);
+        // }
+        return this.args.get(1);
     }
 
     @Override
@@ -92,11 +98,28 @@ public class BooleanFilter extends Function<IBooleanFilter> implements IBooleanF
         IBooleanFilter filterNew = ASTNodeFactory.getInstance().createBooleanFilter();
         super.copy(filterNew);
         filterNew.setOperation(this.getOperation());
+
+        if (this.getValues() != null) {
+            List<Object> vals = getValues();
+            List<Object> newVals = new ArrayList(vals.size());
+            for (Object val : vals) {
+                if (val instanceof IBindVal) {
+                    newVals.add(((IBindVal) val).copy());
+                } else if (val instanceof ISelectable) {
+                    newVals.add(((ISelectable) val).copy());
+                } else {
+                    newVals.add(val);
+                }
+            }
+
+            filterNew.setValues(newVals);
+        }
+
         return filterNew;
     }
 
     @Override
-    public IBooleanFilter assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public IBooleanFilter assignment(Parameters parameterSettings) {
         IBooleanFilter bf = super.assignment(parameterSettings);
         bf.setOperation(this.getOperation());
 

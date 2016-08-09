@@ -67,7 +67,6 @@ public class AdvancedParameterParser {
             case 3:
                 key = parseKeyPart(paramTokens[0], needAppear);
                 try {
-
                     atomicIncreateType = getIncreaseType(paramTokens[1]);
                     atomicIncreateValue = getAtomicIncreaseValue(paramTokens[1], atomicIncreateType);
                     rangeObjectArray = parseRangeArray(paramTokens[2]);
@@ -124,12 +123,13 @@ public class AdvancedParameterParser {
 
     private static Comparable<?> getAtomicIncreaseValue(String paramTokenStr, AtomIncreaseType type) {
         String[] increase = TStringUtil.split(paramTokenStr.trim(), INCREASE_TYPE_SPLITOR);
-        // 如果长度为1,那么默认为数字类型
+        // 如果长度为1,那么默认为数字/string类型
         if (increase.length == 1) {
             return Integer.valueOf(increase[0]);
         } else if (increase.length == 2) {
             switch (type) {
                 case NUMBER:
+                case STRING:
                     return Integer.valueOf(increase[0]);
                 case DATE:
                     return new DateEnumerationParameter(Integer.valueOf(increase[0]), Calendar.DATE);

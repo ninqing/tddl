@@ -13,6 +13,7 @@ import com.taobao.tddl.monitor.stat.LoggerLogWriter;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 @Ignore
 public class BufferedLogWriterTest {
 

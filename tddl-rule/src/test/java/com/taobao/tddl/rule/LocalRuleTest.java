@@ -57,6 +57,17 @@ public class LocalRuleTest {
     }
 
     @Test
+    public void testStringRule_equals() {
+        System.out.println("ljh".hashCode() % 24);
+        MatcherResult result = rule.route("string", "name = ljh:s");
+        List<TargetDB> dbs = result.getCalculationResult();
+        Assert.assertEquals(1, dbs.size());
+        Assert.assertEquals("STRING_1", dbs.get(0).getDbIndex());
+        Assert.assertEquals(1, dbs.get(0).getTableNames().size());
+        Assert.assertEquals("string_18", dbs.get(0).getTableNames().iterator().next());
+    }
+
+    @Test
     public void testRule_in() {
         String conditionStr = "message_id in (996,997,998,999,1000,1001,1002,1003,1004):int";
         MatcherResult result = rule.route("nserch", conditionStr);

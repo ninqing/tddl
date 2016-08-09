@@ -11,6 +11,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import com.google.common.collect.Lists;
+import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.XmlHelper;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.KVIndexStat;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.TableIndexStat;
@@ -31,8 +32,7 @@ public class TableIndexStatParser {
     }
 
     public static List<TableIndexStat> parse(InputStream in) {
-        Document doc = XmlHelper.createDocument(in,
-            Thread.currentThread().getContextClassLoader().getResourceAsStream(XSD_SCHEMA));
+        Document doc = XmlHelper.createDocument(in, GeneralUtil.getInputStream(XSD_SCHEMA));
         Element root = doc.getDocumentElement();
         List<TableIndexStat> stats = Lists.newArrayList();
         NodeList list = root.getElementsByTagName("tableIndexStat");

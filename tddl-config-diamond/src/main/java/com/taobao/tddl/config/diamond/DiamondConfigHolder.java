@@ -16,7 +16,8 @@ import com.taobao.tddl.config.impl.holder.AbstractConfigDataHolder;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
-@Activate(order = 1)
+
+@Activate(order = 2)
 public class DiamondConfigHolder extends AbstractConfigDataHolder {
 
     private static final Logger log = LoggerFactory.getLogger(DiamondConfigHolder.class);

@@ -30,13 +30,11 @@ public class SelectCharacterFunctionTest extends BaseMatrixTestCase {
 
     @Before
     public void prepare() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         normaltblPrepare(0, 20);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
@@ -161,4 +159,30 @@ public class SelectCharacterFunctionTest extends BaseMatrixTestCase {
         }
     }
 
+    @Test
+    public void trimTest() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = String.format("select trim(both 'x' from 'xxxaaxx') as a from %s", normaltblTableName);
+            String[] columnParam = { "a" };
+            selectContentSameAssert(sql, columnParam, null);
+        }
+    }
+
+    @Test
+    public void trimTest2() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = String.format("select trim('x' from 'xxxaaxx') as a from %s", normaltblTableName);
+            String[] columnParam = { "a" };
+            selectContentSameAssert(sql, columnParam, null);
+        }
+    }
+
+    @Test
+    public void trimTest3() throws Exception {
+        if (!normaltblTableName.startsWith("ob")) {
+            String sql = String.format("select trim('   aa  ') as a from %s", normaltblTableName);
+            String[] columnParam = { "a" };
+            selectContentSameAssert(sql, columnParam, null);
+        }
+    }
 }

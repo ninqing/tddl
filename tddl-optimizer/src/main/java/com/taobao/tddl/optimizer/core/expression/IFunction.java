@@ -12,28 +12,36 @@ public interface IFunction<RT extends IFunction> extends ISelectable<RT> {
 
     public static interface BuiltInFunction {
 
-        final static String ADD           = "+";
-        final static String SUB           = "-";
-        final static String MULTIPLY      = "*";
-        final static String DIVISION      = "/";
-        final static String MOD           = "%";
-        final static String BITAND        = "&";
-        final static String BITOR         = "|";
-        final static String BITXOR        = "^";
-        final static String BITLSHIFT     = "<<";
-        final static String BITRSHIFT     = ">>";
-        final static String MINUS         = "MINUS";
-        final static String ROW           = "ROW";
-        final static String AVG           = "AVG";
-        final static String SUM           = "SUM";
-        final static String COUNT         = "COUNT";
-        final static String MAX           = "MAX";
-        final static String MIN           = "MIN";
-        final static String INTERVAL      = "INTERVAL_PRIMARY";
-        final static String GET_FORMAT    = "GET_FORMAT";
-        final static String TIMESTAMPADD  = "TIMESTAMPADD";
-        final static String TIMESTAMPDIFF = "TIMESTAMPDIFF";
-        final static String CAST          = "CAST";
+        final static String EQUAL           = "=";
+        final static String ADD             = "+";
+        final static String SUB             = "-";
+        final static String MULTIPLY        = "*";
+        final static String DIVISION        = "/";
+        final static String MOD             = "%";
+        final static String BITAND          = "&";
+        final static String BITOR           = "|";
+        final static String BITXOR          = "^";
+        final static String BITLSHIFT       = "<<";
+        final static String BITRSHIFT       = ">>";
+        final static String BITNOT          = "~";
+        final static String MINUS           = "MINUS";
+        final static String ROW             = "ROW";
+        final static String AVG             = "AVG";
+        final static String SUM             = "SUM";
+        final static String COUNT           = "COUNT";
+        final static String MAX             = "MAX";
+        final static String MIN             = "MIN";
+        final static String INTERVAL        = "INTERVAL_PRIMARY";
+        final static String GET_FORMAT      = "GET_FORMAT";
+        final static String EXTRACT         = "EXTRACT";
+        final static String TIMESTAMPADD    = "TIMESTAMPADD";
+        final static String TIMESTAMPDIFF   = "TIMESTAMPDIFF";
+        final static String CAST            = "CAST";
+        final static String CASE_WHEN       = "CASE_WHEN";
+        // subquery
+        final static String SUBQUERY_SCALAR = "SUBQUERY_SCALAR";
+        // 特殊处理in比较，subquery可返回多条记录，比如id in (subquery)
+        final static String SUBQUERY_LIST   = "SUBQUERY_LIST";
     }
 
     public enum FunctionType {

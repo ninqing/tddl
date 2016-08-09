@@ -68,11 +68,36 @@ public interface IPut<RT extends IPut> extends IDataNodeExecutor<RT> {
 
     public RT setMultiValues(List<List<Object>> multiValues);
 
-    public boolean isMutiValues();
+    public boolean isMultiValues();
 
-    public RT setMutiValues(boolean isMutiValues);
+    public RT setMultiValues(boolean isMutiValues);
 
-    public int getMuiltValuesSize();
+    public int getMultiValuesSize();
 
     public List<Object> getValues(int index);
+
+    /**
+     * 这个节点上执行哪些batch
+     * 
+     * @return
+     */
+    public List<Integer> getBatchIndexs();
+
+    public RT setBatchIndexs(List<Integer> batchIndexs);
+
+    boolean isDelayed();
+
+    void setHighPriority(boolean highPriority);
+
+    void setLowPriority(boolean lowPriority);
+
+    boolean isLowPriority();
+
+    boolean isHighPriority();
+
+    void setQuick(boolean quick);
+
+    boolean isQuick();
+
+    void setDelayed(boolean delayed);
 }

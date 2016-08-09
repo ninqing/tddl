@@ -17,12 +17,19 @@ import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
+/**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
+ * @since 5.0.0
+ */
 public class JoinNode extends QueryTreeNode {
 
     private JoinNodeBuilder      builder;
@@ -53,6 +60,7 @@ public class JoinNode extends QueryTreeNode {
     private boolean              needOptimizeJoinOrder = true;
 
     public JoinNode(){
+        super();
         builder = new JoinNodeBuilder(this);
     }
 
@@ -194,16 +202,18 @@ public class JoinNode extends QueryTreeNode {
 
     }
 
-    public IJoin toDataNodeExecutor() throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+        subquerytoDataNodeExecutor(shareIndex);
         IJoin join = ASTNodeFactory.getInstance().createJoin();
-        join.setRightNode(this.getRightNode().toDataNodeExecutor());
-        join.setLeftNode(this.getLeftNode().toDataNodeExecutor());
+        // 不能传递shareIndex,代理对象会自处理
+        join.setRightNode((IQueryTree) this.getRightNode().toDataNodeExecutor());
+        join.setLeftNode((IQueryTree) this.getLeftNode().toDataNodeExecutor());
         join.setJoinStrategy(this.getJoinStrategy());
         join.setLeftOuter(this.getLeftOuter()).setRightOuter(this.getRightOuter());
         join.setJoinOnColumns((this.getLeftKeys()), (this.getRightKeys()));
         join.setOrderBys(this.getOrderBys());
         join.setLimitFrom(this.getLimitFrom()).setLimitTo(this.getLimitTo());
-        join.executeOn(this.getDataNode()).setConsistent(true);
+        join.setConsistent(true);
         join.setValueFilter(this.getResultFilter());
         join.having(this.getHavingFilter());
         join.setAlias(this.getAlias());
@@ -215,8 +225,12 @@ public class JoinNode extends QueryTreeNode {
         } else {
             join.setColumns((this.getColumnsSelected()));
         }
-
         join.setWhereFilter(this.getAllWhereFilter());
+        join.setExistAggregate(this.isExistAggregate());
+        join.executeOn(this.getDataNode(shareIndex));
+        join.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
+        join.setSubqueryFilter(this.getSubqueryFilter());
+        join.setCorrelatedSubquery(this.isCorrelatedSubquery());
         return join;
     }
 
@@ -248,6 +262,7 @@ public class JoinNode extends QueryTreeNode {
 
             // 复制join的右字段，修正一下表名
             List<ISelectable> rightIndexJoinOnColumns = OptimizerUtils.copySelectables(this.getRightKeys(),
+                null,
                 rightIndexQuery.getName());
 
             // 添加left join index的条件
@@ -260,22 +275,26 @@ public class JoinNode extends QueryTreeNode {
             List<ISelectable> leftJoinRightIndexColumns = new LinkedList();
             // 复制left的查询
             List<ISelectable> leftJoinColumns = OptimizerUtils.copySelectables(left.getColumnsSelected(),
+                null,
                 left.getName());
 
             // 复制index的查询
             List<ISelectable> rightIndexColumns = OptimizerUtils.copySelectables(rightIndexQuery.getColumnsSelected(),
+                null,
                 rightIndexQuery.getName());
 
             leftJoinRightIndexColumns.addAll(leftJoinColumns);
             leftJoinRightIndexColumns.addAll(rightIndexColumns);
             // left + index的查询做为新的join查询字段
             leftJoinRightIndex.select(leftJoinRightIndexColumns);
+            leftJoinRightIndex.setParent(this.getParent());
 
             // (left join index) join key构建
             JoinNode leftJoinRightIndexJoinRightKey = leftJoinRightIndex.join(rightKeyQuery);
             leftJoinRightIndexJoinRightKey.setJoinStrategy(JoinStrategy.INDEX_NEST_LOOP); // 也是走index
 
             List<ISelectable> leftKeys = OptimizerUtils.copySelectables(((JoinNode) right).getLeftKeys(),
+                null,
                 rightIndexQuery.getName());
             for (int i = 0; i < leftKeys.size(); i++) {
                 leftJoinRightIndexJoinRightKey.addJoinKeys(leftKeys.get(i), ((JoinNode) right).getRightKeys().get(i));
@@ -300,7 +319,11 @@ public class JoinNode extends QueryTreeNode {
             leftJoinRightIndexJoinRightKey.setResultFilter(this.getResultFilter());
             leftJoinRightIndexJoinRightKey.setOtherJoinOnFilter(this.getOtherJoinOnFilter());
             leftJoinRightIndexJoinRightKey.setSubQuery(this.isSubQuery());
+            leftJoinRightIndexJoinRightKey.setSubqueryFilter(this.getSubqueryFilter());
             leftJoinRightIndexJoinRightKey.setAllWhereFilter(this.getAllWhereFilter());
+            leftJoinRightIndexJoinRightKey.setLockMode(this.getLockMode());
+            leftJoinRightIndexJoinRightKey.setParent(this.getParent());
+            leftJoinRightIndexJoinRightKey.setCorrelatedSubquery(this.isCorrelatedSubquery());
             leftJoinRightIndexJoinRightKey.build();
             return leftJoinRightIndexJoinRightKey;
         }
@@ -338,13 +361,11 @@ public class JoinNode extends QueryTreeNode {
 
     public JoinNode setLeftOuterJoin() {
         this.leftOuter = true;
-        this.rightOuter = false;
         return this;
     }
 
     public JoinNode setRightOuterJoin() {
         this.rightOuter = true;
-        this.leftOuter = false;
         return this;
     }
 
@@ -424,6 +445,22 @@ public class JoinNode extends QueryTreeNode {
         return newJoinNode;
     }
 
+    @Override
+    public JoinNode copySelf() {
+        JoinNode newJoinNode = new JoinNode();
+        this.copySelfTo(newJoinNode);
+        newJoinNode.setJoinFilter(new ArrayList<IBooleanFilter>(this.getJoinFilter()));
+        newJoinNode.setJoinStrategy(this.getJoinStrategy());
+        newJoinNode.setLeftNode((QueryTreeNode) this.getLeftNode());
+        newJoinNode.setRightNode((QueryTreeNode) this.getRightNode());
+        newJoinNode.setNeedOptimizeJoinOrder(this.isNeedOptimizeJoinOrder());
+        newJoinNode.isCrossJoin = this.isCrossJoin;
+        newJoinNode.leftOuter = this.leftOuter;
+        newJoinNode.rightOuter = this.rightOuter;
+        newJoinNode.usedForIndexJoinPK = this.usedForIndexJoinPK;
+        return newJoinNode;
+    }
+
     public JoinNode deepCopy() {
         JoinNode newJoinNode = new JoinNode();
         this.deepCopySelfTo(newJoinNode);
@@ -439,7 +476,7 @@ public class JoinNode extends QueryTreeNode {
         return newJoinNode;
     }
 
-    public String toString(int inden) {
+    public String toString(int inden, int shareIndex) {
         String tabTittle = GeneralUtil.getTab(inden);
         String tabContent = GeneralUtil.getTab(inden + 1);
         StringBuilder sb = new StringBuilder();
@@ -467,6 +504,7 @@ public class JoinNode extends QueryTreeNode {
 
         appendField(sb, "resultFilter", printFilterString(this.getResultFilter(), inden + 2), tabContent);
         appendField(sb, "whereFilter", printFilterString(this.getWhereFilter(), inden + 2), tabContent);
+        appendField(sb, "subqueryFilter", printFilterString(this.getSubqueryFilter(), inden + 2), tabContent);
         // appendField(sb, "allWhereFilter",
         // printFilterString(this.getAllWhereFilter()), tabContent);
         appendField(sb, "having", printFilterString(this.getHavingFilter(), inden + 2), tabContent);
@@ -484,7 +522,10 @@ public class JoinNode extends QueryTreeNode {
         appendField(sb, "columns", this.getColumnsSelected(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
         appendField(sb, "strategy", this.getJoinStrategy(), tabContent);
-        appendField(sb, "executeOn", this.getDataNode(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
+        appendField(sb, "executeOn", this.getDataNode(shareIndex), tabContent);
 
         appendln(sb, tabContent + "left:");
         sb.append(this.getLeftNode().toString(inden + 2));

@@ -5,6 +5,7 @@ package com.taobao.tddl.qatest.matrix.select;
  *  通用产品测试
  */
 
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,8 +20,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 /**
  * Comment for SelcetAmountLimit
@@ -47,6 +48,13 @@ public class SelectAmountLimit extends BaseMatrixTestCase {
 
     @Before
     public void MutilDataPrepare() throws SQLException {
+        try {
+            tddlUpdateData("delete from " + normaltblTableName, null);
+        } catch (Exception e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+
         CountDownLatch latch = new CountDownLatch(thread_size);
         for (int i = 0; i < thread_size; i++) {
             Thread thread = new Thread(new InsertTask(latch), "Insert Task " + i);
@@ -61,7 +69,7 @@ public class SelectAmountLimit extends BaseMatrixTestCase {
     @Test
     public void selectWithLimit() throws Exception {
         int start = 50;
-        int limit = 10;
+        int limit = 50;
         String sql = "select * from " + normaltblTableName + " where name= ? limit ?,?";
         List<Object> param = new ArrayList<Object>();
         param.add(name);
@@ -95,24 +103,48 @@ public class SelectAmountLimit extends BaseMatrixTestCase {
         @Override
         public void run() {
             String sql = "replace into " + normaltblTableName + "(pk,id,name) VALUES(?,?,?)";
-            rc = null;
             List<Object> param = new ArrayList<Object>();
-            for (; i < AMOUNT_DATA; i++) {
+            java.sql.Connection tmpConn = null;
+            PreparedStatement tmpPs = null;
+            try {
+                tmpConn = tddlDatasource.getConnection();
+            } catch (SQLException e1) {
+                // TODO Auto-generated catch block
+                e1.printStackTrace();
+                return;
+            }
+
+            for (int i = 0; i < AMOUNT_DATA; i++) {
                 param.clear();
                 param.add(Long.parseLong(i + ""));
                 param.add(i);
                 param.add(name);
                 try {
-                    andorUpdateData(sql, param);
+                    tmpPs = tmpConn.prepareStatement(sql);
+                    for (int j = 0; j < param.size(); j++) {
+                        if (param.get(j) == null) {
+                            tmpPs.setNull(j + 1, java.sql.Types.NULL);
+                        } else {
+                            tmpPs.setObject(j + 1, param.get(j));
+                        }
+                    }
+                    tmpPs.executeUpdate();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
 
                 try {
-                    if (rc != null) rc.close();
-                } catch (Exception e) {
+                    if (tmpPs != null) tmpPs.close();
+                } catch (SQLException e) {
+                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
+            }
+
+            try {
+                if (tmpConn != null) tmpConn.close();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
             latch.countDown();
         }

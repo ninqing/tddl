@@ -3,10 +3,11 @@ package com.taobao.tddl.executor.handler;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
-import com.taobao.tddl.executor.function.ExtraFunction;
+import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.spi.ITHLog;
@@ -16,6 +17,7 @@ import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
+import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IPut.PUT_TYPE;
 
@@ -42,9 +44,13 @@ public class ReplaceHandler extends PutHandlerCommon {
                 if (cm.getName().equals(ExecUtils.getColumn(columns.get(i)).getColumnName())) {
                     Object v = put.getUpdateValues().get(i);
                     if (v instanceof IFunction) {
+                        if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
+                            throw new TddlRuntimeException("replace 中不允许出现聚合函数");
+                        }
                         IFunction func = ((IFunction) v);
-                        ((ExtraFunction) func.getExtraFunction()).serverMap((IRowSet) null);
-                        v = func.getExtraFunction().getResult();
+
+                        v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null, executionContext);
+
                     }
                     key.put(cm.getName(), v);
                     continue L;

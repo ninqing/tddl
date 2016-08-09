@@ -38,13 +38,13 @@ public class ReplaceTest extends BaseMatrixTestCase {
 
     @Before
     public void initData() throws Exception {
-        andorUpdateData("delete from  " + normaltblTableName, null);
+        tddlUpdateData("delete from  " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
     }
 
     @Test
     public void replaceAllFieldTest() throws Exception {
-        if (normaltblTableName.startsWith("mysql") || normaltblTableName.startsWith("ob")) {
+        if (normaltblTableName.startsWith("ob")) {
             Assert.assertTrue(true);
             return;
         }
@@ -62,6 +62,35 @@ public class ReplaceTest extends BaseMatrixTestCase {
         sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID;
         String[] columnParam = { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL", "GMT_TIMESTAMP", "GMT_DATETIME" };
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void replaceMultiValuesTest() throws Exception {
+        StringBuilder sql = new StringBuilder("replace into " + normaltblTableName + " values ");
+        List<Object> param = new ArrayList<Object>();
+
+        for (int i = 0; i < 40; i++) {
+            if (i == 0) {
+                sql.append("(?,?,?,?,?,?,?)");
+            } else {
+                sql.append(",(?,?,?,?,?,?,?)");
+            }
+            param.add(RANDOM_ID + i);
+            param.add(RANDOM_INT + i);
+            param.add(gmtDay);
+            param.add(gmt);
+            param.add(gmt);
+            param.add(null);
+            param.add(fl);
+        }
+
+        execute(sql.toString(), param);
+
+        String selectSql = "select * from " + normaltblTableName;
+        String[] columnParam = new String[] { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL", "GMT_TIMESTAMP",
+                "GMT_DATETIME" };
+        selectContentSameAssert(selectSql, columnParam, Collections.EMPTY_LIST);
+
     }
 
     @Test
@@ -168,7 +197,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         param.add(fl);
         param.add(gmtDay);
         try {
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             Assert.fail();
         } catch (Exception ex) {
             // TODO 单库多表抛出"insert not support muti tables",需要以后最终确认应该抛出怎样的异常
@@ -192,7 +221,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         String[] columnParam = { "PK", "ID" };
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        andorUpdateData("delete from " + normaltblTableName + " where pk=?", Arrays.asList(new Object[] { pk }));
+        tddlUpdateData("delete from " + normaltblTableName + " where pk=?", Arrays.asList(new Object[] { pk }));
         mysqlUpdateData("delete from " + normaltblTableName + " where pk=" + pk, null);
 
         pk = 0;
@@ -221,7 +250,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         String[] columnParam = { "PK", "ID" };
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
 
-        andorUpdateData("delete from " + normaltblTableName + " where pk=?", Arrays.asList(new Object[] { pk }));
+        tddlUpdateData("delete from " + normaltblTableName + " where pk=?", Arrays.asList(new Object[] { pk }));
         mysqlUpdateData("delete from " + normaltblTableName + " where pk=" + pk, null);
 
         pk = Long.MIN_VALUE;
@@ -243,7 +272,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         param.add(RANDOM_ID);
         param.add(fl);
         try {
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
         } catch (Exception ex) {
             // if (!normaltblTableName.contains("mysql")) {
             // Assert.assertTrue(ex.getMessage().contains("Date format:0.01 is not supported"));
@@ -261,7 +290,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         param.add(RANDOM_ID);
         param.add(gmt);
         try {
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             Assert.fail();
         } catch (Exception ex) {
             Assert.assertNotNull(ex);
@@ -277,7 +306,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         List<Object> param = new ArrayList<Object>();
         param.add(name);
         try {
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             Assert.fail();
         } catch (Exception ex) {
             // TODO
@@ -295,7 +324,7 @@ public class ReplaceTest extends BaseMatrixTestCase {
         param.add(fl);
         param.add(gmt);
         try {
-            andorUpdateData(sql, param);
+            tddlUpdateData(sql, param);
             Assert.fail();
         } catch (Exception ex) {
             Assert.assertTrue(ex.getMessage() != null);

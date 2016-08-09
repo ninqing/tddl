@@ -18,7 +18,7 @@ import com.taobao.tddl.executor.rowset.IRowSet;
 public class ValueMappingCursor extends SchematicCursor {
 
     public ValueMappingCursor(Cursor cursor, ICursorMeta meta,
-                              Map<Integer/* 返回列中的index位置 */, Integer/* 实际数据中的index位置 */> mapping){
+                              Map<Integer/* 返回列中的index位置 */, Integer/* 实际数据中的index位置 */> mapping) throws TddlException{
         super(cursor);
         this.mapping = mapping;
         this.meta = meta;

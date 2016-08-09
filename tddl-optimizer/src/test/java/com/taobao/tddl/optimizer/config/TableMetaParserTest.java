@@ -11,9 +11,9 @@ public class TableMetaParserTest {
 
     @Test
     public void testSimple() {
-        List<TableMeta> tables = TableMetaParser.parse(Thread.currentThread()
+        List<TableMeta> schemaList = new TableMetaParser().parse(Thread.currentThread()
             .getContextClassLoader()
             .getResourceAsStream("config/test_table.xml"));
-        System.out.println(tables);
+        System.out.println(schemaList);
     }
 }

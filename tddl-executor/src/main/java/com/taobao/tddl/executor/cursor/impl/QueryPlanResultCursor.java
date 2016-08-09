@@ -37,7 +37,7 @@ public class QueryPlanResultCursor extends ResultCursor {
     List<IRowSet>           rows    = new ArrayList();
 
     public QueryPlanResultCursor(String queryPlan, ExecutionContext executionContext){
-        super(null, executionContext);
+        super(executionContext);
 
         ICursorMeta meta = CursorMetaImp.buildNew(cms);
         IRowSet row = new ArrayRowSet(meta, new String[] { queryPlan });

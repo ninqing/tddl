@@ -9,13 +9,14 @@ import java.util.Map.Entry;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.IAggregateCursor;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.SchematicCursor;
+import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.executor.function.ExtraFunction;
+import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.rowset.ArrayRowSet;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.utils.ExecUtils;
@@ -34,30 +35,31 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
  */
 public class AggregateCursor extends SchematicCursor implements IAggregateCursor {
 
-    private final static Logger logger                    = LoggerFactory.getLogger(AggregateCursor.class);
     /**
      * 查询中涉及的所有聚合函数
      */
-    protected List<IFunction>   aggregates                = new LinkedList<IFunction>();
+    protected List<IFunction> aggregates                = new LinkedList<IFunction>();
     /**
      * 查询中涉及的所有scalar函数
      */
-    List<IFunction>             scalars                   = new LinkedList<IFunction>();
+    List<IFunction>           scalars                   = new LinkedList<IFunction>();
     /**
      * 当前节点是不是归并节点
      */
-    boolean                     isMerge                   = false;
-    List<ColumnMeta>            groupBys                  = new ArrayList<ColumnMeta>();
-    Map<ColumnMeta, Object>     currentGroupByValue       = null;
-    private boolean             schemaInited              = false;
-    private ICursorMeta         cursorMeta                = null;
+    boolean                   isMerge                   = false;
+    List<ColumnMeta>          groupBys                  = new ArrayList<ColumnMeta>();
+    Map<ColumnMeta, Object>   currentGroupByValue       = null;
+    private boolean           schemaInited              = false;
+    private ICursorMeta       cursorMeta                = null;
 
-    boolean                     end                       = false;
-    IRowSet                     firstRowSetInCurrentGroup = null;
-    boolean                     isFirstTime               = true;
+    boolean                   end                       = false;
+    IRowSet                   firstRowSetInCurrentGroup = null;
+    boolean                   isFirstTime               = true;
+    private ExecutionContext  executionContext;
 
-    public AggregateCursor(ISchematicCursor cursor, List<IFunction> functions, List<IOrderBy> groupBycols,
-                           List<ISelectable> retColumns, boolean isMerge){
+    public AggregateCursor(ExecutionContext executionContext, ISchematicCursor cursor, List<IFunction> functions,
+                           List<IOrderBy> groupBycols, List<ISelectable> retColumns, boolean isMerge)
+                                                                                                     throws TddlException{
         super(cursor, null, cursor.getOrderBy());
 
         this.groupBys.addAll(ExecUtils.getColumnMetaWithLogicTablesFromOrderBys(groupBycols));
@@ -66,8 +68,15 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
                 this.scalars.add(f);
             }
         }
-        this.aggregates.addAll(this.getAllAggregates(functions));
+
+        for (IFunction f : functions) {
+            if (f.getFunctionType().equals(FunctionType.Aggregate)) {
+                this.aggregates.add((IFunction) f.copy());
+            }
+        }
+
         this.isMerge = isMerge;
+        this.executionContext = executionContext;
 
     }
 
@@ -103,7 +112,8 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
                     Object value = ExecUtils.getObject(firstRowSetInCurrentGroup.getParentCursorMeta(),
                         firstRowSetInCurrentGroup,
                         cm.getTableName(),
-                        cm.getName());
+                        cm.getName(),
+                        cm.getAlias());
                     currentGroupByValue.put(cm, value);
                 }
             }
@@ -122,10 +132,8 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
             // cursorMeta后面有函数，所以以kv的meta为准
             for (int i = 0; i < kv.getParentCursorMeta().getColumns().size(); i++) {
                 ColumnMeta cm = cursorMeta.getColumns().get(i);
-                Integer index = kv.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName());
-                if (index == null) {
-                    index = kv.getParentCursorMeta().getIndex(cm.getTableName(), cm.getAlias());
-                }
+                Integer index = kv.getParentCursorMeta().getIndex(cm.getTableName(), cm.getName(), cm.getAlias());
+
                 record.setObject(i, kv.getObject(index));
             }
         }
@@ -139,9 +147,9 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
                 }
                 for (IFunction aggregate : aggregates) {
                     if (this.isMerge() && !aggregate.isNeedDistinctArg()) {
-                        ((ExtraFunction) aggregate.getExtraFunction()).serverReduce(kv);
+                        ((AggregateFunction) aggregate.getExtraFunction()).serverReduce(kv, executionContext);
                     } else {
-                        ((ExtraFunction) aggregate.getExtraFunction()).serverMap(kv);
+                        ((AggregateFunction) aggregate.getExtraFunction()).serverMap(kv, executionContext);
                     }
                 }
             } while ((kv = super.next()) != null);
@@ -151,56 +159,24 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
         }
 
         // 将函数的结果放到结果集中
-        this.putFunctionsResultInRecord(aggregates, record);
+        this.putAggregateFunctionsResultInRecord(aggregates, record);
 
         // 对于aggregate函数，需要遍历所有结果集
         // 当两者同时存在时，scalar函数只处理第一条结果
         // mysql是这样做的
         // 对于scalar函数，只需要取一条结果
         for (IFunction scalar : this.scalars) {
-            if (this.isMerge()) {
-                ((ExtraFunction) scalar.getExtraFunction()).serverReduce(record);
-            } else {
-                ((ExtraFunction) scalar.getExtraFunction()).serverMap(record);
-            }
+            // if (this.isMerge()) {
+            Object res = ((ScalarFunction) scalar.getExtraFunction()).scalarCalucate(record, executionContext);
+            this.putFunctionsResultInRecord(scalar, res, record);
+
         }
-        this.putFunctionsResultInRecord(scalars, record);
 
         for (IFunction aggregate : aggregates) {
             ((ExtraFunction) aggregate.getExtraFunction()).clear();
         }
         end = (kv == null);
         return record;
-    }
-
-    // 递归遍历所有给定的函数，得到其中的聚合函数
-    // 包括参数中的函数
-    public List<IFunction> getAllAggregates(List<IFunction> functions) {
-        List<IFunction> aggregates = new LinkedList<IFunction>();
-
-        for (IFunction f : functions) {
-            List<IFunction> functionsInArgs = new ArrayList<IFunction>(f.getArgs().size());
-
-            for (Object arg : f.getArgs()) {
-                if (arg instanceof IFunction) {
-                    functionsInArgs.add((IFunction) arg);
-                }
-            }
-            List<IFunction> aggregatesInArgs = this.getAllAggregates(functionsInArgs);
-            aggregates.addAll(aggregatesInArgs);
-
-            if (f.getFunctionType().equals(FunctionType.Aggregate)) {
-                aggregates.add(f);
-
-                // 聚合函数不能使用聚合函数作为参数
-                // 如 max(count(id))是错误的
-                if (!aggregatesInArgs.isEmpty()) {
-                    throw new RuntimeException("Invalid use of group function");
-                }
-            }
-        }
-
-        return aggregates;
     }
 
     private void initSchema() throws TddlException {
@@ -218,20 +194,16 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
         retColumns.addAll(meta.getColumns());
 
         for (IFunction c : this.aggregates) {
-            Integer index = meta.getIndex(c.getTableName(), c.getColumnName());
-            if (index == null) {
-                index = meta.getIndex(c.getTableName(), c.getAlias());
-            }
+            Integer index = meta.getIndex(c.getTableName(), c.getColumnName(), c.getAlias());
+
             if (index == null) {
                 putRetColumnInMeta(c, retColumns);
             }
         }
 
         for (IFunction c : this.scalars) {
-            Integer index = meta.getIndex(c.getTableName(), c.getColumnName());
-            if (index == null) {
-                index = meta.getIndex(c.getTableName(), c.getAlias());
-            }
+            Integer index = meta.getIndex(c.getTableName(), c.getColumnName(), c.getAlias());
+
             if (index == null) {
                 putRetColumnInMeta(c, retColumns);
             }
@@ -248,7 +220,11 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
             if (kv == null) return true;
 
             for (ColumnMeta cm : this.currentGroupByValue.keySet()) {
-                Object valueFromKv = ExecUtils.getObject(kv.getParentCursorMeta(), kv, cm.getTableName(), cm.getName());
+                Object valueFromKv = ExecUtils.getObject(kv.getParentCursorMeta(),
+                    kv,
+                    cm.getTableName(),
+                    cm.getName(),
+                    cm.getAlias());
                 Object valueCurrent = this.currentGroupByValue.get(cm);
                 if (valueFromKv == null) {
                     if (valueCurrent != null) {
@@ -293,21 +269,32 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
         this.isMerge = isMerge;
     }
 
-    void putFunctionsResultInRecord(List<IFunction> functions, IRowSet record) {
+    void putAggregateFunctionsResultInRecord(List<IFunction> functions, IRowSet record) {
         for (IFunction f : functions) {
-            Integer index = this.cursorMeta.getIndex(f.getTableName(), f.getColumnName());
-            if (index == null) {
-                index = this.cursorMeta.getIndex(f.getTableName(), f.getAlias());
-            }
-            Object res = f.getExtraFunction().getResult();
+            Integer index = this.cursorMeta.getIndex(f.getTableName(), f.getColumnName(), f.getAlias());
+
+            Object res = ((AggregateFunction) f.getExtraFunction()).getResult();
             if (res instanceof Map) {
-                Map<String, Object> map = (Map<String, Object>) f.getExtraFunction().getResult();
+                Map<String, Object> map = (Map<String, Object>) res;
                 for (Entry<String, Object> en : map.entrySet()) {
                     record.setObject(index, en.getValue());
                 }
             } else {
                 record.setObject(index, res);
             }
+        }
+    }
+
+    void putFunctionsResultInRecord(IFunction f, Object res, IRowSet record) {
+        Integer index = this.cursorMeta.getIndex(f.getTableName(), f.getColumnName(), f.getAlias());
+
+        if (res instanceof Map) {
+            Map<String, Object> map = (Map<String, Object>) res;
+            for (Entry<String, Object> en : map.entrySet()) {
+                record.setObject(index, en.getValue());
+            }
+        } else {
+            record.setObject(index, res);
         }
     }
 
@@ -324,7 +311,12 @@ public class AggregateCursor extends SchematicCursor implements IAggregateCursor
             type = column.getDataType();
         } else {
             if (column instanceof IFunction) {
-                type = ((IFunction) column).getExtraFunction().getMapReturnType();
+
+                if (((IFunction) column).getFunctionType().equals(FunctionType.Aggregate)) {
+                    type = ((AggregateFunction) ((IFunction) column).getExtraFunction()).getMapReturnType();
+                } else {
+                    type = column.getDataType();
+                }
             } else {
                 type = column.getDataType();
             }

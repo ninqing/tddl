@@ -19,7 +19,7 @@ import com.taobao.tddl.optimizer.core.expression.IOrderBy;
  */
 public class ReverseOrderCursor extends SchematicCursor implements IReverseOrderCursor {
 
-    public ReverseOrderCursor(ISchematicCursor cursor){
+    public ReverseOrderCursor(ISchematicCursor cursor) throws TddlException{
         super(cursor, null, cursor.getOrderBy());
         List<IOrderBy> orderByList = cursor.getOrderBy();
         reverseOrderBy(orderByList);
@@ -47,6 +47,7 @@ public class ReverseOrderCursor extends SchematicCursor implements IReverseOrder
         return toStringWithInden(0);
     }
 
+    @Override
     public String toStringWithInden(int inden) {
         StringBuilder sb = new StringBuilder();
         String tab = GeneralUtil.getTab(inden);

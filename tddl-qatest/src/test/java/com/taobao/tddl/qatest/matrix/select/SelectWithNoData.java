@@ -37,7 +37,7 @@ public class SelectWithNoData extends BaseMatrixTestCase {
 
     @Before
     public void prepareData() throws Exception {
-        andorUpdateData("delete from  " + normaltblTableName, null);
+        tddlUpdateData("delete from  " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
     }
 

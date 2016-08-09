@@ -2,14 +2,14 @@ package com.taobao.tddl.optimizer.costbased.after;
 
 import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.utils.AddressUtils;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.utils.RequestIDGen;
+import com.taobao.tddl.optimizer.utils.UniqIdGen;
 
 /**
  * 添加id 不会改变结构
@@ -25,35 +25,34 @@ public class FillRequestIDAndSubRequestID implements QueryPlanOptimizer {
     }
 
     @Override
-    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Map<Integer, ParameterContext> parameterSettings,
-                                      Map<String, Object> extraCmd) {
+    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
         if (dne instanceof IQueryTree) {
-            fillRequestIDAndSubRequestIDFromRoot(dne, 1);
+            fillRequestIdAndSubRequestIdFromRoot(dne, 1);
         } else {
-            dne.setSubRequestID(1);
-            dne.setRequestID(RequestIDGen.genRequestID());
+            dne.setSubRequestId(1l);
+            dne.setRequestId(UniqIdGen.genRequestID());
             dne.setRequestHostName(hostname);
         }
         return dne;
     }
 
-    public int fillRequestIDAndSubRequestIDFromRoot(IDataNodeExecutor qc, int subRequestID) {
-        qc.setSubRequestID(subRequestID);
-        qc.setRequestID(RequestIDGen.genRequestID());
+    public long fillRequestIdAndSubRequestIdFromRoot(IDataNodeExecutor qc, long subRequestId) {
+        qc.setSubRequestId(subRequestId);
+        qc.setRequestId(UniqIdGen.genRequestID());
         qc.setRequestHostName(hostname);
 
         if (qc instanceof IQuery && ((IQuery) qc).getSubQuery() != null) {
-            subRequestID = this.fillRequestIDAndSubRequestIDFromRoot(((IQuery) qc).getSubQuery(), subRequestID + 1);
+            subRequestId = this.fillRequestIdAndSubRequestIdFromRoot(((IQuery) qc).getSubQuery(), subRequestId + 1);
         } else if (qc instanceof IMerge) {
-            for (IDataNodeExecutor sub : ((IMerge) qc).getSubNode()) {
-                subRequestID = this.fillRequestIDAndSubRequestIDFromRoot(sub, subRequestID + 1);
+            for (IDataNodeExecutor sub : ((IMerge) qc).getSubNodes()) {
+                subRequestId = this.fillRequestIdAndSubRequestIdFromRoot(sub, subRequestId + 1);
             }
         } else if (qc instanceof IJoin) {
-            subRequestID = this.fillRequestIDAndSubRequestIDFromRoot(((IJoin) qc).getLeftNode(), subRequestID + 1);
-            subRequestID = this.fillRequestIDAndSubRequestIDFromRoot(((IJoin) qc).getRightNode(), subRequestID + 1);
+            subRequestId = this.fillRequestIdAndSubRequestIdFromRoot(((IJoin) qc).getLeftNode(), subRequestId + 1);
+            subRequestId = this.fillRequestIdAndSubRequestIdFromRoot(((IJoin) qc).getRightNode(), subRequestId + 1);
         }
 
-        return subRequestID;
+        return subRequestId;
     }
 
 }

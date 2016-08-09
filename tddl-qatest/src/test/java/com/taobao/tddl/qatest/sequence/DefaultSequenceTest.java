@@ -16,9 +16,9 @@ import org.junit.Test;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.dao.DataAccessException;
 
-import com.taobao.tddl.sequence.exception.SequenceException;
-import com.taobao.tddl.sequence.impl.DefaultSequence;
-import com.taobao.tddl.sequence.impl.DefaultSequenceDao;
+import com.taobao.tddl.client.sequence.exception.SequenceException;
+import com.taobao.tddl.client.sequence.impl.DefaultSequence;
+import com.taobao.tddl.client.sequence.impl.DefaultSequenceDao;
 
 /**
  * 对sequence正确性的验证

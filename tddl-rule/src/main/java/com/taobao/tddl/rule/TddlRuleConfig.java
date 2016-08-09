@@ -50,8 +50,8 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
     private static final String                                 TDDL_RULE_LE_VERSIONS_FORMAT = "com.taobao.tddl.rule.le.{0}.versions";
     private static final String                                 NO_VERSION_NAME              = "__VN__";
 
-    private String                                              appName;
-    private String                                              unitName;
+    protected String                                            appName;
+    protected String                                            unitName;
 
     // 本地规则
     private String                                              appRuleFile;
@@ -71,10 +71,11 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
     private volatile Map<Integer, String>                       versionIndex                 = Maps.newHashMap();
     private volatile Map<String, AbstractXmlApplicationContext> oldCtxs                      = Maps.newHashMap();
 
-    private ClassLoader                                         outerClassLoader             = null;
+    private ClassLoader                                         outerClassLoader             = TddlRuleConfig.class.getClassLoader();
     // 是否兼容历史老的rule，主要是tdd5代码修改过类的全路径，针对tddl3之前的rule需要考虑做兼容处理
     private boolean                                             compatibleOldRule            = true;
 
+    @Override
     public void doInit() {
         if (appRuleFile != null) { // 如果存在本地规则
             String[] rulePaths = appRuleFile.split(";");
@@ -120,8 +121,8 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
                 for (String version : versions) {
                     String dataId = getVersionedRuleDataId(appName, version);
                     if (!dataSub(dataId, version, new SingleRuleConfigListener())) {
-                        throw new RuntimeException("subscribe the rule data or init rule error!check the error log! the rule version is:"
-                                                   + version);
+                        throw new TddlRuleException("subscribe the rule data or init rule error!check the error log! the rule version is:"
+                                                    + version);
                     }
                 }
 
@@ -239,7 +240,7 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
             try {
                 ruleHandler.destroy();
             } catch (TddlException e1) {
-                logger.error("destroy failed!", e);
+                logger.error("destory failed!", e);
             }
 
             logger.error("get diamond data error!", e);
@@ -253,7 +254,8 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
      * 
      * @throws TddlException
      */
-    public void dodestroy() throws TddlException {
+    @Override
+    public void doDestroy() throws TddlException {
         if (versionHandler != null) {
             versionHandler.destroy();
         }
@@ -306,7 +308,7 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
     }
 
     public void logRecieveRuleVersions(String version) {
-        if (LoggerInit.DYNAMIC_RULE_LOG.isInfoEnabled()) {
+        if (LoggerInit.TDDL_DYNAMIC_CONFIG.isInfoEnabled()) {
             SimpleDateFormat df = new SimpleDateFormat("yyy-MM-dd HH:mm:ss:SSS");
             String logFieldSep = "#@#";
             String linesep = System.getProperty("line.separator");
@@ -320,7 +322,7 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
                 .append(1)
                 .append(linesep);
 
-            LoggerInit.DYNAMIC_RULE_LOG.info(sb.toString());
+            LoggerInit.TDDL_DYNAMIC_CONFIG.info(sb.toString());
         }
     }
 
@@ -368,90 +370,102 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
 
     private class VersionsConfigListener implements ConfigDataListener {
 
-        public synchronized void onDataRecieved(String dataId, String data) {
-            if (TStringUtil.isNotEmpty(data)) {
-                String[] versions = data.split(",");
-                Map<String, String> checkMap = new HashMap<String, String>();
-                // 添加新增的规则订阅
-                int index = 0;
-                Map<Integer, String> tempIndexMap = new HashMap<Integer, String>();
-                for (String version : versions) {
-                    if (ruleHandlers.get(version) == null) {
-                        String ruleDataId = getVersionedRuleDataId(appName, version);
-                        if (!dataSub(ruleDataId, version, new SingleRuleConfigListener())) {
-                            return;
+        @Override
+        public void onDataRecieved(String dataId, String data) {
+            synchronized (vtrs) { // 并发控制
+                if (TStringUtil.isNotEmpty(data)) {
+                    String[] versions = data.split(",");
+                    Map<String, String> checkMap = new HashMap<String, String>();
+                    // 添加新增的规则订阅
+                    int index = 0;
+                    Map<Integer, String> tempIndexMap = new HashMap<Integer, String>();
+                    for (String version : versions) {
+                        if (ruleHandlers.get(version) == null) {
+                            String ruleDataId = getVersionedRuleDataId(appName, version);
+                            if (!dataSub(ruleDataId, version, new SingleRuleConfigListener())) {
+                                return;
+                            }
+                        }
+                        checkMap.put(version, version);
+                        tempIndexMap.put(index, version);
+                        index++;
+                    }
+
+                    versionIndex = tempIndexMap;
+
+                    // 删除没有在version中存在的订阅
+                    List<String> needRemove = new ArrayList<String>();
+                    for (Map.Entry<String, ConfigDataHandler> handler : ruleHandlers.entrySet()) {
+                        if (checkMap.get(handler.getKey()) == null) {
+                            needRemove.add(handler.getKey());
                         }
                     }
-                    checkMap.put(version, version);
-                    tempIndexMap.put(index, version);
-                    index++;
-                }
 
-                versionIndex = tempIndexMap;
-
-                // 删除没有在version中存在的订阅
-                List<String> needRemove = new ArrayList<String>();
-                for (Map.Entry<String, ConfigDataHandler> handler : ruleHandlers.entrySet()) {
-                    if (checkMap.get(handler.getKey()) == null) {
-                        needRemove.add(handler.getKey());
+                    // 清理
+                    for (String version : needRemove) {
+                        ConfigDataHandler handler = ruleHandlers.remove(version);
+                        try {
+                            handler.destroy();
+                        } catch (TddlException e) {
+                            logger.error("destory failed!", e);
+                        }
+                        vtrs.remove(version);
+                        ruleStrs.remove(version);
+                        AbstractXmlApplicationContext oldCtx = oldCtxs.remove(version);
+                        oldCtx.close();
                     }
-                }
 
-                // 清理
-                for (String version : needRemove) {
-                    ConfigDataHandler handler = ruleHandlers.get(version);
-                    try {
-                        handler.destroy();
-                    } catch (TddlException e) {
-                        logger.error("destroy failed!", e);
+                    // 在versions data收到为null,或者为空,不调用,保护AppServer
+                    // 调用listener,但只返回位列第一个的VirtualTableRoot
+                    for (RuleChangeListener listener : listeners) {
+                        try {
+                            // may be wrong,so try catch it ,not to affect
+                            // other!
+                            listener.onRuleRecieve(getCurrentRuleStr());
+                        } catch (Exception e) {
+                            logger.error("one listener error!", e);
+                        }
                     }
-                    ruleHandlers.remove(version);
-                    vtrs.remove(version);
-                    ruleStrs.remove(version);
-                    oldCtxs.get(version).close();
-                    oldCtxs.remove(version);
+
                 }
 
-                // 在versions data收到为null,或者为空,不调用,保护AppServer
-                // 调用listener,但只返回位列第一个的VirtualTableRoot
-                for (RuleChangeListener listener : listeners) {
-                    try {
-                        // may be wrong,so try catch it ,not to affect
-                        // other!
-                        listener.onRuleRecieve(getCurrentRuleStr());
-                    } catch (Exception e) {
-                        logger.error("one listener error!", e);
-                    }
-                }
-
+                // 记下日志,方便分析
+                logRecieveRuleVersions(data);
             }
-
-            // 记下日志,方便分析
-            logRecieveRuleVersions(data);
         }
 
     }
 
     private class SingleRuleConfigListener implements ConfigDataListener {
 
-        public synchronized void onDataRecieved(String dataId, String data) {
-            if (TStringUtil.isNotEmpty(data)) {
-                logReceiveRule(dataId, data);
-                String prefix = TDDL_RULE_LE_PREFIX + appName + ".";
-                int i = dataId.indexOf(prefix);
-                String version = NO_VERSION_NAME; // non-versioned rule
-                if (i >= 0) {
-                    version = dataId.substring(i + prefix.length());
-                }
+        @Override
+        public void onDataRecieved(String dataId, String data) {
+            synchronized (vtrs) { // 并发控制
+                if (TStringUtil.isNotEmpty(data)) {
+                    logReceiveRule(dataId, data);
+                    String prefix = TDDL_RULE_LE_PREFIX + appName + ".";
+                    int i = dataId.indexOf(prefix);
+                    String version = NO_VERSION_NAME; // non-versioned rule
+                    if (i >= 0) {
+                        version = dataId.substring(i + prefix.length());
+                    }
 
-                if (initVersionRule(data, version)) {
-                    for (RuleChangeListener listener : listeners) {
-                        try {
-                            // may be wrong,so try catch it ,not to
-                            // affect other !
-                            listener.onRuleRecieve(getCurrentRuleStr());
-                        } catch (Exception e) {
-                            logger.error("one listener error!", e);
+                    if (!versionIndex.containsValue(version) && !vtrs.containsKey(version)
+                        && !ruleStrs.containsKey(version)) {
+                        // 针对不存在的版本，忽略更新
+                        logReceiveRule(dataId, "已经不是当前使用中的规则,忽略本次更新");
+                        return;
+                    }
+
+                    if (initVersionRule(data, version)) {
+                        for (RuleChangeListener listener : listeners) {
+                            try {
+                                // may be wrong,so try catch it ,not to
+                                // affect other !
+                                listener.onRuleRecieve(getCurrentRuleStr());
+                            } catch (Exception e) {
+                                logger.error("one listener error!", e);
+                            }
                         }
                     }
                 }

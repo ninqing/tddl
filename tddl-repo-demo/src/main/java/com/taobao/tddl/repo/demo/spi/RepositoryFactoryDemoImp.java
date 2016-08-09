@@ -3,7 +3,7 @@ package com.taobao.tddl.repo.demo.spi;
 import java.util.Map;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.utils.extension.Activate;
 import com.taobao.tddl.executor.spi.IRepository;
@@ -18,7 +18,7 @@ public class RepositoryFactoryDemoImp implements IRepositoryFactory {
         try {
             myRepo.init();
         } catch (TddlException e) {
-            throw new TddlNestableRuntimeException(e);
+            throw new TddlRuntimeException(e);
         }
         return myRepo;
     }

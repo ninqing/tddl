@@ -14,7 +14,6 @@ import com.taobao.tddl.group.config.GroupExtraConfig;
 import com.taobao.tddl.group.exception.NoMoreDataSourceException;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 import com.taobao.tddl.group.utils.WeightRandom;
-import com.taobao.tddl.monitor.utils.NagiosUtils;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
@@ -179,7 +178,6 @@ public class EquityDbManager extends AbstractDBSelector {
                 exceptions.add(e);
                 boolean isFatal = exceptionSorter.isExceptionFatal(e);
                 if (isFatal) {
-                    NagiosUtils.addNagiosLog(NagiosUtils.KEY_DB_NOT_AVAILABLE + "|" + name, e.getMessage());
                     dsHolder.isNotAvailable = true;
                 }
                 if (!isFatal || failedDataSources == null) {

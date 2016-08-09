@@ -36,7 +36,8 @@ public class ValueMappingIRowSetConvertor {
         while (returnMetaIterator.hasNext()) {
             ColMetaAndIndex colMetaAndIndex = returnMetaIterator.next();
             Integer indexInCursor = firstIRowSet.getParentCursorMeta().getIndex(colMetaAndIndex.getTable(),
-                colMetaAndIndex.getName());
+                colMetaAndIndex.getName(),
+                null);
             if (indexInCursor == null) {// return中有的数据但当前cursor中没有
                 throw new IllegalArgumentException("can't " + "find column in sub cursor : "
                                                    + colMetaAndIndex.getTable() + "." + colMetaAndIndex.getName());

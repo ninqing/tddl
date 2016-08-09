@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
@@ -28,14 +28,13 @@ public class FuckAvgOptimizer implements QueryPlanOptimizer {
      * 把query中的avg换成count，sum
      */
     @Override
-    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Map<Integer, ParameterContext> parameterSettings,
-                                      Map<String, Object> extraCmd) {
-        if (dne instanceof IMerge && ((IMerge) dne).getSubNode().size() > 1) {
-            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNode()) {
+    public IDataNodeExecutor optimize(IDataNodeExecutor dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
+        if (dne instanceof IMerge && ((IMerge) dne).getSubNodes().size() > 1) {
+            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNodes()) {
                 expendAvgFunction(sub);
             }
 
-            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNode()) {
+            for (IDataNodeExecutor sub : ((IMerge) dne).getSubNodes()) {
                 this.optimize(sub, parameterSettings, extraCmd);
             }
         } else if (dne instanceof IJoin) {

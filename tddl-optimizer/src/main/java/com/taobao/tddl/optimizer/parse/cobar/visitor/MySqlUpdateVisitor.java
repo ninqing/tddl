@@ -23,10 +23,11 @@ public class MySqlUpdateVisitor extends EmptySQLASTVisitor {
 
     private UpdateNode updateNode;
 
+    @Override
     public void visit(DMLUpdateStatement node) {
         QueryTreeNode table = getTableNode(node);
         List<Pair<Identifier, Expression>> cvs = node.getValues();
-        Comparable[] updateValues = new Comparable[cvs.size()];
+        Object[] updateValues = new Object[cvs.size()];
         StringBuilder updateColumnsSb = new StringBuilder();
         for (int i = 0; i < cvs.size(); i++) {
             Pair<Identifier, Expression> p = cvs.get(i);
@@ -36,7 +37,7 @@ public class MySqlUpdateVisitor extends EmptySQLASTVisitor {
             updateColumnsSb.append(p.getKey().getIdTextUpUnescape());
             MySqlExprVisitor mv = new MySqlExprVisitor();
             p.getValue().accept(mv);
-            updateValues[i] = (Comparable) mv.getColumnOrValue();// 可能为function
+            updateValues[i] = mv.getColumnOrValue();// 可能为function
         }
 
         Expression expr = node.getWhere();
@@ -45,6 +46,8 @@ public class MySqlUpdateVisitor extends EmptySQLASTVisitor {
         }
 
         this.updateNode = ((TableNode) table).update(updateColumnsSb.toString(), updateValues);
+        updateNode.setIgnore(node.isIgnore());
+        updateNode.setLowPriority(node.isLowPriority());
     }
 
     private QueryTreeNode getTableNode(DMLUpdateStatement node) {

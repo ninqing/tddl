@@ -7,7 +7,8 @@ import com.taobao.tddl.optimizer.core.ast.DMLNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
+import com.taobao.tddl.optimizer.core.plan.IPut;
+import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.dml.IUpdate;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 
@@ -36,7 +37,7 @@ public class UpdateNode extends DMLNode<UpdateNode> {
     }
 
     @Override
-    public IDataNodeExecutor toDataNodeExecutor() throws QueryException {
+    public IPut toDataNodeExecutor(int shareIndex) throws QueryException {
         IUpdate update = ASTNodeFactory.getInstance().createUpdate();
         for (ISelectable updateColumn : this.getColumns()) {
             if (this.getNode().getTableMeta().getPrimaryIndex().getPartitionColumns().contains(updateColumn)) {
@@ -50,9 +51,16 @@ public class UpdateNode extends DMLNode<UpdateNode> {
 
         update.setConsistent(true);
         update.executeOn(this.getNode().getDataNode());
-        update.setQueryTree(this.getNode().toDataNodeExecutor());
+        update.setQueryTree((IQueryTree) this.getNode().toDataNodeExecutor());
         update.setUpdateColumns(this.getUpdateColumns());
         update.setUpdateValues(values);
+
+        update.setIgnore(this.isIgnore());
+        update.setQuick(this.isQuick());
+        update.setLowPriority(this.lowPriority);
+        update.setHighPriority(this.highPriority);
+        update.setDelayed(this.isDelayed());
+
         if (this.getNode().getActualTableName() != null) {
             update.setTableName(this.getNode().getActualTableName());
         } else if (this.getNode() instanceof KVIndexNode) {
@@ -61,6 +69,9 @@ public class UpdateNode extends DMLNode<UpdateNode> {
             update.setTableName(this.getNode().getTableName());
         }
         update.setIndexName(this.getNode().getIndexUsed().getName());
+        update.setBatchIndexs(this.getBatchIndexs());
+        update.setMultiValues(this.isMultiValues());
+        update.setMultiValues(this.getMultiValues());
         return update;
     }
 

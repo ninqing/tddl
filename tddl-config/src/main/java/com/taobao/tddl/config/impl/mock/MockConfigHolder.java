@@ -14,7 +14,7 @@ import com.taobao.tddl.config.impl.holder.AbstractConfigDataHolder;
  * @author jianghang 2014-2-27 下午6:53:23
  * @since 5.0.0
  */
-@Activate(name = "mock", order = 1)
+@Activate(order = 1)
 public class MockConfigHolder extends AbstractConfigDataHolder {
 
     @Override

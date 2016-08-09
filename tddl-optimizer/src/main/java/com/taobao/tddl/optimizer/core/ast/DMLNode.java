@@ -2,19 +2,21 @@ package com.taobao.tddl.optimizer.core.ast;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
+import com.taobao.tddl.optimizer.costbased.SubQueryPreProcessor;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * DML操作树
@@ -23,19 +25,78 @@ import com.taobao.tddl.optimizer.utils.OptimizerUtils;
  */
 public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
 
-    protected static final Logger            logger            = LoggerFactory.getLogger(DMLNode.class);
-    protected List<ISelectable>              columns;
-    protected List<Object>                   values;
+    protected static final Logger logger            = LoggerFactory.getLogger(DMLNode.class);
+    protected List<ISelectable>   columns;
+    protected List<Object>        values;
+    protected boolean             isMultiValues     = false;
+    protected List<List<Object>>  multiValues;
     // 直接依赖为tableNode，如果涉及多库操作，会是一个Merge下面挂多个DML
-    protected TableNode                      table             = null;
-    protected Map<Integer, ParameterContext> parameterSettings = null;
-    protected boolean                        needBuild         = true;
+    protected TableNode           table             = null;
+    protected Parameters          parameterSettings = null;
+    protected boolean             needBuild         = true;
+    protected List<Integer>       batchIndexs       = new ArrayList<Integer>();
+    protected boolean             ignore            = false;
+    protected boolean             lowPriority       = false;
+    protected boolean             highPriority      = false;
+    protected boolean             delayed           = false;
+    protected boolean             quick             = false;
+
+    public DMLNode(){
+        super();
+    }
+
+    public boolean isIgnore() {
+        return ignore;
+    }
+
+    public DMLNode setIgnore(boolean ignore) {
+        this.ignore = ignore;
+        return this;
+    }
+
+    public boolean isLowPriority() {
+        return lowPriority;
+    }
+
+    public DMLNode setLowPriority(boolean lowPriority) {
+        this.lowPriority = lowPriority;
+        return this;
+    }
+
+    public boolean isHighPriority() {
+        return highPriority;
+    }
+
+    public DMLNode setHighPriority(boolean highPriority) {
+        this.highPriority = highPriority;
+        return this;
+    }
+
+    public boolean isDelayed() {
+        return delayed;
+    }
+
+    public DMLNode setDelayed(boolean delayed) {
+        this.delayed = delayed;
+
+        return this;
+    }
+
+    public boolean isQuick() {
+        return quick;
+    }
+
+    public DMLNode setQuick(boolean quick) {
+        this.quick = quick;
+
+        return this;
+    }
 
     public DMLNode(TableNode table){
         this.table = table;
     }
 
-    public DMLNode setParameterSettings(Map<Integer, ParameterContext> parameterSettings) {
+    public DMLNode setParameterSettings(Parameters parameterSettings) {
         this.parameterSettings = parameterSettings;
         return this;
     }
@@ -61,7 +122,6 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
     public DMLNode setValues(List<Object> values) {
         this.values = values;
         return this;
-
     }
 
     public List<Object> getValues() {
@@ -81,6 +141,44 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         this.needBuild = needBuild;
     }
 
+    public boolean isMultiValues() {
+        return isMultiValues;
+    }
+
+    public DMLNode setMultiValues(boolean isMutiValues) {
+        this.isMultiValues = isMutiValues;
+        return this;
+    }
+
+    public List<List<Object>> getMultiValues() {
+        return multiValues;
+    }
+
+    public DMLNode setMultiValues(List<List<Object>> multiValues) {
+        this.multiValues = multiValues;
+        return this;
+    }
+
+    public List<Object> getValues(int index) {
+        if (this.isMultiValues) {
+            if (this.multiValues != null) {
+                return this.multiValues.get(index);
+            } else {
+                return null;
+            }
+        }
+
+        return this.values;
+    }
+
+    public int getMultiValuesSize() {
+        if (this.isMultiValues) {
+            return this.multiValues.size();
+        } else {
+            return 1;
+        }
+    }
+
     @Override
     public void build() {
         if (this.table != null) {
@@ -88,7 +186,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         }
 
         if ((this.getColumns() == null || this.getColumns().isEmpty())
-            && (this.getValues() == null || this.getValues().isEmpty())) {
+            && (this.getValues(0) == null || this.getValues(0).isEmpty())) {
             return;
         }
 
@@ -97,13 +195,17 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
                 this.getTableMeta().getTableName());
         }
 
-        if (columns.size() != values.size()) {
-            if (!columns.isEmpty()) {
-                throw new IllegalArgumentException("The size of the columns and values is not matched."
-                                                   + " columns' size is " + columns.size() + ". values' size is "
-                                                   + values.size());
+        boolean isMatch = true;
+        if (isMultiValues) {
+            for (List<Object> vs : multiValues) {
+                isMatch &= (vs.size() == columns.size());
             }
+        } else {
+            isMatch &= (values.size() == columns.size());
+        }
 
+        if (!isMatch) {
+            throw new IllegalArgumentException("The size of the columns and values is not matched.");
         }
 
         for (ISelectable s : this.getColumns()) {
@@ -122,7 +224,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
             }
         }
 
-        convertTypeToSatifyColumnMeta(this.getColumns(), this.getValues());
+        convertTypeToSatifyColumnMeta(this.getColumns(), this.getValues(0));
     }
 
     /**
@@ -153,7 +255,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
     }
 
     @Override
-    public void assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public void assignment(Parameters parameterSettings) {
         QueryTreeNode qct = getNode();
 
         if (qct != null) {
@@ -175,12 +277,62 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
             this.setValues(comps);
         }
 
+        if (multiValues != null) {
+            List<List<Object>> multiValues = new ArrayList<List<Object>>(this.multiValues.size());
+            for (List<Object> values : this.multiValues) {
+                List<Object> comps = new ArrayList<Object>();
+                for (Object comp : values) {
+                    if (comp instanceof IBindVal) {
+                        comps.add(((IBindVal) comp).assignment(parameterSettings));
+                    } else if (comp instanceof ISelectable) {
+                        comps.add(((ISelectable) comp).assignment(parameterSettings));
+                    } else {
+                        comps.add(comp);
+                    }
+                }
+
+                multiValues.add(comps);
+            }
+
+            this.setMultiValues(multiValues);
+        }
+    }
+
+    public IFunction getNextSubqueryOnFilter() {
+        IFunction func = SubQueryPreProcessor.findNextSubqueryOnFilter(this.getNode());
+        if (func != null) {
+            return (IFunction) func.copy();
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * 这个节点上执行哪些batch
+     * 
+     * @return
+     */
+    public List<Integer> getBatchIndexs() {
+        return batchIndexs;
+    }
+
+    public void setBatchIndexs(List<Integer> batchIndexs) {
+        this.batchIndexs = batchIndexs;
     }
 
     protected void copySelfTo(DMLNode to) {
         to.columns = this.columns;
         to.values = this.values;
         to.table = this.table;
+        to.multiValues = this.multiValues;
+        to.isMultiValues = this.isMultiValues;
+
+        to.lowPriority = this.lowPriority;
+        to.highPriority = this.highPriority;
+        to.delayed = this.delayed;
+        to.ignore = this.ignore;
+        to.quick = this.quick;
+        to.batchIndexs = this.batchIndexs;
     }
 
     protected void deepCopySelfTo(DMLNode to) {
@@ -191,22 +343,50 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
             for (Object value : this.values) {
                 if (value instanceof ISelectable) {
                     to.values.add(((ISelectable) value).copy());
+                } else if (value instanceof IBindVal) {
+                    to.values.add(((IBindVal) value).copy());
                 } else to.values.add(value);
             }
         }
 
+        to.setMultiValues(this.isMultiValues());
+        if (this.multiValues != null) {
+            List<List<Object>> multiValues = new ArrayList<List<Object>>(this.multiValues.size());
+            for (List<Object> value : this.multiValues) {
+                multiValues.add(OptimizerUtils.copyValues(value));
+            }
+
+            to.setMultiValues(multiValues);
+        }
+
         to.table = this.table.deepCopy();
+
+        to.lowPriority = this.lowPriority;
+        to.highPriority = this.highPriority;
+        to.delayed = this.delayed;
+        to.ignore = this.ignore;
+        to.quick = this.quick;
+        to.batchIndexs = new ArrayList<Integer>(this.batchIndexs);
     }
 
     @Override
-    public String toString(int inden) {
+    public RT copySelf() {
+        return copy();
+    }
+
+    @Override
+    public String toString(int inden, int shareIndex) {
         String tabTittle = OptimizerToString.getTab(inden);
         String tabContent = OptimizerToString.getTab(inden + 1);
         StringBuilder sb = new StringBuilder();
         OptimizerToString.appendln(sb, tabTittle + this.getClass().getSimpleName());
 
         OptimizerToString.appendField(sb, "columns", this.getColumns(), tabContent);
-        OptimizerToString.appendField(sb, "values", this.getValues(), tabContent);
+        if (isMultiValues()) {
+            OptimizerToString.appendField(sb, "multiValues", this.getMultiValues(), tabContent);
+        } else {
+            OptimizerToString.appendField(sb, "values", this.getValues(), tabContent);
+        }
 
         if (this.getNode() != null) {
             OptimizerToString.appendln(sb, tabContent + "query:");
@@ -215,8 +395,4 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         return sb.toString();
     }
 
-    @Override
-    public String toString() {
-        return this.toString(0);
-    }
 }

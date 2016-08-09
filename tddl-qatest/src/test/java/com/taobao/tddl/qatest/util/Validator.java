@@ -19,11 +19,11 @@ import com.taobao.tddl.matrix.jdbc.TDataSource;
 
 public class Validator {
 
-    public TDataSource       us;
-    public Connection        con;
-    public Connection        andorCon;
-    public PreparedStatement ps;
-    public PreparedStatement andorPs;
+    public static TDataSource tddlDatasource;
+    public static Connection  mysqlConnection;
+    public static Connection  tddlConnection;
+    public PreparedStatement  mysqlPreparedStatement;
+    public PreparedStatement  tddlPreparedStatement;
 
     /**
      * mysql查询数据
@@ -36,14 +36,14 @@ public class Validator {
     public ResultSet mysqlQueryData(String sql, List<Object> param) throws Exception {
         ResultSet rs = null;
         try {
-            ps = con.prepareStatement(sql);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = ps.executeQuery();
+                rs = mysqlPreparedStatement.executeQuery();
             } else {
                 for (int i = 0; i < param.size(); i++) {
-                    ps.setObject(i + 1, param.get(i));
+                    mysqlPreparedStatement.setObject(i + 1, param.get(i));
                 }
-                rs = ps.executeQuery();
+                rs = mysqlPreparedStatement.executeQuery();
                 // //Thread.sleep(500);
             }
         } catch (Exception ex) {
@@ -65,19 +65,19 @@ public class Validator {
     public ResultSet andorQueryData(String sql, List<Object> param) throws Exception {
         ResultSet rs = null;
         try {
-            andorPs = andorCon.prepareStatement(sql);
+            tddlPreparedStatement = tddlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = andorPs.executeQuery();
+                rs = tddlPreparedStatement.executeQuery();
             } else {
                 for (int i = 0; i < param.size(); i++) {
-                    andorPs.setObject(i + 1, param.get(i));
+                    tddlPreparedStatement.setObject(i + 1, param.get(i));
                 }
-                rs = andorPs.executeQuery();
+                rs = tddlPreparedStatement.executeQuery();
             }
         } catch (Exception ex) {
-            // andorCon.rollback();
-            if (!andorCon.getAutoCommit()) {
-                andorCon.rollback();
+            // tddlCon.rollback();
+            if (!tddlConnection.getAutoCommit()) {
+                tddlConnection.rollback();
             }
             throw new Exception(ex);
         } finally {
@@ -143,10 +143,11 @@ public class Validator {
                 same = true;
             }
             if (same != true) {
-                Assert.fail("Results not same!" + mutilResult);
+                Assert.assertEquals(mutilMysqlResult, mutilResult);
             }
         } finally {
-
+            rs.close();
+            ret.close();
         }
     }
 
@@ -189,7 +190,8 @@ public class Validator {
                 Assert.fail("Results not same!");
             }
         } finally {
-
+            rs.close();
+            ret.close();
         }
     }
 
@@ -217,7 +219,8 @@ public class Validator {
             }
             Assert.assertFalse(ret.next());
         } finally {
-
+            rs.close();
+            ret.close();
         }
     }
 
@@ -282,7 +285,8 @@ public class Validator {
             }
             Assert.assertFalse(ret.next());
         } finally {
-
+            rs.close();
+            ret.close();
         }
     }
 
@@ -313,6 +317,9 @@ public class Validator {
             }
             Assert.assertFalse(ret.next());
         } finally {
+
+            rs.close();
+            ret.close();
         }
     }
 
@@ -388,24 +395,94 @@ public class Validator {
      * @return
      * @throws Exception
      */
+    public int mysqlUpdateDataBatch(String sql, List<List<Object>> params) throws Exception {
+        int nn[];
+        try {
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
+            if (params == null) {
+                return mysqlPreparedStatement.executeUpdate();
+            } else {
+
+                for (List<Object> param : params) {
+                    for (int i = 0; i < param.size(); i++) {
+                        mysqlPreparedStatement.setObject(i + 1, param.get(i));
+                    }
+                    mysqlPreparedStatement.addBatch();
+                }
+                nn = mysqlPreparedStatement.executeBatch();
+
+                int rs = 0;
+                for (int n : nn) {
+                    rs += n;
+                }
+
+                return rs;
+            }
+
+        } catch (Exception ex) {
+            throw new TddlRuntimeException(ex);
+        } finally {
+
+        }
+    }
+
+    /**
+     * Andor更新数据
+     * 
+     * @param sql
+     * @param param
+     * @return
+     * @throws Exception
+     */
+    public int tddlUpdateDataBatch(String sql, List<List<Object>> params) throws Exception {
+        int nn[];
+        try {
+            tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+            if (params == null) {
+                return tddlPreparedStatement.executeUpdate();
+            } else {
+                for (List<Object> param : params) {
+                    for (int i = 0; i < param.size(); i++) {
+                        tddlPreparedStatement.setObject(i + 1, param.get(i));
+                    }
+                    tddlPreparedStatement.addBatch();
+                }
+                nn = tddlPreparedStatement.executeBatch();
+
+                int rs = 0;
+                for (int n : nn) {
+                    rs += n;
+                }
+
+                return rs;
+            }
+
+        } catch (Exception ex) {
+            throw new TddlRuntimeException(ex);
+        } finally {
+        }
+    }
+
+    /**
+     * mysql更新数据
+     * 
+     * @param sql
+     * @param param
+     * @return
+     * @throws Exception
+     */
     public int mysqlUpdateData(String sql, List<Object> param) throws Exception {
         int rs = 0;
         try {
-            ps = con.prepareStatement(sql);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = ps.executeUpdate();
+                rs = mysqlPreparedStatement.executeUpdate();
             } else {
-                // for (int i = 0; i < param.size(); i++) {
-                // if (param.get(i) instanceof java.util.Date) {
-                // param.set(i, DateUtil.formatDate((java.util.Date)
-                // param.get(i), DateUtil.DATETIME_FULLHYPHEN));
-                // }
-                // }
+
                 for (int i = 0; i < param.size(); i++) {
-                    ps.setObject(i + 1, param.get(i));
+                    mysqlPreparedStatement.setObject(i + 1, param.get(i));
                 }
-                rs = ps.executeUpdate();
-                // Thread.sleep(500);
+                rs = mysqlPreparedStatement.executeUpdate();
             }
 
         } catch (Exception ex) {
@@ -427,9 +504,9 @@ public class Validator {
     public int mysqlUpdateDataTranscation(String sql, List<Object> param) throws Exception {
         int rs = 0;
         try {
-            ps = con.prepareStatement(sql);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = ps.executeUpdate();
+                rs = mysqlPreparedStatement.executeUpdate();
             } else {
                 for (int i = 0; i < param.size(); i++) {
                     if (param.get(i) instanceof java.util.Date) {
@@ -437,9 +514,9 @@ public class Validator {
                     }
                 }
                 for (int i = 0; i < param.size(); i++) {
-                    ps.setObject(i + 1, param.get(i));
+                    mysqlPreparedStatement.setObject(i + 1, param.get(i));
                 }
-                rs = ps.executeUpdate();
+                rs = mysqlPreparedStatement.executeUpdate();
             }
 
         } catch (Exception ex) {
@@ -450,24 +527,29 @@ public class Validator {
     }
 
     /**
-     * Andor更新数据
+     * tddl更新数据
      * 
      * @param sql
      * @param param
      * @return
      * @throws Exception
      */
-    public int andorUpdateData(String sql, List<Object> param) throws Exception {
+    public int tddlUpdateData(String sql, List<Object> param) throws Exception {
         int rs = 0;
         try {
-            andorPs = andorCon.prepareStatement(sql);
+            tddlPreparedStatement = tddlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = andorPs.executeUpdate();
+                rs = tddlPreparedStatement.executeUpdate();
             } else {
                 for (int i = 0; i < param.size(); i++) {
-                    andorPs.setObject(i + 1, param.get(i));
+
+                    if (param.get(i) == null) {
+                        tddlPreparedStatement.setNull(i + 1, java.sql.Types.NULL);
+                    } else {
+                        tddlPreparedStatement.setObject(i + 1, param.get(i));
+                    }
                 }
-                rs = andorPs.executeUpdate();
+                rs = tddlPreparedStatement.executeUpdate();
             }
 
         } catch (Exception ex) {
@@ -485,17 +567,17 @@ public class Validator {
      * @return
      * @throws Exception
      */
-    public int andorUpdateDataTranscation(String sql, List<Object> param) throws Exception {
+    public int tddlUpdateDataTranscation(String sql, List<Object> param) throws Exception {
         int rs = 0;
         try {
-            andorPs = andorCon.prepareStatement(sql);
+            tddlPreparedStatement = tddlConnection.prepareStatement(sql);
             if (param == null) {
-                rs = andorPs.executeUpdate();
+                rs = tddlPreparedStatement.executeUpdate();
             } else {
                 for (int i = 0; i < param.size(); i++) {
-                    andorPs.setObject(i + 1, param.get(i));
+                    tddlPreparedStatement.setObject(i + 1, param.get(i));
                 }
-                rs = andorPs.executeUpdate();
+                rs = tddlPreparedStatement.executeUpdate();
             }
 
         } catch (Exception ex) {
@@ -513,7 +595,7 @@ public class Validator {
      * @throws Exception
      */
     public void executeCountAssert(String sql, List<Object> param) throws Exception {
-        int andorAffectRow = andorUpdateData(sql, param);
+        int andorAffectRow = tddlUpdateData(sql, param);
         int mysqlAffectRow = mysqlUpdateData(sql, param);
         Assert.assertEquals(mysqlAffectRow, andorAffectRow);
     }
@@ -527,7 +609,19 @@ public class Validator {
      */
     public void execute(String sql, List<Object> param) throws Exception {
         mysqlUpdateData(sql, param);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
+    }
+
+    /**
+     * msyql和andor同时操作数据
+     * 
+     * @param sql
+     * @param param
+     * @throws Exception
+     */
+    public void executeBatch(String sql, List<List<Object>> param) throws Exception {
+        mysqlUpdateDataBatch(sql, param);
+        tddlUpdateDataBatch(sql, param);
     }
 
     /**
@@ -590,6 +684,7 @@ public class Validator {
             rc = andorQueryData(sql, param);
             assertContentSame(rs, rc, columnParam);
         } finally {
+            rsRcClose(rs, rc);
         }
     }
 
@@ -649,6 +744,7 @@ public class Validator {
             Assert.assertEquals(resultsSize(rs), resultsSize(rc));
         } finally {
 
+            rsRcClose(rs, rc);
         }
     }
 
@@ -681,7 +777,7 @@ public class Validator {
             }
             Assert.assertFalse(rc.next());
         } finally {
-
+            rsRcClose(rs, rc);
         }
     }
 
@@ -689,29 +785,22 @@ public class Validator {
      * ps,con,rc,rs的关闭
      * 
      * @param rc
-     * @param ps
-     * @param con
+     * @param mysqlPreparedStatement
+     * @param mysqlConnection
      * @param rs
      * @throws SQLException
      */
 
     public void psConRcRsClose(ResultSet rc, ResultSet rs) throws SQLException {
-        if (ps != null) {
-            ps.close();
-            ps = null;
+        if (mysqlPreparedStatement != null) {
+            mysqlPreparedStatement.close();
+            mysqlPreparedStatement = null;
         }
-        if (andorPs != null) {
-            andorPs.close();
-            andorPs = null;
+        if (tddlPreparedStatement != null) {
+            tddlPreparedStatement.close();
+            tddlPreparedStatement = null;
         }
-        if (con != null) {
-            con.close();
-            con = null;
-        }
-        if (andorCon != null) {
-            andorCon.close();
-            andorCon = null;
-        }
+
         if (rc != null) {
             rc.close();
             rc = null;
@@ -742,7 +831,7 @@ public class Validator {
      * @throws SQLException
      */
 
-    public void rcRsdestroy(ResultSet rc, ResultSet rs) throws Exception, SQLException {
+    public void rcRsDestory(ResultSet rc, ResultSet rs) throws Exception, SQLException {
         if (rc != null) {
             rc.close();
             rc = null;
@@ -758,7 +847,7 @@ public class Validator {
      * 
      * @return
      */
-    public Connection getConnection() {
+    public static Connection getConnection() {
         Connection conn = null;
         try {
             Class.forName("com.mysql.jdbc.Driver");

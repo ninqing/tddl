@@ -6,18 +6,18 @@
 		<property name="location" value="classpath:atom/tddl_config.properties" />
 	</bean>
 
-	<bean id="sequence" class="com.taobao.tddl.sequence.impl.GroupSequence"
+	<bean id="sequence" class="com.taobao.tddl.client.sequence.impl.GroupSequence"
 		init-method="init">
 		<property name="sequenceDao" ref="sequenceDao" />
 		<property name="name" value="ni" />
 	</bean>
-	<bean id="sequence_one_db" class="com.taobao.tddl.sequence.impl.GroupSequence"
+	<bean id="sequence_one_db" class="com.taobao.tddl.client.sequence.impl.GroupSequence"
 		init-method="init">
 		<property name="sequenceDao" ref="sequenceDao_one_db" />
 		<property name="name" value="ni" />
 	</bean>
 
-	<bean id="sequenceDao" class="com.taobao.tddl.sequence.impl.GroupSequenceDao"
+	<bean id="sequenceDao" class="com.taobao.tddl.client.sequence.impl.GroupSequenceDao"
 		init-method="init">
 		<!--appName ,必填 -->
 		<property name="appName" value="tddl_qatest" />
@@ -43,7 +43,7 @@
 	</bean>
 
 	<!--一个数据库 -->
-	<bean id="sequenceDao_one_db" class="com.taobao.tddl.sequence.impl.GroupSequenceDao"
+	<bean id="sequenceDao_one_db" class="com.taobao.tddl.client.sequence.impl.GroupSequenceDao"
 		init-method="init">
 		<!--appName ,必填 -->
 		<property name="appName" value="tddl_qatest" />

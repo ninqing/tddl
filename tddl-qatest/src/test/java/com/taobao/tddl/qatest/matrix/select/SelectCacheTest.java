@@ -169,7 +169,7 @@ public class SelectCacheTest extends BaseMatrixTestCase {
 
     @Test
     public void insertTest() throws Exception {
-        andorUpdateData("delete from  " + normaltblTableName, null);
+        tddlUpdateData("delete from  " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
         for (long i = 0; i < 4; i++) {
             String sql = "insert into " + normaltblTableName
@@ -191,7 +191,7 @@ public class SelectCacheTest extends BaseMatrixTestCase {
 
     @Test
     public void replaceTest() throws Exception {
-        andorUpdateData("delete from  " + normaltblTableName, null);
+        tddlUpdateData("delete from  " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
         for (long i = 0; i < 4; i++) {
             String sql = "replace into " + normaltblTableName

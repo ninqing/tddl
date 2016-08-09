@@ -12,8 +12,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 @RunWith(EclipseParameterized.class)
 public class SelectControlFunction extends BaseMatrixTestCase {
@@ -29,18 +29,19 @@ public class SelectControlFunction extends BaseMatrixTestCase {
 
     @Before
     public void prepare() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
         normaltblPrepare(0, 20);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 
     @Test
     public void ifTest() throws Exception {
+        if (normaltblTableName.startsWith("ob")) {
+            return;
+        }
         String sql = String.format("select if(pk<=id,id,pk) as m from %s", normaltblTableName);
         String[] columnParam = { "m" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);

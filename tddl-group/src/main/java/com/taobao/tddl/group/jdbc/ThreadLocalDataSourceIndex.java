@@ -1,7 +1,7 @@
 package com.taobao.tddl.group.jdbc;
 
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.common.model.ThreadLocalString;
-import com.taobao.tddl.common.utils.thread.ThreadLocalMap;
 import com.taobao.tddl.group.config.GroupIndex;
 import com.taobao.tddl.group.dbselector.DBSelector;
 

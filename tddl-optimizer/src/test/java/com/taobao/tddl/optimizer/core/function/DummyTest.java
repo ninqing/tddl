@@ -42,4 +42,9 @@ public class DummyTest implements IExtraFunction {
     public void clear() {
     }
 
+    @Override
+    public String[] getFunctionNames() {
+        return new String[] { "DUMMYTEST" };
+    }
+
 }

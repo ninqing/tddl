@@ -43,6 +43,10 @@ public class IndexNestedLoopJoinHandler extends QueryHandlerCommon {
                 .getTopologyExecutor()
                 .execByExecPlanNode(leftQuery, executionContext);
 
+            /**
+             * 右边调的是mget，所以不需要在创建的时候初始化
+             */
+            join.getRightNode().setLazyLoad(true);
             cursor_right = ExecutorContext.getContext()
                 .getTopologyExecutor()
                 .execByExecPlanNode(join.getRightNode(), executionContext);

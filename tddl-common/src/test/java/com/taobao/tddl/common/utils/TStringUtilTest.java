@@ -5,6 +5,8 @@ import java.util.Arrays;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.taobao.tddl.common.utils.TStringUtil;
+
 /**
  * 各种不同实现的比较测试
  * 

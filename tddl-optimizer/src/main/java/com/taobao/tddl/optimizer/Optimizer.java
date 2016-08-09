@@ -2,12 +2,12 @@ package com.taobao.tddl.optimizer;
 
 import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
+import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exceptions.OptimizerException;
 
 /**
  * 优化器执行接口
@@ -17,28 +17,27 @@ import com.taobao.tddl.optimizer.exceptions.SqlParserException;
 public interface Optimizer extends Lifecycle {
 
     /**
-     * 根据自定义查询树生成执行计划，不做缓存处理
-     * 
-     * @param node 查询树
-     * @param parameterSettings 参数
-     * @param extraCmd 额外的优化参数，控制优化行为
-     * @return
-     * @throws QueryException
+     * 基于语法树进行优化
      */
-    IDataNodeExecutor optimizeAndAssignment(ASTNode node, Map<Integer, ParameterContext> parameterSettings,
-                                            Map<String, Object> extraCmd) throws QueryException;
+    ASTNode optimizeAst(ASTNode node, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                 throws OptimizerException;
 
     /**
-     * 根据sql生成执行计划，根据cached参数判断是否进行缓存处理
-     * 
-     * @param sql 原始sql
-     * @param parameterSettings 参数
-     * @param extraCmd 额外的优化参数，控制优化行为
-     * @param cached 是否缓存
-     * @return
-     * @throws QueryException
+     * 基于sql进行语法树构建+优化 , cache变量可控制优化的语法树是否会被缓存
      */
-    IDataNodeExecutor optimizeAndAssignment(String sql, Map<Integer, ParameterContext> parameterSettings,
-                                            Map<String, Object> extraCmd, boolean cached) throws SqlParserException,
-                                                                                         QueryException;
+    Object optimizeAstOrHint(String sql, Parameters parameterSettings, boolean cached, Map<String, Object> extraCmd)
+                                                                                                                    throws OptimizerException;
+
+    /**
+     * 设置对应子查询的执行结果,并返回下一个subquery function
+     */
+    IFunction assignmentSubquery(ASTNode node, Map<Long, Object> subquerySettings, Map<String, Object> extraCmd)
+                                                                                                                throws OptimizerException;
+
+    /**
+     * 将语法树生成对应执行计划, 注意：需要先调用optimizeAst进行语法树优化
+     */
+    IDataNodeExecutor optimizePlan(ASTNode node, Parameters parameterSettings, Map<String, Object> extraCmd)
+                                                                                                            throws OptimizerException;
+
 }

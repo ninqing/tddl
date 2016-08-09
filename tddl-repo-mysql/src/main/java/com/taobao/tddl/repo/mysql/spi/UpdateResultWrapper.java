@@ -65,7 +65,6 @@ public class UpdateResultWrapper implements ResultSet {
     @Override
     public void close() throws SQLException {
         closed = true;
-        handler.close();
     }
 
     @Override

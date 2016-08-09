@@ -15,12 +15,10 @@ import com.taobao.tddl.executor.rowset.IRowSet;
  */
 public class ResultCursor extends SchematicCursor {
 
-    public static EmptyResultCursor EMPTY_RESULT_CURSOR = new EmptyResultCursor(null, null);
+    public static class EmptyResultCursor extends ResultCursor {
 
-    private static class EmptyResultCursor extends ResultCursor {
-
-        public EmptyResultCursor(ISchematicCursor cursor, ExecutionContext executionContext){
-            super(cursor, executionContext);
+        public EmptyResultCursor(ExecutionContext executionContext){
+            super(executionContext);
         }
 
         @Override
@@ -94,12 +92,12 @@ public class ResultCursor extends SchematicCursor {
         }
 
         @Override
-        public Object getIngoreTableName(IRowSet kv, String column) {
+        public Object getIngoreTableName(IRowSet kv, String column, String columnAlias) {
             return null;
         }
 
         @Override
-        public Object get(IRowSet kv, String table, String column) {
+        public Object get(IRowSet kv, String table, String column, String columnAlias) {
             return null;
         }
 
@@ -195,12 +193,18 @@ public class ResultCursor extends SchematicCursor {
         }
     }
 
-    public ResultCursor(ISchematicCursor cursor, ExecutionContext executionContext){
+    public ResultCursor(ExecutionContext executionContext){
+        super(null, null, null);
+        this.executionContext = executionContext;
+    }
+
+    public ResultCursor(ISchematicCursor cursor, ExecutionContext executionContext) throws TddlException{
         super(cursor, null, cursor == null ? null : cursor.getOrderBy());
         this.executionContext = executionContext;
     }
 
-    public ResultCursor(ISchematicCursor cursor, ExecutionContext executionContext, List<Object> originalSelectColumns){
+    public ResultCursor(ISchematicCursor cursor, ExecutionContext executionContext, List<Object> originalSelectColumns)
+                                                                                                                       throws TddlException{
         super(cursor, null, cursor == null ? null : cursor.getOrderBy());
         this.executionContext = executionContext;
         this.originalSelectColumns = originalSelectColumns;
@@ -234,27 +238,27 @@ public class ResultCursor extends SchematicCursor {
         return this;
     }
 
-    public Object getIngoreTableName(IRowSet kv, String column) {
+    public Object getIngoreTableName(IRowSet kv, String column, String columnAlias) {
         if (kv == null) {
             return null;
         }
-        Integer index = getIndex(kv, column, null);
+        Integer index = getIndex(kv, column, null, columnAlias);
         return kv.getObject(index);
     }
 
-    private Integer getIndex(IRowSet kv, String column, String tableName) {
-        Integer index = kv.getParentCursorMeta().getIndex(tableName, column);
+    private Integer getIndex(IRowSet kv, String column, String tableName, String columnAlias) {
+        Integer index = kv.getParentCursorMeta().getIndex(tableName, column, columnAlias);
         if (index == null) {
             throw new IllegalArgumentException("can't find index by " + tableName + "." + column + " .");
         }
         return index;
     }
 
-    public Object get(IRowSet kv, String table, String column) {
+    public Object get(IRowSet kv, String table, String column, String columnAlias) {
         if (kv == null) {
             return null;
         }
-        Integer index = getIndex(kv, column, table);
+        Integer index = getIndex(kv, column, table, columnAlias);
         return kv.getObject(index);
     }
 
@@ -304,8 +308,11 @@ public class ResultCursor extends SchematicCursor {
         if (closed) {
             return exceptions;
         }
+
         closed = true;
         List<TddlException> ex = parentCursorClose(exceptions);
+
+        executionContext.cleanTempTables();
         return ex;
     }
 

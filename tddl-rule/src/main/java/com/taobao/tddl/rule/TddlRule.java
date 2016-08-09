@@ -1,5 +1,6 @@
 package com.taobao.tddl.rule;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -7,6 +8,10 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.collect.Lists;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.model.App;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 import com.taobao.tddl.rule.exceptions.RouteCompareDiffException;
 import com.taobao.tddl.rule.model.Field;
 import com.taobao.tddl.rule.model.MatcherResult;
@@ -41,39 +46,97 @@ import com.taobao.tddl.rule.utils.MatchResultCompare;
  */
 public class TddlRule extends TddlRuleConfig implements TddlTableRule {
 
-    private VirtualTableRuleMatcher matcher = new VirtualTableRuleMatcher();
+    private VirtualTableRuleMatcher matcher  = new VirtualTableRuleMatcher();
+    private List<App>               subApps;
+    private List<TddlRule>          subRules = new ArrayList();
+    private boolean                 subRule  = false;
 
+    @Override
+    public void doInit() {
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("TddlRule start init");
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + this.appName);
+        LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + this.unitName);
+
+        super.doInit();
+        if (subApps != null) {
+            for (App subApp : subApps) {
+                TddlRule subRule = new TddlRule();
+                subRule.setAppName(subApp.getAppName());
+                subRule.setAppRuleFile(subApp.getRuleFile());
+                subRule.setUnitName(unitName);
+                subRule.setSubRule(true);
+                try {
+                    subRule.init();
+                    subRules.add(subRule);
+                } catch (TddlException e) {
+                    logger.error("sub rule init error, app is :" + subApp, e);
+                }
+            }
+        }
+    }
+
+    private void setSubRule(boolean b) {
+        this.subRule = b;
+    }
+
+    @Override
     public MatcherResult route(String vtab, String condition) {
         return route(vtab, condition, super.getCurrentRule());
     }
 
+    @Override
     public MatcherResult route(String vtab, String condition, String version) {
         return route(vtab, condition, super.getVersionRule(version));
     }
 
+    @Override
     public MatcherResult route(String vtab, String condition, VirtualTableRoot specifyVtr) {
         return route(vtab, generateComparativeMapChoicer(condition), Lists.newArrayList(), specifyVtr);
     }
 
+    @Override
     public MatcherResult route(String vtab, ComparativeMapChoicer choicer, List<Object> args) {
         return route(vtab, choicer, args, super.getCurrentRule());
     }
 
+    @Override
     public MatcherResult route(String vtab, ComparativeMapChoicer choicer, List<Object> args, String version) {
         return route(vtab, choicer, args, super.getVersionRule(version));
     }
 
+    @Override
     public MatcherResult route(String vtab, ComparativeMapChoicer choicer, List<Object> args,
                                VirtualTableRoot specifyVtr) {
         TableRule rule = specifyVtr.getVirtualTable(vtab);
         if (rule != null) {
             return matcher.match(choicer, args, rule, true);
         } else {
+
             // 不存在规则，返回默认的
             return defaultRoute(vtab, specifyVtr);
         }
     }
 
+    public MatcherResult route(TableRule rule, ComparativeMapChoicer choicer, List<Object> args,
+                               VirtualTableRoot specifyVtr) {
+
+        return matcher.match(choicer, args, rule, true);
+
+    }
+
+    public MatcherResult routeWithoutDefault(String vtab, ComparativeMapChoicer choicer, List<Object> args,
+                                             VirtualTableRoot specifyVtr) {
+        TableRule rule = specifyVtr.getVirtualTable(vtab);
+        if (rule != null) {
+            return matcher.match(choicer, args, rule, true);
+        } else {
+
+            // 不存在规则，返回默认的
+            return defaultRoute(vtab, specifyVtr);
+        }
+    }
+
+    @Override
     public MatcherResult routeMverAndCompare(boolean isSelect, String vtab, ComparativeMapChoicer choicer,
                                              List<Object> args) throws RouteCompareDiffException {
         if (super.getAllVersions().size() == 0) {
@@ -82,7 +145,33 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
 
         // 如果只有单套规则,直接返回这套规则的路由结果
         if (super.getAllVersions().size() == 1) {
-            return route(vtab, choicer, args, super.getCurrentRule());
+            TableRule rule = this.getTable(vtab);
+            if (rule != null) {
+                return matcher.match(choicer, args, rule, true);
+            } else {
+                return defaultRoute(vtab, this.getCurrentRule());
+            }
+            // TableRule rule = super.getCurrentRule().getVirtualTable(vtab);
+            //
+            // if (rule == null) {
+            // // sub rule不走default db
+            // if (this.subRule) {
+            // return null;
+            // }
+            //
+            // for (TddlRule subRule : this.subRules) {
+            // result = subRule.routeMverAndCompare(isSelect, vtab, choicer,
+            // args);
+            //
+            // if (result != null) {
+            // return result;
+            // }
+            // }
+            //
+            // return defaultRoute(vtab, this.getCurrentRule());
+            //
+            // }
+
         }
 
         // 如果不止一套规则,那么计算两套规则,默认都返回新规则
@@ -90,6 +179,13 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
             throw new RuntimeException("not support more than 2 copy rule compare");
         }
 
+        if (this.subRule) {
+            throw new TddlRuntimeException("sub rule support 1 version only, sub app name is: " + this.appName);
+        }
+
+        if (!this.subRules.isEmpty()) {
+            throw new TddlRuntimeException("if you use sub rule, you can only have 1 version");
+        }
         // 第一个排位的为旧规则
         MatcherResult oldResult = route(vtab, choicer, args, super.getCurrentRule());
         if (isSelect) {
@@ -157,13 +253,31 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
             this.comparativeMap = comparativeMap;
         }
 
+        @Override
         public Map<String, Comparative> getColumnsMap(List<Object> arguments, Set<String> partnationSet) {
             return this.comparativeMap;
         }
 
+        @Override
         public Comparative getColumnComparative(List<Object> arguments, String colName) {
             return this.comparativeMap.get(colName);
         }
     }
 
+    public void setSubApps(List<App> subApps) {
+        this.subApps = subApps;
+    }
+
+    public TableRule getTable(String tableName) {
+        TableRule rule = super.getCurrentRule().getVirtualTable(tableName);
+        if (rule == null) {
+            for (TddlRule subRule : this.subRules) {
+                rule = subRule.getTable(tableName);
+                if (rule != null) {
+                    return rule;
+                }
+            }
+        }
+        return rule;
+    }
 }

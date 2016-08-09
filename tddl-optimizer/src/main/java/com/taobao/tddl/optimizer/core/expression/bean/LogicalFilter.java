@@ -2,9 +2,8 @@ package com.taobao.tddl.optimizer.core.expression.bean;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -85,7 +84,7 @@ public class LogicalFilter extends Function<ILogicalFilter> implements ILogicalF
         return this;
     }
 
-    public ILogicalFilter assignment(Map<Integer, ParameterContext> parameterSettings) {
+    public ILogicalFilter assignment(Parameters parameterSettings) {
         ILogicalFilter filterNew = (ILogicalFilter) super.assignment(parameterSettings);
         filterNew.setOperation(this.getOperation());
         return filterNew;

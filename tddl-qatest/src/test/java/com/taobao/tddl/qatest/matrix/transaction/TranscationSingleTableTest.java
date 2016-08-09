@@ -33,15 +33,18 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
 
     @Before
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
-        andorUpdateData("DELETE FROM " + normaltblTableName, null);
+
+        tddlUpdateData("DELETE FROM " + normaltblTableName, null);
         mysqlUpdateData("DELETE FROM " + normaltblTableName, null);
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
+
+        tddlConnection.setAutoCommit(true);
+
+        mysqlConnection.setAutoCommit(true);
     }
 
     @Test
@@ -54,14 +57,13 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(name);
         param.add(fl);
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
         String[] columnParam = { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL" };
-        con = getConnection();
-        con.setAutoCommit(false);
+
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             // 在事物内内查到数据
@@ -69,12 +71,12 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
 
             selectOrderAssertTranscation(sql, columnParam, null);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -85,10 +87,10 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
 
         // 多次回滚和提交保证不出现异常
         try {
-            andorCon.commit();
-            andorCon.commit();
-            andorCon.rollback();
-            andorCon.rollback();
+            tddlConnection.commit();
+            tddlConnection.commit();
+            tddlConnection.rollback();
+            tddlConnection.rollback();
         } catch (Exception e) {
             Assert.fail(e.toString());
         }
@@ -104,14 +106,13 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(name);
         param.add(fl);
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
         String[] columnParam = { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL" };
-        con = getConnection();
-        con.setAutoCommit(false);
+
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             // 在事物内内查到数据
@@ -120,7 +121,7 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             selectOrderAssertTranscation(sql, columnParam, null);
 
             // 未提交，使用不同的连接失败
-            Connection otherAndorCon = us.getConnection();
+            Connection otherAndorCon = tddlDatasource.getConnection();
             otherAndorCon.setAutoCommit(false);
             Statement otherAndorPs = otherAndorCon.createStatement();
             sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + ",'" + RANDOM_INT + ")";
@@ -130,8 +131,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             } catch (Exception e) {
 
             }
-            andorCon.commit();
-            con.commit();
+            tddlConnection.commit();
+            mysqlConnection.commit();
             otherAndorPs.close();
             otherAndorPs = null;
             otherAndorCon.close();
@@ -139,8 +140,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             // 在事物提交正确查询数据
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -159,15 +160,14 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(gmt);
         param.add(name);
         param.add(fl);
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
-        ps = null;
+        tddlConnection.setAutoCommit(false);
+
+        mysqlConnection.setAutoCommit(false);
+        mysqlPreparedStatement = null;
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             // 在事物内内查到数据
@@ -175,25 +175,25 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             String[] columnParam = { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL" };
             selectOrderAssertTranscation(sql, columnParam, null);
 
-            con.rollback();
-            andorCon.rollback();
+            mysqlConnection.rollback();
+            tddlConnection.rollback();
 
             // 在事物回滚查询不到数据
             selectOrderAssertTranscation(sql, columnParam, null);
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
         }
         // 多次回滚和提交保证不出现异常
         try {
-            andorCon.commit();
-            andorCon.commit();
-            andorCon.rollback();
-            andorCon.rollback();
+            tddlConnection.commit();
+            tddlConnection.commit();
+            tddlConnection.rollback();
+            tddlConnection.rollback();
         } catch (Exception e) {
             Assert.fail(ExceptionUtils.getFullStackTrace(e));
         }
@@ -208,16 +208,15 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(gmt);
         param.add(name);
         param.add(fl);
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
-        andorPs = null;
 
-        con = getConnection();
-        con.setAutoCommit(false);
-        ps = null;
+        tddlConnection.setAutoCommit(false);
+        tddlPreparedStatement = null;
+
+        mysqlConnection.setAutoCommit(false);
+        mysqlPreparedStatement = null;
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             // 在事物内内查到数据
@@ -226,7 +225,7 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             selectOrderAssertTranscation(sql, columnParam, null);
 
             // 未提交，使用不同连接失败
-            Connection otherAndorCon = us.getConnection();
+            Connection otherAndorCon = tddlDatasource.getConnection();
             otherAndorCon.setAutoCommit(false);
             Statement st = otherAndorCon.createStatement();
             sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + ",'" + RANDOM_INT + ")";
@@ -236,8 +235,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             } catch (Exception e) {
             }
 
-            con.rollback();
-            andorCon.rollback();
+            mysqlConnection.rollback();
+            tddlConnection.rollback();
 
             st.close();
             st = null;
@@ -248,8 +247,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             selectOrderAssertTranscation(sql, columnParam, null);
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -278,18 +277,18 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param1.add(name);
         param1.add(fl);
         String[] columnParam = { "PK", "ID", "GMT_CREATE", "NAME", "FLOATCOL" };
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+
+        tddlConnection.setAutoCommit(false);
         try {
-            con = getConnection();
-            con.setAutoCommit(false);
+
+            mysqlConnection.setAutoCommit(false);
 
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             mysqlAffectRow = mysqlUpdateDataTranscation(sql, param1);
-            andorAffectRow = andorUpdateDataTranscation(sql, param1);
+            andorAffectRow = tddlUpdateDataTranscation(sql, param1);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             // 在事物内内查到数据
@@ -300,18 +299,18 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID + 1;
             selectOrderAssertTranscation(sql, columnParam, null);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
         }
-        con.setAutoCommit(true);
-        andorCon.setAutoCommit(true);
+        mysqlConnection.setAutoCommit(true);
+        tddlConnection.setAutoCommit(true);
 
         // 数据提交，验证数值正确性
         sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID;
@@ -329,27 +328,26 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
     @Test
     public void insertQueryWithOneConTest() throws Exception {
         String sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + "," + RANDOM_INT + ")";
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
+
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            int andorAffectRow = andorUpdateDataTranscation(sql, null);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             sql = "insert into " + normaltblTableName + "(pk,id) values(" + RANDOM_ID + 1 + "," + RANDOM_INT + ")";
             mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            andorAffectRow = andorUpdateDataTranscation(sql, null);
+            andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -359,8 +357,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         String[] columnParam = { "PK", "ID" };
         selectOrderAssertTranscation(sql, columnParam, null);
 
-        con.setAutoCommit(true);
-        andorCon.setAutoCommit(true);
+        mysqlConnection.setAutoCommit(true);
+        tddlConnection.setAutoCommit(true);
 
         sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID + 1;
         selectOrderAssertTranscation(sql, columnParam, null);
@@ -385,22 +383,20 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(fl);
         param.add(pk);
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -425,14 +421,12 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         param.add(fl);
         param.add(pk);
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, param);
-            int andorAffectRow = andorUpdateDataTranscation(sql, param);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, param);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
             sql = "select * from " + normaltblTableName + " where pk=" + pk;
@@ -441,12 +435,12 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
             selectOrderAssertTranscation(sql, columnParam, null);
 
             // 回滚
-            con.rollback();
-            andorCon.rollback();
+            mysqlConnection.rollback();
+            tddlConnection.rollback();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -464,22 +458,20 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         String[] columnParam = { "ID", "GMT_CREATE", "NAME", "FLOATCOL" };
         String sql = "DELETE FROM " + normaltblTableName + " WHERE pk = " + pk;
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
         try {
             int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-            int andorAffectRow = andorUpdateDataTranscation(sql, null);
+            int andorAffectRow = tddlUpdateDataTranscation(sql, null);
             Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
-            con.commit();
-            andorCon.commit();
+            mysqlConnection.commit();
+            tddlConnection.commit();
         } catch (Exception ex) {
             try {
-                con.rollback();
-                andorCon.rollback();
+                mysqlConnection.rollback();
+                tddlConnection.rollback();
             } catch (Exception ee) {
 
             }
@@ -502,14 +494,12 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
 
         String sql = "DELETE FROM " + normaltblTableName + " WHERE pk = " + pk;
 
-        andorCon = us.getConnection();
-        andorCon.setAutoCommit(false);
+        tddlConnection.setAutoCommit(false);
 
-        con = getConnection();
-        con.setAutoCommit(false);
+        mysqlConnection.setAutoCommit(false);
 
         int mysqlAffectRow = mysqlUpdateDataTranscation(sql, null);
-        int andorAffectRow = andorUpdateDataTranscation(sql, null);
+        int andorAffectRow = tddlUpdateDataTranscation(sql, null);
         Assert.assertEquals(mysqlAffectRow, andorAffectRow);
 
         sql = "select * from " + normaltblTableName + " where pk=" + pk;
@@ -518,8 +508,8 @@ public class TranscationSingleTableTest extends BaseMatrixTestCase {
         selectOrderAssertTranscation(sql, columnParam, null);
 
         // 回滚
-        con.rollback();
-        andorCon.rollback();
+        mysqlConnection.rollback();
+        tddlConnection.rollback();
 
         // 验证查询的到数据
         selectOrderAssertTranscation("select * from " + normaltblTableName + " where pk=" + pk, columnParam1, null);

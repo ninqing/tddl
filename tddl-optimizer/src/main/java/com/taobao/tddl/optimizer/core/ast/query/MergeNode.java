@@ -14,17 +14,32 @@ import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.build.MergeNodeBuilder;
 import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
-import com.taobao.tddl.optimizer.core.plan.IQueryTree;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.exceptions.QueryException;
 
+/**
+ * @author Dreamond
+ * @author jianghang 2013-11-8 下午2:33:51
+ * @since 5.0.0
+ */
 public class MergeNode extends QueryTreeNode {
 
     private MergeNodeBuilder builder;
-    private boolean          sharded = true;
-    private boolean          union   = false;
+    private boolean          sharded                = true;
+    private boolean          union                  = false;
+    /**
+     * 是否是groupBy分库键
+     */
+    private boolean          groupByShardColumns    = false;
+
+    /**
+     * 是否是distinct分库键
+     */
+    private boolean          distinctByShardColumns = false;
 
     public MergeNode(){
+        super();
         this.builder = new MergeNodeBuilder(this);
     }
 
@@ -46,11 +61,11 @@ public class MergeNode extends QueryTreeNode {
         return this;
     }
 
-    public IQueryTree toDataNodeExecutor() throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+        subquerytoDataNodeExecutor(shareIndex);
         IMerge merge = ASTNodeFactory.getInstance().createMerge();
         merge.setLimitFrom(this.getLimitFrom());
         merge.setLimitTo(this.getLimitTo());
-        merge.executeOn(this.getDataNode());
         merge.setColumns(this.getColumnsSelected());
         merge.setAlias(this.getAlias());
         merge.setIsSubQuery(this.isSubQuery());
@@ -62,6 +77,14 @@ public class MergeNode extends QueryTreeNode {
         merge.setGroupBys(this.getGroupBys());
         merge.setSharded(this.isSharded());
         merge.having(this.getHavingFilter());
+        merge.setOtherJoinOnFilter(this.getOtherJoinOnFilter());
+        merge.setExistAggregate(this.isExistAggregate());
+        merge.setGroupByShardColumns(this.isGroupByShardColumns());
+        merge.setDistinctByShardColumns(this.isDistinctByShardColumns());
+        merge.executeOn(this.getDataNode(shareIndex));
+        merge.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
+        merge.setSubqueryFilter(this.getSubqueryFilter());
+        merge.setCorrelatedSubquery(this.isCorrelatedSubquery());
         return merge;
     }
 
@@ -102,23 +125,66 @@ public class MergeNode extends QueryTreeNode {
         this.union = union;
     }
 
+    public boolean isGroupByShardColumns() {
+        return groupByShardColumns;
+    }
+
+    public QueryTreeNode setGroupByShardColumns(boolean groupByShardColumns) {
+        setNeedBuild(true);
+        this.groupByShardColumns = groupByShardColumns;
+        return this;
+    }
+
+    public boolean isDistinctByShardColumns() {
+        return distinctByShardColumns;
+    }
+
+    public QueryTreeNode setDistinctByShardColumns(boolean distinctByShardColumns) {
+        setNeedBuild(true);
+        this.distinctByShardColumns = distinctByShardColumns;
+        return this;
+    }
+
     public MergeNode copy() {
         MergeNode newMergeNode = new MergeNode();
         this.copySelfTo(newMergeNode);
+        for (ASTNode node : this.getChildren()) {
+            newMergeNode.merge(node.copy());
+        }
         newMergeNode.setSharded(sharded);
         newMergeNode.setUnion(union);
+        newMergeNode.setGroupByShardColumns(groupByShardColumns);
+        newMergeNode.setDistinctByShardColumns(distinctByShardColumns);
+        return newMergeNode;
+    }
+
+    public MergeNode copySelf() {
+        MergeNode newMergeNode = new MergeNode();
+        this.copySelfTo(newMergeNode);
+        for (ASTNode node : this.getChildren()) {
+            newMergeNode.merge(node.copySelf());
+        }
+        newMergeNode.setSharded(sharded);
+        newMergeNode.setUnion(union);
+        newMergeNode.setGroupByShardColumns(groupByShardColumns);
+        newMergeNode.setDistinctByShardColumns(distinctByShardColumns);
         return newMergeNode;
     }
 
     public MergeNode deepCopy() {
         MergeNode newMergeNode = new MergeNode();
         this.deepCopySelfTo(newMergeNode);
+        for (ASTNode node : this.getChildren()) {
+            newMergeNode.merge(node.deepCopy());
+        }
         newMergeNode.setSharded(sharded);
         newMergeNode.setUnion(union);
+        newMergeNode.setGroupByShardColumns(groupByShardColumns);
+        newMergeNode.setDistinctByShardColumns(distinctByShardColumns);
         return newMergeNode;
     }
 
-    public String toString(int inden) {
+    public String toString(int inden, int shareIndex) {
         String tabTittle = GeneralUtil.getTab(inden);
         String tabContent = GeneralUtil.getTab(inden + 1);
         StringBuilder sb = new StringBuilder();
@@ -130,6 +196,7 @@ public class MergeNode extends QueryTreeNode {
 
         appendField(sb, "resultFilter", printFilterString(this.getResultFilter(), inden + 2), tabContent);
         appendField(sb, "having", printFilterString(this.getHavingFilter(), inden + 2), tabContent);
+        appendField(sb, "subqueryFilter", printFilterString(this.getSubqueryFilter(), inden + 2), tabContent);
         if (!(this.getLimitFrom() != null && this.getLimitFrom().equals(0L) && this.getLimitTo() != null && this.getLimitTo()
             .equals(0L))) {
             appendField(sb, "limitFrom", this.getLimitFrom(), tabContent);
@@ -142,7 +209,10 @@ public class MergeNode extends QueryTreeNode {
         appendField(sb, "queryConcurrency", this.getQueryConcurrency(), tabContent);
         appendField(sb, "columns", this.getColumnsSelected(), tabContent);
         appendField(sb, "groupBys", this.getGroupBys(), tabContent);
-        appendField(sb, "executeOn", this.getDataNode(), tabContent);
+        if (this.getSubqueryOnFilterId() > 0) {
+            appendField(sb, "subqueryOnFilterId", this.getSubqueryOnFilterId(), tabContent);
+        }
+        appendField(sb, "executeOn", this.getDataNode(shareIndex), tabContent);
 
         appendln(sb, tabContent + "subQueries");
         for (Object s : this.getChildren()) {

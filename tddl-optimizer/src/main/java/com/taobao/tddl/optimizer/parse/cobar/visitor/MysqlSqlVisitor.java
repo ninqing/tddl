@@ -55,7 +55,7 @@ public class MysqlSqlVisitor extends MySQLOutputASTVisitor {
         // 逻辑表名
         Identifier table = node.getTable();
         // 表名替换
-        String tableName = convertToRealTable(table.getIdTextUpUnescape());
+        String tableName = convertToRealTable(table.getIdText());
         if (tableName != null) {
             Identifier realTable = new Identifier(table.getParent(), tableName);
             realTable.accept(this);
@@ -84,7 +84,7 @@ public class MysqlSqlVisitor extends MySQLOutputASTVisitor {
             appendable.append("FROM ");
             // 表名替换
             Identifier logicTable = node.getTableNames().get(0);
-            String tableName = convertToRealTable(logicTable.getIdTextUpUnescape());
+            String tableName = convertToRealTable(logicTable.getIdText());
             if (tableName != null) {
                 Identifier realTable = new Identifier(logicTable.getParent(), tableName);
                 realTable.accept(this);
@@ -135,7 +135,7 @@ public class MysqlSqlVisitor extends MySQLOutputASTVisitor {
         appendable.append("INTO ");
         // 表名替换
         Identifier logicTable = node.getTable();
-        String tableName = convertToRealTable(logicTable.getIdTextUpUnescape());
+        String tableName = convertToRealTable(logicTable.getIdText());
         if (tableName != null) {
             Identifier realTable = new Identifier(logicTable.getParent(), tableName);
             realTable.accept(this);
@@ -205,7 +205,7 @@ public class MysqlSqlVisitor extends MySQLOutputASTVisitor {
         appendable.append("INTO ");
         // 表名替换
         Identifier logicTable = node.getTable();
-        String tableName = convertToRealTable(logicTable.getIdTextUpUnescape());
+        String tableName = convertToRealTable(logicTable.getIdText());
         if (tableName != null) {
             Identifier realTable = new Identifier(logicTable.getParent(), tableName);
             realTable.accept(this);

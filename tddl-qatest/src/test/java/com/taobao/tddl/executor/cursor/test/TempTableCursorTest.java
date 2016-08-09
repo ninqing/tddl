@@ -1,6 +1,7 @@
 package com.taobao.tddl.executor.cursor.test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -11,17 +12,13 @@ import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.MockArrayCursor;
 import com.taobao.tddl.executor.cursor.SchematicCursor;
-import com.taobao.tddl.executor.cursor.impl.TempTableSortCursor;
+import com.taobao.tddl.executor.cursor.impl.TempTableCursor;
 import com.taobao.tddl.executor.repo.RepositoryHolder;
 import com.taobao.tddl.executor.rowset.IRowSet;
-import com.taobao.tddl.executor.spi.CursorFactoryDefaultImpl;
-import com.taobao.tddl.executor.spi.ICursorFactory;
 import com.taobao.tddl.executor.spi.IRepository;
+import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.config.table.StaticSchemaManager;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.expression.IOrderBy;
-import com.taobao.tddl.optimizer.core.expression.bean.Column;
-import com.taobao.tddl.optimizer.core.expression.bean.OrderBy;
 
 public class TempTableCursorTest {
 
@@ -43,29 +40,19 @@ public class TempTableCursorTest {
 
     }
 
+    static ExecutionContext ec = new ExecutionContext();
+
     @Test
-    public void testSort() throws TddlException {
+    public void testWithOutColumns() throws TddlException {
         RepositoryHolder repoHolder = new RepositoryHolder();
         StaticSchemaManager sm = new StaticSchemaManager("test_schema.xml", null, null);
         sm.init();
-        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP);
-        ICursorFactory cf = new CursorFactoryDefaultImpl();
-        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1 });
+        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP, Collections.EMPTY_MAP);
+        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1, 1 });
         SchematicCursor subCursor = new SchematicCursor(mockCursor);
 
-        IOrderBy order = new OrderBy();
-        order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
-        List<IOrderBy> orderBys = new ArrayList();
-
-        orderBys.add(order);
-        TempTableSortCursor c = new TempTableSortCursor(cf,
-            bdbRepo,
-            subCursor,
-            orderBys,
-            true,
-            0,
-            new ExecutionContext());
-        Object[] expected = new Object[] { 1, 2, 3, 4, 5, 5 };
+        TempTableCursor c = new TempTableCursor(bdbRepo, subCursor, true, 1, ec);
+        Object[] expected = new Object[] { 1, 1, 2, 3, 4, 5, 5 };
         List actual = new ArrayList();
 
         IRowSet row = null;
@@ -80,29 +67,17 @@ public class TempTableCursorTest {
     }
 
     @Test
-    public void testNull() throws TddlException {
+    public void testWithColumns() throws TddlException {
         RepositoryHolder repoHolder = new RepositoryHolder();
         StaticSchemaManager sm = new StaticSchemaManager("test_schema.xml", null, null);
         sm.init();
-        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP);
-        ICursorFactory cf = new CursorFactoryDefaultImpl();
+        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP, Collections.EMPTY_MAP);
+        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1 });
+        SchematicCursor subCursor = new SchematicCursor(mockCursor);
 
-        SchematicCursor subCursor = new SchematicCursor(this.getCursor("T1",
-            new Integer[] { 5, null, 4, 3, 2, null, 1 }));
-
-        IOrderBy order = new OrderBy();
-        order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
-        List<IOrderBy> orderBys = new ArrayList();
-
-        orderBys.add(order);
-        TempTableSortCursor c = new TempTableSortCursor(cf,
-            bdbRepo,
-            subCursor,
-            orderBys,
-            true,
-            0,
-            new ExecutionContext());
-        Object[] expected = new Object[] { 1, 2, 3, 4, 5, null, null };
+        ColumnMeta cm = new ColumnMeta("T1", "NAME", DataType.IntegerType, null, true);
+        TempTableCursor c = new TempTableCursor(bdbRepo, subCursor, true, Arrays.asList(cm), 2, ec);
+        Object[] expected = new Object[] { "name1", "name2", "name3", "name4", "name5", "name5" };
         List actual = new ArrayList();
 
         IRowSet row = null;
@@ -113,32 +88,20 @@ public class TempTableCursorTest {
         }
 
         Assert.assertArrayEquals(expected, actual.toArray());
-
+        Assert.assertTrue(mockCursor.isClosed());
     }
 
     @Test
-    public void testEmpty() throws TddlException {
+    public void testWithOutColumnsBeforeFirst() throws TddlException {
         RepositoryHolder repoHolder = new RepositoryHolder();
         StaticSchemaManager sm = new StaticSchemaManager("test_schema.xml", null, null);
         sm.init();
-        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP);
-        ICursorFactory cf = new CursorFactoryDefaultImpl();
+        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP, Collections.EMPTY_MAP);
+        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1 });
+        SchematicCursor subCursor = new SchematicCursor(mockCursor);
 
-        SchematicCursor subCursor = new SchematicCursor(this.getCursor("T1", new Integer[] {}));
-
-        IOrderBy order = new OrderBy();
-        order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
-        List<IOrderBy> orderBys = new ArrayList();
-
-        orderBys.add(order);
-        TempTableSortCursor c = new TempTableSortCursor(cf,
-            bdbRepo,
-            subCursor,
-            orderBys,
-            true,
-            0,
-            new ExecutionContext());
-        Object[] expected = new Object[] {};
+        TempTableCursor c = new TempTableCursor(bdbRepo, subCursor, true, 3, ec);
+        Object[] expected = new Object[] { 1, 2, 3, 4, 5, 5, 1, 2, 3, 4, 5, 5 };
         List actual = new ArrayList();
 
         IRowSet row = null;
@@ -148,64 +111,14 @@ public class TempTableCursorTest {
             actual.add(row.getObject(0));
         }
 
+        c.beforeFirst();
+        while ((row = c.next()) != null) {
+
+            System.out.println(row);
+            actual.add(row.getObject(0));
+        }
         Assert.assertArrayEquals(expected, actual.toArray());
-    }
-
-    @Test
-    public void testGetReturnColumnsBeforeNext() throws TddlException {
-        RepositoryHolder repoHolder = new RepositoryHolder();
-        StaticSchemaManager sm = new StaticSchemaManager("test_schema.xml", null, null);
-        sm.init();
-        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP);
-        ICursorFactory cf = new CursorFactoryDefaultImpl();
-        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1 });
-        SchematicCursor subCursor = new SchematicCursor(mockCursor);
-
-        IOrderBy order = new OrderBy();
-        order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
-        List<IOrderBy> orderBys = new ArrayList();
-
-        orderBys.add(order);
-        TempTableSortCursor c = new TempTableSortCursor(cf,
-            bdbRepo,
-            subCursor,
-            orderBys,
-            true,
-            0,
-            new ExecutionContext());
-        Assert.assertEquals("[T1.ID, T1.NAME, T1.SCHOOL]", c.getReturnColumns().toString());
-        Assert.assertEquals("[OrderBy [columnName=T1.ID, direction=true]]", c.getOrderBy().toString());
-
-    }
-
-    @Test
-    public void testGetReturnColumnsAfterNext() throws TddlException {
-        RepositoryHolder repoHolder = new RepositoryHolder();
-        StaticSchemaManager sm = new StaticSchemaManager("test_schema.xml", null, null);
-        sm.init();
-        IRepository bdbRepo = repoHolder.getOrCreateRepository("BDB_JE", Collections.EMPTY_MAP);
-        ICursorFactory cf = new CursorFactoryDefaultImpl();
-        MockArrayCursor mockCursor = this.getCursor("T1", new Integer[] { 5, 5, 4, 3, 2, 1 });
-        SchematicCursor subCursor = new SchematicCursor(mockCursor);
-
-        IOrderBy order = new OrderBy();
-        order.setColumn(new Column().setColumnName("ID").setTableName("T1").setDataType(DataType.IntegerType));
-        List<IOrderBy> orderBys = new ArrayList();
-
-        orderBys.add(order);
-        TempTableSortCursor c = new TempTableSortCursor(cf,
-            bdbRepo,
-            subCursor,
-            orderBys,
-            true,
-            0,
-            new ExecutionContext());
-
-        while (c.next() != null)
-            ;
-
-        Assert.assertEquals("[T1.ID, T1.NAME, T1.SCHOOL]", c.getReturnColumns().toString());
-        Assert.assertEquals("[OrderBy [columnName=T1.ID, direction=true]]", c.getOrderBy().toString());
+        Assert.assertTrue(mockCursor.isClosed());
     }
 
 }

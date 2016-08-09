@@ -1,6 +1,10 @@
 package com.taobao.tddl.monitor.logger;
 
+import org.apache.commons.lang.StringUtils;
+
+import com.taobao.tddl.monitor.logger.log4j.DynamicLog4jAdapterLogger;
 import com.taobao.tddl.monitor.logger.log4j.DynamicLog4jLogger;
+import com.taobao.tddl.monitor.logger.logback.DynamicLogback918Logger;
 import com.taobao.tddl.monitor.logger.logback.DynamicLogbackLogger;
 
 import com.taobao.tddl.common.utils.logger.Logger;
@@ -8,27 +12,23 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 public class LoggerInit {
 
-    public static final String TDDL_ATOM_STATISTIC_LOG_NAME = "TDDL_Atom_Statistic_LOG";
-    public static final Logger TDDL_LOG                     = LoggerFactory.getLogger("TDDL_LOG");
-    public static final Logger TDDL_SQL_LOG                 = LoggerFactory.getLogger("TDDL_SQL_LOG");
-    public static final Logger TDDL_MD5_TO_SQL_MAPPING      = LoggerFactory.getLogger("TDDL_MD5_TO_SQL_MAPPING");
-    public static final Logger TDDL_Nagios_LOG              = LoggerFactory.getLogger("TDDL_Nagios_LOG");
-    // modify by junyu ,atom 和matrix拆开
-    public static final Logger TDDL_Atom_Statistic_LOG      = LoggerFactory.getLogger(TDDL_ATOM_STATISTIC_LOG_NAME);
-    public static final Logger TDDL_Matrix_Statistic_LOG    = LoggerFactory.getLogger("TDDL_Matrix_Statistic_LOG");
+    public static final Logger TDDL_DYNAMIC_CONFIG = LoggerFactory.getLogger("TDDL_DYNAMIC_CONFIG");
     // add by changyuan.lh, db 应用连接数, 阻塞时间, 超时数
-    public static final Logger TDDL_Conn_Statistic_LOG      = LoggerFactory.getLogger("TDDL_Conn_Statistic_LOG");
-
-    public static final Logger TDDL_Statistic_LOG           = LoggerFactory.getLogger("TDDL_Statistic_LOG");
-    public static final Logger TDDL_Snapshot_LOG            = LoggerFactory.getLogger("TDDL_Snapshot_LOG");
-    public static final Logger logger                       = TDDL_LOG;                                             // Logger.getLogger(LoggerInit.class);
-
+    public static final Logger TDDL_STAT_LOG       = LoggerFactory.getLogger("TDDL_STAT_LOG");
     // tddl rule相关日志，需要独立出来，rule会被多个地方共享
-    public static final Logger DB_TAB_LOG                   = LoggerFactory.getLogger("DB_TAB_LOG");
-    public static final Logger VSLOT_LOG                    = LoggerFactory.getLogger("VSLOT_LOG");
-    public static final Logger DYNAMIC_RULE_LOG             = LoggerFactory.getLogger("DYNAMIC_RULE_LOG");
+    public static final Logger logger              = LoggerFactory.getLogger("com.taobao.tddl");
 
+    private static boolean     canUseEncoder       = false;
     static {
+        try {
+            // logback从0.9.19开始采用encoder
+            // http://logback.qos.ch/manual/encoders.html
+            Class.forName("ch.qos.logback.classic.encoder.PatternLayoutEncoder");
+            canUseEncoder = true;
+        } catch (ClassNotFoundException e) {
+            canUseEncoder = false;
+        }
+
         initTddlLog();
     }
 
@@ -40,22 +40,21 @@ public class LoggerInit {
         }
     }
 
-    static public void initRuleLog() {
-        DynamicLogger dynamic = buildDynamic();
-
-        if (dynamic != null) {
-            dynamic.initRule();
-        }
-    }
-
     private synchronized static DynamicLogger buildDynamic() {
         DynamicLogger dynamic = null;
         String LOGBACK = "logback";
+        String LOG4J_Adapter = "Log4jLoggerAdapter";
         String LOG4J = "log4j";
 
         // slf4j只是一个代理工程，需要判断一下具体的实现类
         if (checkLogger(logger, LOGBACK)) {
-            dynamic = new DynamicLogbackLogger();
+            if (canUseEncoder) {
+                dynamic = new DynamicLogbackLogger();
+            } else {
+                dynamic = new DynamicLogback918Logger();
+            }
+        } else if (checkLogger(logger, LOG4J_Adapter)) {
+            dynamic = new DynamicLog4jAdapterLogger();
         } else if (checkLogger(logger, LOG4J)) {
             dynamic = new DynamicLog4jLogger();
         } else {
@@ -65,6 +64,6 @@ public class LoggerInit {
     }
 
     private static boolean checkLogger(Logger logger, String name) {
-        return logger.getDelegate().getClass().getName().contains(name);
+        return StringUtils.contains(logger.getDelegate().getClass().getName(), name);
     }
 }

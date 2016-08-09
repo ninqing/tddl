@@ -26,10 +26,7 @@ public class RowsValueScanerImp implements IRowsValueScaner {
         this.columnsYouWant = left_columns;
         indexList = new ArrayList<Integer>(left_columns.size());
         for (ISelectable icol : left_columns) {
-            Integer index = this.cursorMeta.getIndex(icol.getTableName(), icol.getColumnName());
-            if (index == null && icol.getAlias() != null) {
-                index = this.cursorMeta.getIndex(icol.getTableName(), icol.getAlias());
-            }
+            Integer index = this.cursorMeta.getIndex(icol.getTableName(), icol.getColumnName(), icol.getAlias());
 
             indexList.add(index);
         }
@@ -76,6 +73,7 @@ public class RowsValueScanerImp implements IRowsValueScaner {
 
     }
 
+    @Override
     public Iterator<Object> rowValueIterator(IRowSet rowSet) {
         return new RowValueIteratorImp(indexList, rowSet);
     }

@@ -1,8 +1,6 @@
 package com.taobao.tddl.optimizer.core.expression;
 
-import java.util.Map;
-
-import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.CanVisit;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 
@@ -17,7 +15,7 @@ public interface IOrderBy extends CanVisit {
 
     public Boolean getDirection();
 
-    public IOrderBy assignment(Map<Integer, ParameterContext> parameterSettings);
+    public IOrderBy assignment(Parameters parameterSettings);
 
     public IOrderBy setDirection(Boolean direction);
 

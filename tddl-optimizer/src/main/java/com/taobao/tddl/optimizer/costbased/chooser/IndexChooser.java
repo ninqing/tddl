@@ -4,10 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.BooleanUtils;
-import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang.StringUtils;
 
-import com.taobao.tddl.common.model.ExtraCmd;
+import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.config.table.IndexMeta;
@@ -130,8 +129,7 @@ public class IndexChooser {
     }
 
     private static boolean chooseIndex(Map<String, Object> extraCmd) {
-        String ifChooseIndex = ObjectUtils.toString(GeneralUtil.getExtraCmdString(extraCmd,
-            ExtraCmd.CHOOSE_INDEX));
+        String ifChooseIndex = GeneralUtil.getExtraCmdString(extraCmd, ConnectionProperties.CHOOSE_INDEX);
         // 默认返回true
         if (StringUtils.isEmpty(ifChooseIndex)) {
             return true;

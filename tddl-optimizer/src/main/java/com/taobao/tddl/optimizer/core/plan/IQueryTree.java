@@ -1,9 +1,7 @@
 package com.taobao.tddl.optimizer.core.plan;
 
 import java.util.List;
-import java.util.Map;
 
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
@@ -13,8 +11,15 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
  */
 public interface IQueryTree<RT extends IQueryTree> extends IDataNodeExecutor<RT> {
 
-    public enum LOCK_MODEL {
-        SHARED_LOCK, EXCLUSIVE_LOCK;
+    public enum LOCK_MODE {
+        UNDEF, SHARED_LOCK, EXCLUSIVE_LOCK;
+    }
+
+    /**
+     * 是否并行
+     */
+    public enum QUERY_CONCURRENCY {
+        SEQUENTIAL, CONCURRENT, GROUP_CONCURRENT;
     }
 
     /**
@@ -33,6 +38,21 @@ public interface IQueryTree<RT extends IQueryTree> extends IDataNodeExecutor<RT>
      * @return
      */
     public RT setValueFilter(IFilter valueFilter);
+
+    /**
+     * subqueryFilter 简单来说就是对所有数据执行类似exists subquery语法
+     * 
+     * @return
+     */
+    public IFilter getSubqueryFilter();
+
+    /**
+     * subqueryFilter 简单来说就是对所有数据执行类似exists subquery语法
+     * 
+     * @param valueFilter
+     * @return
+     */
+    public RT setSubqueryFilter(IFilter subqueryFilter);
 
     /**
      * 当前查询中应该使用的查询列。只有在这个出现的列，才会被允许展现
@@ -128,8 +148,6 @@ public interface IQueryTree<RT extends IQueryTree> extends IDataNodeExecutor<RT>
      */
     public String getAlias();
 
-    public RT assignment(Map<Integer, ParameterContext> parameterSettings);
-
     /**
      * <pre>
      * 在处理join的时候，会出现未决节点 比如 数据IDX_PRI: pk - > col1,col2,col3. 
@@ -203,4 +221,32 @@ public interface IQueryTree<RT extends IQueryTree> extends IDataNodeExecutor<RT>
 
     public RT setTopQuery(boolean topQuery);
 
+    public RT setQueryConcurrency(QUERY_CONCURRENCY queryConcurrency);
+
+    public QUERY_CONCURRENCY getQueryConcurrency();
+
+    /**
+     * 是否为存在聚合信息，比如出现limit/group by/count/max等，此节点就会被标记为true，不允许进行join merge
+     * join的展开优化
+     */
+    public boolean isExistAggregate();
+
+    public RT setExistAggregate(boolean isExistAggregate);
+
+    /**
+     * 非column=column的join on中的条件
+     * 
+     * @return
+     */
+    public IFilter getOtherJoinOnFilter();
+
+    public RT setOtherJoinOnFilter(IFilter otherJoinOnFilter);
+
+    public Long getSubqueryOnFilterId();
+
+    public RT setSubqueryOnFilterId(Long subqueryOnFilterId);
+
+    public boolean isCorrelatedSubquery();
+
+    public RT setCorrelatedSubquery(boolean isCorrelatedSubquery);
 }

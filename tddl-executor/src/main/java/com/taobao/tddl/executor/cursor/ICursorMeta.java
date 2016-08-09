@@ -15,13 +15,13 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
  */
 public interface ICursorMeta {
 
+    ColumnMeta getColumnMeta(Integer index);
+
     /**
-     * 当前Cursor中间表的别名
+     * 获取所有列，顺序并不语getIndex得到的index一致
      * 
      * @return
      */
-    // String getName();
-
     List<ColumnMeta> getColumns();
 
     /**
@@ -31,7 +31,7 @@ public interface ICursorMeta {
      * @param columnName
      * @return
      */
-    Integer getIndex(String tableName, String columnName);
+    Integer getIndex(String tableName, String columnName, String columnAlias);
 
     /**
      * 因为返回列可能只有三列。 但实际上数据的列数可能很多 （也就是getIndex的integer可能会大于columns的size())

@@ -31,6 +31,18 @@
 		<result column="timestampr" property="timestampr" />
 		<result column="yearr" property="yearr" />
 	</resultMap>
+	<!-- 为Person类设置一个别名 -->
+	<typeAlias alias="tddlTest" type="com.taobao.tddl.qatest.util.TddlTestDO" />
+
+	<!-- 配置表和实体Bean之间的映射关系 -->
+	<resultMap id="tddlTest" class="com.taobao.tddl.qatest.util.TddlTestDO">
+		<result property="id" column="id" />
+		<result property="name" column="name" />
+		<result property="gmtCreate" column="gmt_create" />
+		<result property="gmtModified" column="gmt_modified" />
+	</resultMap>
+	
+	
     <select id="select_test" resultMap="normalTblRow">
  		<![CDATA[
 		select * from mysql_ibatis_type where pk = #pk# order by pk asc
@@ -82,5 +94,44 @@
         	<insert id="delete_tdhs_test">
 		delete from tdhs_ibatis_type where pk=#pk#
     </insert>
-    
+    <insert id="insertUser" parameterClass="tddlTest">
+		<![CDATA[
+			insert into tddl_test (id,name) values (#id#,#name#)
+		]]>
+	</insert>
+
+	<!-- 查看特定用户 -->
+	<select id="queryUserById" parameterClass="long" resultMap="tddlTest">
+		<![CDATA[
+			SELECT * FROM tddl_test WHERE id=#id#
+		]]>
+	</select>
+	<!-- 查看特定用户 -->
+	<delete id="deleteUser" parameterClass="long">
+		<![CDATA[
+			delete FROM tddl_test WHERE id=#id#
+		]]>
+	</delete>
+	
+	<insert id="insertUser_one" parameterClass="tddlTest">
+		<![CDATA[
+			insert into tddl_test_0001 (name) values (#name#)
+		]]>
+		<selectKey resultClass="long" keyProperty="id">   
+             SELECT LAST_INSERT_ID() AS ID   
+        </selectKey>
+	</insert>
+
+	<!-- 查看特定用户 -->
+	<select id="queryUserById_one" parameterClass="long" resultMap="tddlTest">
+		<![CDATA[
+			SELECT * FROM tddl_test_0001 WHERE id=#id#
+		]]>
+	</select>
+	<!-- 查看特定用户 -->
+	<delete id="deleteUser_one" parameterClass="long">
+		<![CDATA[
+			delete FROM tddl_test_0001 WHERE id=#id#
+		]]>
+	</delete>
 </sqlMap>

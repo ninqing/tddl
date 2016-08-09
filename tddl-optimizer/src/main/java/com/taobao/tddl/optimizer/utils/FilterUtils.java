@@ -475,6 +475,11 @@ public class FilterUtils {
      * 创建and条件
      */
     public static IFilter and(IFilter root, IFilter o) {
+
+        // 相同的就不用合并了
+        if (root == o) {
+            return root;
+        }
         if (o == null) {
             return root;
         }
@@ -498,6 +503,11 @@ public class FilterUtils {
      * 创建or条件
      */
     public static IFilter or(IFilter root, IFilter o) {
+
+        // 相等的情况下就不合并了
+        if (root == o) {
+            return root;
+        }
         if (o == null) {
             return root;
         }
@@ -552,7 +562,7 @@ public class FilterUtils {
         }
 
         MySqlExprVisitor visitor = MySqlExprVisitor.parser(where);
-        Comparable value = visitor.getColumnOrValue();
+        Object value = visitor.getColumnOrValue();
         if (value instanceof IFilter) {
             return (IFilter) value;
         } else if (value instanceof ISelectable) {

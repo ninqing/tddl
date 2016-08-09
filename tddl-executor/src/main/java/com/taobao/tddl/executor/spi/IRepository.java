@@ -4,6 +4,7 @@ import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.executor.IExecutor;
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.TransactionConfig;
 import com.taobao.tddl.executor.repo.RepositoryConfig;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
@@ -19,7 +20,7 @@ public interface IRepository extends Lifecycle {
     /**
      * 获取对应的表结构
      */
-    ITable getTempTable(TableMeta meta) throws TddlException;
+    ITempTable getTempTable(TableMeta meta) throws TddlException;
 
     /**
      * 获取一个表对象 ，在任何sql操作中都会根据table schema找到对应的数据库实例对象的。 表对象包含核心数据和对应的二级索引。
@@ -28,16 +29,17 @@ public interface IRepository extends Lifecycle {
      * @return
      * @throws Exception
      */
-    ITable getTable(TableMeta meta, String groupNode) throws TddlException;
+    ITable getTable(TableMeta meta, String groupName, String actualTableName) throws TddlException;
 
     /**
      * 针对这个存储引擎，开始一个事务。
      * 
      * @param conf
+     * @param executionContext
      * @return
      * @throws Exception
      */
-    ITransaction beginTransaction(TransactionConfig conf) throws TddlException;
+    ITransaction createTransaction(TransactionConfig conf, ExecutionContext executionContext) throws TddlException;
 
     /**
      * 获取当前存储引擎的一些配置信息。

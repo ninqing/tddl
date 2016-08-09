@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor.function.aggregate;
 
+import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.exceptions.FunctionException;
@@ -12,12 +13,12 @@ public class Count extends AggregateFunction {
     private long count = 0;
 
     @Override
-    public void serverMap(Object[] args) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
         count++;
     }
 
     @Override
-    public void serverReduce(Object[] args) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
         DataType type = this.getReturnType();
         Object o = args[0];
         if (o != null) {
@@ -45,4 +46,8 @@ public class Count extends AggregateFunction {
         return DataType.LongType;
     }
 
+    @Override
+    public String[] getFunctionNames() {
+        return new String[] { "COUNT" };
+    }
 }

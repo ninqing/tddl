@@ -107,6 +107,8 @@ public class TAtomDsConfDO implements Cloneable {
      */
     private List<ConnRestrictEntry> connRestrictEntries;
 
+    private String                  connectionInitSql;
+
     public String getIp() {
         return ip;
     }
@@ -316,6 +318,22 @@ public class TAtomDsConfDO implements Cloneable {
         this.connRestrictEntries = connRestrictEntries;
     }
 
+    public boolean isSingleInGroup() {
+        return isSingleInGroup;
+    }
+
+    public void setSingleInGroup(boolean isSingleInGroup) {
+        this.isSingleInGroup = isSingleInGroup;
+    }
+
+    public String getConnectionInitSql() {
+        return connectionInitSql;
+    }
+
+    public void setConnectionInitSql(String connectionInitSql) {
+        this.connectionInitSql = connectionInitSql;
+    }
+
     public TAtomDsConfDO clone() {
         TAtomDsConfDO tAtomDsConfDO = null;
         try {
@@ -323,14 +341,6 @@ public class TAtomDsConfDO implements Cloneable {
         } catch (CloneNotSupportedException e) {
         }
         return tAtomDsConfDO;
-    }
-
-    public boolean isSingleInGroup() {
-        return isSingleInGroup;
-    }
-
-    public void setSingleInGroup(boolean isSingleInGroup) {
-        this.isSingleInGroup = isSingleInGroup;
     }
 
     public String toString() {

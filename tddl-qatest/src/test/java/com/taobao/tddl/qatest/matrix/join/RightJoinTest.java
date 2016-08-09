@@ -37,8 +37,6 @@ public class RightJoinTest extends BaseMatrixTestCase {
     }
 
     public void initData() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
 
         hostgroupPrepare(5, 20);
         hostinfoPrepare(0, 10);
@@ -46,7 +44,7 @@ public class RightJoinTest extends BaseMatrixTestCase {
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 

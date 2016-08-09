@@ -17,12 +17,15 @@ public abstract class DynamicLogger {
         if (!userHome.endsWith(File.separator)) {
             userHome += File.separator;
         }
-        String path = userHome + "logs" + File.separator + "tddl" + File.separator;
-        File dir = new File(path);
+        StringBuilder path = new StringBuilder();
+        path.append(userHome).append("logs").append(File.separator);
+        path.append("tddl").append(File.separator);
+        String file = path.toString();
+        File dir = new File(file);
         if (!dir.exists()) {
             dir.mkdirs();
         }
-        return path;
+        return file;
     }
 
     protected String getEncoding() {
@@ -30,8 +33,6 @@ public abstract class DynamicLogger {
     }
 
     public abstract void init();
-
-    public abstract void initRule();
 
     public void setEncode(String encode) {
         this.encode = encode;

@@ -9,13 +9,14 @@ import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.utils.TStringUtil;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.impl.DistinctCursor;
 import com.taobao.tddl.executor.spi.IRepository;
 import com.taobao.tddl.executor.utils.ExecUtils;
-import com.taobao.tddl.monitor.Monitor;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
@@ -28,9 +29,6 @@ import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author mengshi.sunmengshi 2013-12-5 上午11:06:01
@@ -60,11 +58,8 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
 
     @Override
     public ISchematicCursor handle(IDataNodeExecutor executor, ExecutionContext executionContext) throws TddlException {
-        long time = System.currentTimeMillis();
         // 先做查询
-
         ISchematicCursor cursor = doQuery(null, executor, executionContext);
-
         if (executor.getSql() == null) {
             IQueryTree IQueryTree = (IQueryTree) executor;
 
@@ -76,7 +71,6 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
 
             cursor = processColumnAndAlias(cursor, executionContext, IQueryTree);
         }
-        time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.ServerQuery, Monitor.Key3Success, time);
         return cursor;
     }
 
@@ -103,12 +97,19 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
         return cursor;
     }
 
-    private ISchematicCursor processDistinct(ISchematicCursor cursor, IQueryTree IQueryTree,
+    private ISchematicCursor processDistinct(ISchematicCursor cursor, IQueryTree query,
                                              ExecutionContext executionContext) throws TddlException {
 
-        if (isDistinct(IQueryTree)) {
-            cursor = processOrderBy(cursor, getOrderBy(IQueryTree.getColumns()), executionContext, IQueryTree, false);
-            cursor = new DistinctCursor(cursor, getOrderBy(IQueryTree.getColumns()));
+        if (isDistinct(query)) {
+
+            if (query instanceof IMerge && ((IMerge) query).isDistinctByShardColumns()) {
+
+                // distinct shard columns
+                // do nothing
+            } else {
+                cursor = processOrderBy(cursor, getOrderBy(query.getColumns()), executionContext, query, false);
+                cursor = new DistinctCursor(cursor, getOrderBy(query.getColumns()));
+            }
         }
 
         return cursor;
@@ -151,20 +152,24 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
                && c1.getColumnName().equals(c2.getColumnName()) && o1.getDirection() == o2.getDirection();
     }
 
-    protected List<IFunction> getMergeAggregates(List retColumns) {
-        return getAggregatesCommon(retColumns, true);
-    }
-
     /**
-     * 从select [columns] 里面获取aggregate functions
+     * <pre>
+     * 需要计算的函数
+     * query节点中
+     *  1、scalar函数
+     *  2、aggregate函数
+     * merge节点中
+     *  1、聚合函数
+     *  2、子节点中有aggregate函数的scalar函数
+     * </pre>
      * 
-     * @param retColumns
+     * @param columns
      * @return
      */
-    protected List<IFunction> getAggregatesCommon(List retColumns, boolean isMergeAggregates) {
+    protected List<IFunction> getFunctionsNeedToCalculate(List columns, boolean isMergeAggregates) {
         List<IFunction> aggregates = new ArrayList<IFunction>();
-        for (int i = 0; i < retColumns.size(); i++) {
-            Object o = retColumns.get(i);
+        for (int i = 0; i < columns.size(); i++) {
+            Object o = columns.get(i);
             if (o instanceof IFunction) {
                 // 如果retColumn中出现了函数名字，那么进入这个逻辑
                 IFunction f = (IFunction) o;
@@ -173,8 +178,17 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
                 } else {
                     List<IFunction> aggregateInThisScalar = new ArrayList();
                     findAggregateFunctionsInScalar(f, aggregateInThisScalar);
+
+                    // 包含聚合函数
                     if (!aggregateInThisScalar.isEmpty()) {
                         aggregates.add(f);
+
+                        aggregates.addAll(aggregateInThisScalar);
+                    } else {
+                        // 不包含聚合函数，merge中就不需要再算一次了
+                        if (!isMergeAggregates) {
+                            aggregates.add(f);
+                        }
                     }
                 }
             }
@@ -206,23 +220,30 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
      * 4. 是否是merge节点
      * </pre>
      */
-    protected ISchematicCursor processGroupByAndAggregateFunction(ISchematicCursor cursor, IQueryTree IQueryTree,
+    protected ISchematicCursor processGroupByAndAggregateFunction(ISchematicCursor cursor, IQueryTree query,
                                                                   ExecutionContext executionContext)
                                                                                                     throws TddlException {
         // 是否带有group by 列。。
-        List<IOrderBy> groupBycols = IQueryTree.getGroupBys();
+        List<IOrderBy> groupBycols = query.getGroupBys();
         boolean closeResultCursor = executionContext.isCloseResultSet();
         final IRepository repo = executionContext.getCurrentRepository();
 
-        List retColumns = getEmptyListIfRetColumnIsNull(IQueryTree);
+        List retColumns = getEmptyListIfRetColumnIsNull(query);
         List<IFunction> _agg = getAggregates(retColumns);
         // 接着处理group by
         if (groupBycols != null && !groupBycols.isEmpty()) {
-            // group by之前需要进行排序，按照group by列排序
-            cursor = processOrderBy(cursor, (groupBycols), executionContext, IQueryTree, false);
+
+            if (query instanceof IMerge && ((IMerge) query).isGroupByShardColumns()) {
+
+                // group by sharding column
+                // do nothing
+            } else {
+                // group by之前需要进行排序，按照group by列排序
+                cursor = processOrderBy(cursor, (groupBycols), executionContext, query, false);
+            }
         }
 
-        cursor = executeAgg(cursor, IQueryTree, closeResultCursor, repo, _agg, groupBycols, executionContext);
+        cursor = executeAgg(cursor, query, closeResultCursor, repo, _agg, groupBycols, executionContext);
         return cursor;
     }
 
@@ -257,7 +278,7 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
     }
 
     protected List<IFunction> getAggregates(List retColumns) {
-        return getAggregatesCommon(retColumns, false);
+        return getFunctionsNeedToCalculate(retColumns, false);
     }
 
     /**
@@ -293,7 +314,7 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
                     cursor,
                     ordersInRequest,
                     true,
-                    IQueryTree.getRequestID());
+                    IQueryTree.getRequestId());
             }
             case reverseCursor:
                 return repo.getCursorFactory().reverseOrderCursor(executionContext, cursor);
@@ -480,9 +501,11 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
      * 为false时，只要ordersInCursor包含ordersInRequest中的列即可
      * ，不必要顺序一致，亦不考虑order的direction
      * @return
+     * @throws TddlException
      */
     protected static OrderByResult chooseOrderByMethod(ISchematicCursor cursor, List<IOrderBy> ordersInRequest,
-                                                       ExecutionContext executionContext, boolean needOrderMatch) {
+                                                       ExecutionContext executionContext, boolean needOrderMatch)
+                                                                                                                 throws TddlException {
         if (cursor.getJoinOrderBys() != null && cursor.getJoinOrderBys().size() > 1) {
             OrderByResult last = OrderByResult.temporaryTable;
             for (List<IOrderBy> ordersInCursor : cursor.getJoinOrderBys()) {
@@ -548,13 +571,13 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
     }
 
     protected ISchematicCursor processValueFilter(ISchematicCursor cursor, final ExecutionContext executionContext,
-                                                  IQueryTree IQueryTree) throws TddlException {
+                                                  IQueryTree query) throws TddlException {
         // 接着处理valueFilter
-        IFilter _valueFilter = IQueryTree.getValueFilter();
+        IFilter _valueFilter = query.getValueFilter();
         if (_valueFilter != null) {
             cursor = executionContext.getCurrentRepository()
                 .getCursorFactory()
-                .valueFilterCursor(executionContext, cursor, IQueryTree.getValueFilter());
+                .valueFilterCursor(executionContext, cursor, query.getValueFilter());
         }
         return cursor;
     }

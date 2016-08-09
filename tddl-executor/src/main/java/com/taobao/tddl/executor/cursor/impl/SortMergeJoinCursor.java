@@ -196,8 +196,9 @@ public class SortMergeJoinCursor extends JoinSchematicCursor implements IMergeSo
      * @param leftSubSet
      * @param rightSubSet
      * @return
+     * @throws TddlException
      */
-    private List<IRowSet> acrossProduct(List<IRowSet> leftSubSet, List<IRowSet> rightSubSet) {
+    private List<IRowSet> acrossProduct(List<IRowSet> leftSubSet, List<IRowSet> rightSubSet) throws TddlException {
         List<IRowSet> results = new ArrayList<IRowSet>(leftSubSet.size() * rightSubSet.size());
 
         for (IRowSet left : leftSubSet) {

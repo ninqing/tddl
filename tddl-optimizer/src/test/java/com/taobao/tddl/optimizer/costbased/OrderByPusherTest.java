@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
+import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
 import com.taobao.tddl.optimizer.core.ast.query.MergeNode;
 import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
@@ -392,6 +393,54 @@ public class OrderByPusherTest extends BaseOptimizerTest {
         Assert.assertEquals(1, nextJoin.getOrderBys().size());
         // ID , NAME , SCHOOL
         Assert.assertEquals(3, nextJoin.getGroupBys().size());
+    }
+
+    @Test
+    public void test_orderby_merge下推_group为order的子集() {
+        TableNode table1 = new TableNode("TABLE1");
+        table1.orderBy("ID", false);
+        table1.orderBy("NAME", true);
+        table1.groupBy("ID");
+
+        MergeNode merge = new MergeNode();
+        merge.addChild(table1);
+        merge.build();
+        QueryTreeNode qtn = OrderByPusher.optimize(merge);
+
+        // 子节点先按照NAME做group
+        // by,因为子节点的orderby和父节点的groupBy满足一个前序匹配，这里直接使用父节点id,Name做order by
+        // merge节点先按id做group
+        // by(底下子节点为id,name排序，不需要临时表排序)，groupby处理后的结果也满足id,name的排序，直接返回，不需要临时表
+
+        Assert.assertEquals(2, ((TableNode) qtn.getChild()).getOrderBys().size());
+        Assert.assertEquals("ID", ((TableNode) qtn.getChild()).getOrderBys().get(0).getColumnName());
+        Assert.assertEquals("NAME", ((TableNode) qtn.getChild()).getOrderBys().get(1).getColumnName());
+
+        Assert.assertEquals(1, ((TableNode) qtn.getChild()).getGroupBys().size());
+        Assert.assertEquals("ID", ((TableNode) qtn.getChild()).getGroupBys().get(0).getColumnName());
+    }
+
+    @Test
+    public void test_orderby_merge下推_group不为order的子集() {
+        TableNode table1 = new TableNode("TABLE1");
+        table1.orderBy("ID", false);
+        table1.orderBy("NAME", true);
+        table1.groupBy("NAME");
+
+        MergeNode merge = new MergeNode();
+        merge.addChild(table1);
+        merge.build();
+        QueryTreeNode qtn = OrderByPusher.optimize(merge);
+
+        // 子节点先按照NAME做group
+        // by,因为子节点的orderby和父节点的groupBy不是一个前序匹配，这里直接使用父节点Name做order by
+        // merge节点先按NAME做group by，然后临时表排序做id,name
+
+        Assert.assertEquals(1, ((TableNode) qtn.getChild()).getOrderBys().size());
+        Assert.assertEquals("NAME", ((TableNode) qtn.getChild()).getOrderBys().get(0).getColumnName());
+
+        Assert.assertEquals(1, ((TableNode) qtn.getChild()).getGroupBys().size());
+        Assert.assertEquals("NAME", ((TableNode) qtn.getChild()).getGroupBys().get(0).getColumnName());
     }
 
     @Test

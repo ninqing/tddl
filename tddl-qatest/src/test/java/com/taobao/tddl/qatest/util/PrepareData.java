@@ -14,72 +14,93 @@ public class PrepareData extends BaseTestCase {
      * normaltbl表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void normaltblPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + normaltblTableName, null);
+        tddlUpdateData("delete from " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
 
         String sql = "REPLACE INTO " + normaltblTableName
                      + " (pk,id,gmt_create,gmt_timestamp,gmt_datetime,name,floatCol) VALUES(?,?,?,?,?,?,?)";
-        con.setAutoCommit(false);
-        ps = con.prepareStatement(sql);
-        andorPs = andorCon.prepareStatement(sql);
+        mysqlConnection.setAutoCommit(false);
+        mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
+        tddlPreparedStatement = tddlConnection.prepareStatement(sql);
         for (int i = start; i < end / 2; i++) {
-            andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
-            andorPs.setObject(2, i % 4 * 100);
-            ps.setObject(2, i % 4 * 100);
-            andorPs.setObject(3, gmtDay);
-            ps.setObject(3, gmtDay);
-            andorPs.setObject(4, gmt);
-            ps.setObject(4, gmt);
-            andorPs.setObject(5, gmt);
-            ps.setObject(5, gmt);
-            andorPs.setObject(6, name);
-            ps.setObject(6, name);
-            andorPs.setObject(7, 1.1);
-            ps.setObject(7, 1.1);
-            andorPs.execute();
-            ps.addBatch();
+            tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            tddlPreparedStatement.setObject(2, i % 4 * 100);
+            mysqlPreparedStatement.setObject(2, i % 4 * 100);
+            tddlPreparedStatement.setObject(3, gmtDay);
+            mysqlPreparedStatement.setObject(3, gmtDay);
+            tddlPreparedStatement.setObject(4, gmt);
+            mysqlPreparedStatement.setObject(4, gmt);
+            tddlPreparedStatement.setObject(5, gmt);
+            mysqlPreparedStatement.setObject(5, gmt);
+            tddlPreparedStatement.setObject(6, name);
+            mysqlPreparedStatement.setObject(6, name);
+            tddlPreparedStatement.setObject(7, 1.1);
+            mysqlPreparedStatement.setObject(7, 1.1);
+            tddlPreparedStatement.execute();
+            mysqlPreparedStatement.addBatch();
         }
 
         for (int i = end / 2; i < end - 1; i++) {
-            andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
-            andorPs.setObject(2, i * 100);
-            ps.setObject(2, i * 100);
-            andorPs.setObject(3, gmtDayNext);
-            ps.setObject(3, gmtDayNext);
-            andorPs.setObject(4, gmtNext);
-            ps.setObject(4, gmtNext);
-            andorPs.setObject(5, gmtNext);
-            ps.setObject(5, gmtNext);
-            andorPs.setObject(6, newName);
-            ps.setObject(6, newName);
-            andorPs.setObject(7, 1.1);
-            ps.setObject(7, 1.1);
-            andorPs.execute();
-            ps.addBatch();
+            tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            tddlPreparedStatement.setObject(2, i * 100);
+            mysqlPreparedStatement.setObject(2, i * 100);
+            tddlPreparedStatement.setObject(3, gmtDayNext);
+            mysqlPreparedStatement.setObject(3, gmtDayNext);
+            tddlPreparedStatement.setObject(4, gmtNext);
+            mysqlPreparedStatement.setObject(4, gmtNext);
+            tddlPreparedStatement.setObject(5, gmtNext);
+            mysqlPreparedStatement.setObject(5, gmtNext);
+            tddlPreparedStatement.setObject(6, newName);
+            mysqlPreparedStatement.setObject(6, newName);
+            tddlPreparedStatement.setObject(7, 1.1);
+            mysqlPreparedStatement.setObject(7, 1.1);
+            tddlPreparedStatement.execute();
+            mysqlPreparedStatement.addBatch();
         }
 
         for (int i = end - 1; i < end; i++) {
-            andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
-            andorPs.setObject(2, i * 100);
-            ps.setObject(2, i * 100);
-            andorPs.setObject(3, gmtDayBefore);
-            ps.setObject(3, gmtDayBefore);
-            andorPs.setObject(4, gmtBefore);
-            ps.setObject(4, gmtBefore);
-            andorPs.setObject(5, gmtBefore);
-            ps.setObject(5, gmtBefore);
-            andorPs.setObject(6, name1);
-            ps.setObject(6, name1);
-            andorPs.setObject(7, (float) (i * 0.01));
-            ps.setObject(7, (float) (i * 0.01));
-            andorPs.execute();
-            ps.addBatch();
+            tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+            tddlPreparedStatement.setObject(2, i * 100);
+            mysqlPreparedStatement.setObject(2, i * 100);
+            tddlPreparedStatement.setObject(3, gmtDayBefore);
+            mysqlPreparedStatement.setObject(3, gmtDayBefore);
+            tddlPreparedStatement.setObject(4, gmtBefore);
+            mysqlPreparedStatement.setObject(4, gmtBefore);
+            tddlPreparedStatement.setObject(5, gmtBefore);
+            mysqlPreparedStatement.setObject(5, gmtBefore);
+            tddlPreparedStatement.setObject(6, name1);
+            mysqlPreparedStatement.setObject(6, name1);
+            tddlPreparedStatement.setObject(7, (float) (i * 0.01));
+            mysqlPreparedStatement.setObject(7, (float) (i * 0.01));
+            tddlPreparedStatement.execute();
+            mysqlPreparedStatement.addBatch();
         }
-        ps.executeBatch();
-        con.commit();
+        mysqlPreparedStatement.executeBatch();
+        mysqlConnection.commit();
+
+    }
+
+    public void demoRepoPrepare(int start, int end) throws Exception, SQLException {
+        tddlUpdateData("delete from _tddl_", null);
+        mysqlUpdateData("delete from _tddl_", null);
+
+        String sql = "REPLACE INTO _tddl_ (id,name) VALUES(?,?)";
+        mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
+        tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+
+        for (int i = start; i < end; i++) {
+            mysqlPreparedStatement.setObject(1, i);
+            tddlPreparedStatement.setObject(1, i);
+
+            mysqlPreparedStatement.setObject(2, "sun" + i);
+            tddlPreparedStatement.setObject(2, "sun" + i);
+
+            mysqlPreparedStatement.execute();
+            tddlPreparedStatement.execute();
+        }
 
     }
 
@@ -87,72 +108,72 @@ public class PrepareData extends BaseTestCase {
      * normaltbl表数据的准备 start为插入起始数据，end为插入结束数据，部分name字段插入数据为null
      */
     public void normaltblNullPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + normaltblTableName, null);
+        tddlUpdateData("delete from " + normaltblTableName, null);
         mysqlUpdateData("delete from  " + normaltblTableName, null);
 
         String sql = "REPLACE INTO " + normaltblTableName
                      + " (pk,id,gmt_create,gmt_timestamp,gmt_datetime,name,floatCol) VALUES(?,?,?,?,?,?,?)";
-        con.setAutoCommit(false);
-        ps = con.prepareStatement(sql);
-        PreparedStatement andorPs = andorCon.prepareStatement(sql);
+        mysqlConnection.setAutoCommit(false);
+        mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
+        PreparedStatement andorPs = tddlConnection.prepareStatement(sql);
         for (int i = start; i < end / 2; i++) {
             andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
             andorPs.setObject(2, i * 100);
-            ps.setObject(2, i * 100);
+            mysqlPreparedStatement.setObject(2, i * 100);
             andorPs.setObject(3, gmtDay);
-            ps.setObject(3, gmtDay);
+            mysqlPreparedStatement.setObject(3, gmtDay);
             andorPs.setObject(4, gmt);
-            ps.setObject(4, gmt);
+            mysqlPreparedStatement.setObject(4, gmt);
             andorPs.setObject(5, gmt);
-            ps.setObject(5, gmt);
+            mysqlPreparedStatement.setObject(5, gmt);
             andorPs.setObject(6, name);
-            ps.setObject(6, name);
+            mysqlPreparedStatement.setObject(6, name);
             andorPs.setObject(7, 1.1);
-            ps.setObject(7, 1.1);
+            mysqlPreparedStatement.setObject(7, 1.1);
             andorPs.execute();
-            ps.addBatch();
+            mysqlPreparedStatement.addBatch();
         }
 
         for (int i = end / 2; i < end - 1; i++) {
             andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
             andorPs.setObject(2, i * 100);
-            ps.setObject(2, i * 100);
+            mysqlPreparedStatement.setObject(2, i * 100);
             andorPs.setObject(3, gmtNext);
-            ps.setObject(3, gmtNext);
+            mysqlPreparedStatement.setObject(3, gmtNext);
             andorPs.setObject(4, gmtNext);
-            ps.setObject(4, gmtNext);
+            mysqlPreparedStatement.setObject(4, gmtNext);
             andorPs.setObject(5, gmtNext);
-            ps.setObject(5, gmtNext);
+            mysqlPreparedStatement.setObject(5, gmtNext);
             andorPs.setObject(6, null);
-            ps.setObject(6, null);
+            mysqlPreparedStatement.setObject(6, null);
             andorPs.setObject(7, 1.1);
-            ps.setObject(7, 1.1);
+            mysqlPreparedStatement.setObject(7, 1.1);
             andorPs.execute();
-            ps.addBatch();
+            mysqlPreparedStatement.addBatch();
         }
 
         for (int i = end - 1; i < end; i++) {
             andorPs.setObject(1, Long.parseLong(i + ""));
-            ps.setObject(1, Long.parseLong(i + ""));
+            mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
             andorPs.setObject(2, i * 100);
-            ps.setObject(2, i * 100);
+            mysqlPreparedStatement.setObject(2, i * 100);
             andorPs.setObject(3, gmtBefore);
-            ps.setObject(3, gmtBefore);
+            mysqlPreparedStatement.setObject(3, gmtBefore);
             andorPs.setObject(4, gmtBefore);
-            ps.setObject(4, gmtBefore);
+            mysqlPreparedStatement.setObject(4, gmtBefore);
             andorPs.setObject(5, gmtBefore);
-            ps.setObject(5, gmtBefore);
+            mysqlPreparedStatement.setObject(5, gmtBefore);
             andorPs.setObject(6, name1);
-            ps.setObject(6, name1);
+            mysqlPreparedStatement.setObject(6, name1);
             andorPs.setObject(7, (float) (i * 0.01));
-            ps.setObject(7, (float) (i * 0.01));
+            mysqlPreparedStatement.setObject(7, (float) (i * 0.01));
             andorPs.execute();
-            ps.addBatch();
+            mysqlPreparedStatement.addBatch();
         }
-        ps.executeBatch();
-        con.commit();
+        mysqlPreparedStatement.executeBatch();
+        mysqlConnection.commit();
 
     }
 
@@ -160,29 +181,29 @@ public class PrepareData extends BaseTestCase {
      * hostinfo表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void hostinfoPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + host_info, null);
+        tddlUpdateData("delete from " + host_info, null);
         mysqlUpdateData("delete from  " + host_info, null);
         try {
             String sql = "replace into " + host_info + "(host_id,host_name,hostgroup_id,station_id) values(?,?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
 
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
 
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, "hostname" + i);
-                andorPs.setObject(2, "hostname" + i);
-                ps.setObject(3, Long.parseLong(i + ""));
-                andorPs.setObject(3, Long.parseLong(i + ""));
-                ps.setObject(4, "station" + i / 2);
-                andorPs.setObject(4, "station" + i / 2);
-                andorPs.execute();
-                ps.addBatch();
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, "hostname" + i);
+                tddlPreparedStatement.setObject(2, "hostname" + i);
+                mysqlPreparedStatement.setObject(3, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(3, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.execute();
+                mysqlPreparedStatement.addBatch();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -197,25 +218,25 @@ public class PrepareData extends BaseTestCase {
     public void hostinfoDataAdd(int start, int end, long groupidValue) throws Exception, SQLException {
         try {
             String sql = "replace into " + host_info + "(host_id,host_name,hostgroup_id,station_id) values(?,?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
 
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
 
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, "hostname" + i);
-                andorPs.setObject(2, "hostname" + i);
-                ps.setObject(3, groupidValue);
-                andorPs.setObject(3, groupidValue);
-                ps.setObject(4, "station" + i / 2);
-                andorPs.setObject(4, "station" + i / 2);
-                andorPs.execute();
-                ps.addBatch();
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, "hostname" + i);
+                tddlPreparedStatement.setObject(2, "hostname" + i);
+                mysqlPreparedStatement.setObject(3, groupidValue);
+                tddlPreparedStatement.setObject(3, groupidValue);
+                mysqlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.execute();
+                mysqlPreparedStatement.addBatch();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -224,29 +245,29 @@ public class PrepareData extends BaseTestCase {
     }
 
     public void hostgroupPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + hostgroup, null);
+        tddlUpdateData("delete from " + hostgroup, null);
         mysqlUpdateData("delete from  " + hostgroup, null);
         try {
             String sql = "replace into " + hostgroup
                          + "(hostgroup_id,hostgroup_name,module_id,station_id) values(?,?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, "hostgroupname" + i);
-                andorPs.setObject(2, "hostgroupname" + i);
-                ps.setObject(3, Long.parseLong(i + ""));
-                andorPs.setObject(3, Long.parseLong(i + ""));
-                ps.setObject(4, "station" + i / 2);
-                andorPs.setObject(4, "station" + i / 2);
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, "hostgroupname" + i);
+                tddlPreparedStatement.setObject(2, "hostgroupname" + i);
+                mysqlPreparedStatement.setObject(3, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(3, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.setObject(4, "station" + i / 2);
 
-                ps.addBatch();
-                andorPs.execute();
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -261,23 +282,23 @@ public class PrepareData extends BaseTestCase {
         try {
             String sql = "replace into " + hostgroup
                          + "(hostgroup_id,hostgroup_name,module_id,station_id) values(?,?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, "hostgroupname" + i);
-                andorPs.setObject(2, "hostgroupname" + i);
-                ps.setObject(3, moduleIdValue);
-                andorPs.setObject(3, moduleIdValue);
-                ps.setObject(4, "station" + i / 2);
-                andorPs.setObject(4, "station" + i / 2);
-                ps.addBatch();
-                andorPs.execute();
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, "hostgroupname" + i);
+                tddlPreparedStatement.setObject(2, "hostgroupname" + i);
+                mysqlPreparedStatement.setObject(3, moduleIdValue);
+                tddlPreparedStatement.setObject(3, moduleIdValue);
+                mysqlPreparedStatement.setObject(4, "station" + i / 2);
+                tddlPreparedStatement.setObject(4, "station" + i / 2);
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -289,26 +310,26 @@ public class PrepareData extends BaseTestCase {
      * hostgroupInfo表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void hostgroupInfoPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + hostgroup_info, null);
+        tddlUpdateData("delete from " + hostgroup_info, null);
         mysqlUpdateData("delete from  " + hostgroup_info, null);
         try {
             String sql = "replace into " + hostgroup_info + "(hostgroup_id,hostgroup_name,station_id) values(?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, "hostgroupname" + i);
-                andorPs.setObject(2, "hostgroupname" + i);
-                ps.setObject(3, "station" + i / 2);
-                andorPs.setObject(3, "station" + i / 2);
-                ps.addBatch();
-                andorPs.execute();
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, "hostgroupname" + i);
+                tddlPreparedStatement.setObject(2, "hostgroupname" + i);
+                mysqlPreparedStatement.setObject(3, "station" + i / 2);
+                tddlPreparedStatement.setObject(3, "station" + i / 2);
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
 
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -321,25 +342,25 @@ public class PrepareData extends BaseTestCase {
      * module_info表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void module_infoPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + module_info, null);
+        tddlUpdateData("delete from " + module_info, null);
         mysqlUpdateData("delete from  " + module_info, null);
         try {
             String sql = "replace into " + module_info + "(module_id,product_id,module_name) values(?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = 0; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, Long.parseLong(i + ""));
-                andorPs.setObject(2, Long.parseLong(i + ""));
-                ps.setObject(3, "module" + i);
-                andorPs.setObject(3, "module" + i);
-                ps.addBatch();
-                andorPs.execute();
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(2, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(3, "module" + i);
+                tddlPreparedStatement.setObject(3, "module" + i);
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -350,25 +371,25 @@ public class PrepareData extends BaseTestCase {
      * module_host表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void module_hostPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from " + module_host, null);
+        tddlUpdateData("delete from " + module_host, null);
         mysqlUpdateData("delete from  " + module_host, null);
         try {
             String sql = "replace into " + module_host + "(id,module_id,host_id) values(?,?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, Long.parseLong(i / 2 + ""));
-                andorPs.setObject(2, Long.parseLong(i / 2 + ""));
-                ps.setObject(3, Long.parseLong(i % 3 + ""));
-                andorPs.setObject(3, Long.parseLong(i % 3 + ""));
-                ps.addBatch();
-                andorPs.execute();
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, Long.parseLong(i / 2 + ""));
+                tddlPreparedStatement.setObject(2, Long.parseLong(i / 2 + ""));
+                mysqlPreparedStatement.setObject(3, Long.parseLong(i % 3 + ""));
+                tddlPreparedStatement.setObject(3, Long.parseLong(i % 3 + ""));
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {
@@ -385,7 +406,7 @@ public class PrepareData extends BaseTestCase {
         param.add(20l);
         param.add(name1);
         param.add(gmtDay);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
         mysqlUpdateData(sql, param);
 
         sql = "REPLACE INTO " + normaltblTableName + "(pk,name,gmt_create) VALUES(?,?,?)";
@@ -393,7 +414,7 @@ public class PrepareData extends BaseTestCase {
         param.add(21l);
         param.add(name2);
         param.add(gmtDay);
-        andorUpdateData(sql, param);
+        tddlUpdateData(sql, param);
         mysqlUpdateData(sql, param);
     }
 
@@ -401,23 +422,23 @@ public class PrepareData extends BaseTestCase {
      * student表数据的准备 start为插入起始数据，end为插入结束数据
      */
     public void studentPrepare(int start, int end) throws Exception, SQLException {
-        andorUpdateData("delete from  " + studentTableName, null);
+        tddlUpdateData("delete from  " + studentTableName, null);
         mysqlUpdateData("delete from  " + studentTableName, null);
         try {
             String sql = "replace into  " + studentTableName + " (id,name) values(?,?)";
-            con.setAutoCommit(false);
-            ps = con.prepareStatement(sql);
+            mysqlConnection.setAutoCommit(false);
+            mysqlPreparedStatement = mysqlConnection.prepareStatement(sql);
             for (int i = start; i < end; i++) {
-                andorPs = andorCon.prepareStatement(sql);
-                ps.setObject(1, Long.parseLong(i + ""));
-                andorPs.setObject(1, Long.parseLong(i + ""));
-                ps.setObject(2, name);
-                andorPs.setObject(2, name);
-                ps.addBatch();
-                andorPs.execute();
+                tddlPreparedStatement = tddlConnection.prepareStatement(sql);
+                mysqlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                tddlPreparedStatement.setObject(1, Long.parseLong(i + ""));
+                mysqlPreparedStatement.setObject(2, name);
+                tddlPreparedStatement.setObject(2, name);
+                mysqlPreparedStatement.addBatch();
+                tddlPreparedStatement.execute();
             }
-            ps.executeBatch();
-            con.commit();
+            mysqlPreparedStatement.executeBatch();
+            mysqlConnection.commit();
         } catch (Exception ex) {
             throw new TddlRuntimeException(ex);
         } finally {

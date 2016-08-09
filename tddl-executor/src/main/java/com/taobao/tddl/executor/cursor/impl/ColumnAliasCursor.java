@@ -37,15 +37,16 @@ public class ColumnAliasCursor extends SchematicCursor implements IColumnAliasCu
     private ICursorMeta             newMeta;
     private List<ColumnMeta>        returnColumnMetas;
 
-    public ColumnAliasCursor(ISchematicCursor cursor, List<ISelectable> retColumns, String tableAlias){
+    public ColumnAliasCursor(ISchematicCursor cursor, List<ISelectable> retColumns, String tableAlias)
+                                                                                                      throws TddlException{
         super(cursor);
         this.tableAlias = tableAlias;
         this.retColumns = retColumns;
         // initAliasSchema(retColumns, tableAlias);
-
     }
 
-    private void initAliasSchema(List<ISelectable> retColumns, String tableAlias, ICursorMeta cursormeta) {
+    private void initAliasSchema(List<ISelectable> retColumns, String tableAlias, ICursorMeta cursormeta)
+                                                                                                         throws TddlException {
         if (schemaInited) {
             return;
         }
@@ -74,10 +75,7 @@ public class ColumnAliasCursor extends SchematicCursor implements IColumnAliasCu
                     cm = ExecUtils.getColumnMetaTable(col, tableAlias);
                 }
             }
-            Integer index = cursormeta.getIndex(col.getTableName(), col.getColumnName());
-            if (index == null) {
-                index = cursormeta.getIndex(col.getTableName(), col.getAlias());
-            }
+            Integer index = cursormeta.getIndex(col.getTableName(), col.getColumnName(), col.getAlias());
 
             if (index != null) {
                 indexes.add(index);
@@ -137,7 +135,7 @@ public class ColumnAliasCursor extends SchematicCursor implements IColumnAliasCu
         return replaceAliasAndSelect(parentCursorLast());
     }
 
-    private IRowSet replaceAliasAndSelect(IRowSet ir) {
+    private IRowSet replaceAliasAndSelect(IRowSet ir) throws TddlException {
         if (ir == null) {
             return null;
         }

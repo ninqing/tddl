@@ -27,10 +27,23 @@ public class NestedLoopJoinHandler extends QueryHandlerCommon {
             .getTopologyExecutor()
             .execByExecPlanNode(leftQuery, executionContext);
 
+        if (!join.getRightNode().isSubQuery()) {
+            /**
+             * 右边调的是mget，所以不需要在创建的时候初始化
+             */
+            join.getRightNode().setLazyLoad(true);
+        }
         ISchematicCursor cursor_right = ExecutorContext.getContext()
             .getTopologyExecutor()
             .execByExecPlanNode(join.getRightNode(), executionContext);
 
+        if (join.getRightNode().isSubQuery()) {
+            cursor_right = repo.getCursorFactory().tempTableCursor(executionContext,
+                cursor_right,
+                null,
+                true,
+                join.getRightNode().getRequestId());
+        }
         cursor = repo.getCursorFactory().blockNestedLoopJoinCursor(executionContext,
             cursor_left,
             cursor_right,

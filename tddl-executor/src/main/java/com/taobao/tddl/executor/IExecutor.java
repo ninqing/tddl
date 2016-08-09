@@ -1,5 +1,6 @@
 package com.taobao.tddl.executor;
 
+import java.util.List;
 import java.util.concurrent.Future;
 
 import com.taobao.tddl.common.exception.TddlException;
@@ -35,12 +36,24 @@ public interface IExecutor extends Lifecycle {
     public ResultCursor rollback(ExecutionContext executionContext) throws TddlException;
 
     /**
-     * 执行一个命令
+     * 并行执行一组命令
      * 
-     * @param extraCmd
-     * @param qc
-     * @param args
+     * @param qcs
+     * @param executionContext
      * @return
+     * @throws TddlException
+     */
+    public Future<List<ISchematicCursor>> execByExecPlanNodesFuture(List<IDataNodeExecutor> qcs,
+                                                                    ExecutionContext executionContext)
+                                                                                                      throws TddlException;
+
+    /**
+     * 并行执行一个命令
+     * 
+     * @param qc
+     * @param executionContext
+     * @return
+     * @throws TddlException
      */
     public Future<ISchematicCursor> execByExecPlanNodeFuture(IDataNodeExecutor qc, ExecutionContext executionContext)
                                                                                                                      throws TddlException;

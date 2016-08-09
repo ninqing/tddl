@@ -7,6 +7,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.client.sequence.Sequence;
+import com.taobao.tddl.client.sequence.SequenceDao;
 import com.taobao.tddl.client.sequence.SequenceRange;
 import com.taobao.tddl.client.sequence.exception.SequenceException;
 import com.taobao.tddl.monitor.eagleeye.EagleeyeHelper;
@@ -14,7 +15,7 @@ import com.taobao.tddl.monitor.eagleeye.EagleeyeHelper;
 public class GroupSequence implements Sequence {
 
     private final Lock             lock = new ReentrantLock();
-    private GroupSequenceDao       sequenceDao;
+    private SequenceDao            sequenceDao;
 
     private String                 name;
     private volatile SequenceRange currentRange;
@@ -28,13 +29,16 @@ public class GroupSequence implements Sequence {
      * @throws SQLException
      */
     public void init() throws SequenceException, SQLException {
+        if (!(sequenceDao instanceof GroupSequenceDao)) {
+            throw new SequenceException("please use  GroupSequenceDao!");
+        }
+        GroupSequenceDao groupSequenceDao = (GroupSequenceDao) sequenceDao;
         synchronized (this) // 为了保证安全，
         {
-            sequenceDao.adjust(name);
+            groupSequenceDao.adjust(name);
         }
     }
 
-    @Override
     public long nextValue() throws SequenceException {
         boolean isTest = this.isTestSeq();
         if (getSequenceRange(isTest) == null) {
@@ -58,54 +62,6 @@ public class GroupSequence implements Sequence {
                     }
 
                     value = getSequenceRange(isTest).getAndIncrement();
-                    if (value == -1) {
-                        continue;
-                    }
-
-                    break;
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        if (value < 0) {
-            throw new SequenceException("Sequence value overflow, value = " + value);
-        }
-
-        return value;
-    }
-
-    public long nextValue(int size) throws SequenceException {
-        if (size > this.getSequenceDao().getInnerStep()) {
-            throw new SequenceException("batch size > sequence step step, please change batch size or sequence inner step");
-        }
-
-        boolean isTest = this.isTestSeq();
-
-        if (getSequenceRange(isTest) == null) {
-            lock.lock();
-            try {
-                if (getSequenceRange(isTest) == null) {
-                    setSequenceRange(sequenceDao.nextRange(name), isTest);
-                }
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        long value = getSequenceRange(isTest).getBatch(size);
-
-        if (value == -1) {
-            lock.lock();
-            try {
-                for (;;) {
-                    if (getSequenceRange(isTest).isOver()) {
-                        setSequenceRange(sequenceDao.nextRange(name), isTest);
-                    }
-
-                    value = getSequenceRange(isTest).getBatch(size);
-
                     if (value == -1) {
                         continue;
                     }
@@ -149,11 +105,11 @@ public class GroupSequence implements Sequence {
         }
     }
 
-    public GroupSequenceDao getSequenceDao() {
+    public SequenceDao getSequenceDao() {
         return sequenceDao;
     }
 
-    public void setSequenceDao(GroupSequenceDao sequenceDao) {
+    public void setSequenceDao(SequenceDao sequenceDao) {
         this.sequenceDao = sequenceDao;
     }
 

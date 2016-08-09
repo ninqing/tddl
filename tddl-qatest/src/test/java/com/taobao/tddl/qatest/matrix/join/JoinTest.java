@@ -11,8 +11,8 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.taobao.tddl.qatest.BaseMatrixTestCase;
 import com.taobao.tddl.qatest.BaseTestCase;
-import com.taobao.tddl.qatest.util.EclipseParameterized;
 import com.taobao.tddl.qatest.ExecuteTableName;
+import com.taobao.tddl.qatest.util.EclipseParameterized;
 
 @RunWith(EclipseParameterized.class)
 public class JoinTest extends BaseMatrixTestCase {
@@ -65,11 +65,9 @@ public class JoinTest extends BaseMatrixTestCase {
     }
 
     public void init() throws Exception {
-        con = getConnection();
-        andorCon = us.getConnection();
-        andorUpdateData("delete from " + module_info, null);
-        andorUpdateData("delete from " + host_info, null);
-        andorUpdateData("delete from " + hostgroup_info, null);
+        tddlUpdateData("delete from " + module_info, null);
+        tddlUpdateData("delete from " + host_info, null);
+        tddlUpdateData("delete from " + hostgroup_info, null);
 
         mysqlUpdateData("delete from " + module_info, null);
         mysqlUpdateData("delete from " + host_info, null);
@@ -79,7 +77,7 @@ public class JoinTest extends BaseMatrixTestCase {
                      + module_info
                      + "(module_id, product_id,module_name, parent_module_id, applevel, apprisk, sequence,module_description, alias_name) values(?,?,?,?,?,?,?,?,?)";
 
-        andorUpdateData(sql,
+        tddlUpdateData(sql,
             Arrays.asList(new Object[] { module_id, product_id, module_name, parent_module_id, applevel, apprisk,
                     sequence, module_description, alias_name }));
         mysqlUpdateData(sql,
@@ -90,7 +88,7 @@ public class JoinTest extends BaseMatrixTestCase {
         sql = "replace into "
               + host_info
               + "(host_id, host_name, host_ip,host_type_id, hostgroup_id, station_id, snmp_community, status, host_flag) values(?,?,?,?,?,?,?,?,?)";
-        andorUpdateData(sql,
+        tddlUpdateData(sql,
             Arrays.asList(new Object[] { host_id, host_name, host_ip, host_type_id, hostgroup_id, station_id,
                     snmp_community, status, host_flag }));
         mysqlUpdateData(sql,
@@ -100,7 +98,7 @@ public class JoinTest extends BaseMatrixTestCase {
         // insert monitor_hostgroup_info
         sql = "replace into " + hostgroup_info
               + "(hostgroup_id, station_id,hostgroup_name, module_id, nagios_id, hostgroup_flag) values(?,?,?,?,?,?)";
-        andorUpdateData(sql,
+        tddlUpdateData(sql,
             Arrays.asList(new Object[] { hostgroup_id, gstation_id, hostgroup_name, module_id, nagios_id,
                     hostgroup_flag }));
 
@@ -110,7 +108,7 @@ public class JoinTest extends BaseMatrixTestCase {
     }
 
     @After
-    public void destroy() throws Exception {
+    public void destory() throws Exception {
         psConRcRsClose(rc, rs);
     }
 

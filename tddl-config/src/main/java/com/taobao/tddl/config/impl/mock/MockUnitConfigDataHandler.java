@@ -14,7 +14,7 @@ import com.taobao.tddl.config.impl.UnitConfigDataHandler;
  * @author jianghang 2014-2-27 下午6:52:04
  * @since 5.0.0
  */
-@Activate(name = "mock", order = 1)
+@Activate(order = 1)
 public class MockUnitConfigDataHandler extends UnitConfigDataHandler {
 
     @Override

@@ -64,11 +64,6 @@
         			<xs:documentation>column nullable</xs:documentation>
         		</xs:annotation>
         	</xs:attribute>
-        	<xs:attribute name="auto_increment" type="xs:boolean" use="optional" default="false">
-        		<xs:annotation>
-        			<xs:documentation>column auto increment</xs:documentation>
-        		</xs:annotation>
-        	</xs:attribute>
         </xs:complexType>
     </xs:element>
 
