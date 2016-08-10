@@ -10,6 +10,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.mock.MockDataSource;
 import com.taobao.tddl.common.mock.MockDataSource.ExecuteInfo;
 import com.taobao.tddl.common.model.DBType;
@@ -22,7 +23,7 @@ public class SelectorTest {
     }
 
     @Test
-    public void test_读写分离() {
+    public void test_读写分离() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -63,7 +64,7 @@ public class SelectorTest {
     }
 
     @Test
-    public void test_相同权重() {
+    public void test_相同权重() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -117,7 +118,7 @@ public class SelectorTest {
     }
 
     @Test
-    public void test_不同读优先级() {
+    public void test_不同读优先级() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -172,7 +173,7 @@ public class SelectorTest {
     }
 
     @Test
-    public void test_不同写优先级() {
+    public void test_不同写优先级() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();

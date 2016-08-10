@@ -16,6 +16,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.mock.MockDataSource;
 import com.taobao.tddl.common.model.DBType;
 
@@ -68,7 +69,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_一个连接上创建两个Statement() {
+    public void test_一个连接上创建两个Statement() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -119,7 +120,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_创建Statement失败重试_读请求() {
+    public void test_创建Statement失败重试_读请求() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -162,7 +163,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_创建Statement失败不重试_写请求() {
+    public void test_创建Statement失败不重试_写请求() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -204,7 +205,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_autocommit() {
+    public void test_autocommit() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -253,7 +254,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_no_trans() {
+    public void test_no_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -299,7 +300,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_write_trans() {
+    public void test_write_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -347,7 +348,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_read_trans() {
+    public void test_read_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -396,7 +397,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_write_and_read_trans() {
+    public void test_write_and_read_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -446,7 +447,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_read_and_write_trans() {
+    public void test_read_and_write_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();
@@ -495,7 +496,7 @@ public class TGroupConnectionTest {
     }
 
     @Test
-    public void test_read_untrans_write_trans() {
+    public void test_read_untrans_write_trans() throws TddlException {
         TGroupDataSource tgds = new TGroupDataSource();
         tgds.setDbGroupKey("dbKey0");
         List<DataSourceWrapper> dataSourceWrappers = new ArrayList<DataSourceWrapper>();

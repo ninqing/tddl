@@ -11,6 +11,7 @@ import com.taobao.tddl.config.impl.holder.ConfigHolderFactory;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
+
 /**
  * 使用delegate模式，引入Preheat机制，允许预先构建cache，加速请求处理
  * 
@@ -66,7 +67,7 @@ public class PreheatDataHandler extends UnitConfigDataHandler {
 
     }
 
-    protected void doDestroy() throws TddlException {
+    protected void doDestory() throws TddlException {
         delagate.destroy();
     }
 }

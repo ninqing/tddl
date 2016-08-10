@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataHandlerFactory;
 import com.taobao.tddl.config.ConfigDataListener;
@@ -65,7 +65,7 @@ public class UnitConfigDataHandlerFactory implements ConfigDataHandlerFactory {
         try {
             instance.init();// 启动
         } catch (TddlException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
         return instance;
     }

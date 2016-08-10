@@ -33,7 +33,7 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         Main main = new Main();
-        main.dir(new File("tddl-parser/src/main/java/com/alibaba/cobar/parser/ast/expression"));
+        main.dir(new File("/media/BC4CF85E4CF814BC/work/cobar/cobar-1.1.0-dev/cobar-parser/src/main/java/com/alibaba/cobar/parser/ast/expression"));
     }
 
     private void dir(File dir) throws Exception {

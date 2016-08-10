@@ -83,12 +83,12 @@ public class FileConfigDataHandlerFactory implements ConfigDataHandlerFactory {
 
     @Override
     public ConfigDataHandler getConfigDataHandler(String dataId) {
-        return null;
+        return this.getConfigDataHandler(dataId, null);
     }
 
     @Override
     public ConfigDataHandler getConfigDataHandler(String dataId, List<ConfigDataListener> configDataListenerList,
                                                   Executor executor, Map<String, Object> config) {
-        return null;
+        return this.getConfigDataHandler(dataId, null);
     }
 }

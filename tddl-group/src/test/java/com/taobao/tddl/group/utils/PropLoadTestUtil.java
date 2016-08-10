@@ -7,7 +7,7 @@ import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 
 public class PropLoadTestUtil {
 
@@ -18,7 +18,7 @@ public class PropLoadTestUtil {
         try {
             prop.load(is);
         } catch (IOException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         } finally {
             IOUtils.closeQuietly(is);
         }
@@ -47,7 +47,7 @@ public class PropLoadTestUtil {
         try {
             prop.load(is);
         } catch (IOException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         } finally {
             IOUtils.closeQuietly(is);
         }

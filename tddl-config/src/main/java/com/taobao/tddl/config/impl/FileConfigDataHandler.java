@@ -11,11 +11,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.config.ConfigDataHandler;
-import com.taobao.tddl.config.ConfigDataListener;
-
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.config.ConfigDataHandler;
+import com.taobao.tddl.config.ConfigDataListener;
 
 public class FileConfigDataHandler extends AbstractLifecycle implements ConfigDataHandler {
 
@@ -38,12 +37,12 @@ public class FileConfigDataHandler extends AbstractLifecycle implements ConfigDa
         this.appName = appName;
         this.executor = executor;
         if (configDataListener != null) {
-
             this.configDataListeners.add(configDataListener);
         }
         if (executor == null) {
             throw new IllegalArgumentException("executor is null");
         }
+
         this.executor.execute(new CheckerTask(data, pattern, directory, dataId, configDataListeners, appName));
     }
 
@@ -79,6 +78,7 @@ public class FileConfigDataHandler extends AbstractLifecycle implements ConfigDa
                         // 复制一份，避免并发修改
                         List<ConfigDataListener> cdls = new ArrayList<ConfigDataListener>(configDataListeners);
                         for (ConfigDataListener cdl : cdls) {
+
                             cdl.onDataRecieved(dataId, data.get());
                         }
                     }
@@ -169,6 +169,9 @@ public class FileConfigDataHandler extends AbstractLifecycle implements ConfigDa
     @Override
     public void addListener(ConfigDataListener configDataListener, Executor executor) {
         if (!configDataListeners.contains(configDataListener)) {
+            if (configDataListener == null) {
+                return;
+            }
             configDataListeners.add(configDataListener);
         }
 
@@ -177,6 +180,7 @@ public class FileConfigDataHandler extends AbstractLifecycle implements ConfigDa
     @Override
     public void addListeners(List<ConfigDataListener> configDataListenerList, Executor executor) {
         for (ConfigDataListener l : configDataListenerList) {
+
             this.addListener(l, executor);
         }
     }

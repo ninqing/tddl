@@ -8,6 +8,6 @@ public class ErrorCodeTest {
 
     @Test
     public void testOutput() {
-        System.out.println(ErrorCode.TDDL_0001.getMessage("hello"));
+        System.out.println(ErrorCode.ERR_CONFIG_MISS_GROUPKEY.getMessage("hello"));
     }
 }

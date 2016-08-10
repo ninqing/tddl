@@ -9,10 +9,10 @@ import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.taobao.tddl.common.GroupDataSourceRouteHelper;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.mock.MockDataSource;
 import com.taobao.tddl.common.model.DBType;
-import com.taobao.tddl.group.jdbc.DataSourceFetcher;
-import com.taobao.tddl.group.jdbc.TGroupDataSource;
 
 /**
  * @author linxuan
@@ -46,7 +46,11 @@ public class ThreadLocalDataSourceIndexTest {
                 return null;
             }
         });
-        tgds.init();
+        try {
+            tgds.init();
+        } catch (TddlException e) {
+            throw new TddlNestableRuntimeException(e);
+        }
         return tgds;
     }
 

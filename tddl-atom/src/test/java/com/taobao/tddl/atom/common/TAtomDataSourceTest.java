@@ -13,7 +13,7 @@ import com.taobao.tddl.atom.BaseAtomTest;
 import com.taobao.tddl.atom.TAtomDataSource;
 import com.taobao.tddl.atom.config.TAtomConfParser;
 import com.taobao.tddl.atom.config.TAtomDsConfDO;
-import com.taobao.tddl.atom.exception.AtomAlreadyInitException;
+import com.taobao.tddl.common.exception.TddlException;
 
 public class TAtomDataSourceTest extends BaseAtomTest {
 
@@ -40,7 +40,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testOracleChange_切换Ip() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // testChange(new ChangeTestConfig() {
     // public Properties doChange(Properties prop) {
     // prop.setProperty(TAtomConfParser.GLOBA_IP_KEY, "127.0.0.1");
@@ -56,7 +56,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
     // }
 
     @Test
-    public void testMysqlChange_切换Ip() throws IOException, AtomAlreadyInitException, Exception {
+    public void testMysqlChange_切换Ip() throws IOException, TddlException, Exception {
         testChange(new ChangeTestConfig() {
 
             public Properties doChange(Properties prop) {
@@ -74,7 +74,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testOracleChange_切换Port() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // testChange(new ChangeTestConfig() {
     // public Properties doChange(Properties prop) {
     // prop.setProperty(TAtomConfParser.GLOBA_PORT_KEY, "1234");
@@ -90,7 +90,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
     // }
 
     @Test
-    public void testMysqlChange_切换Port() throws IOException, AtomAlreadyInitException, Exception {
+    public void testMysqlChange_切换Port() throws IOException, TddlException, Exception {
         testChange(new ChangeTestConfig() {
 
             public Properties doChange(Properties prop) {
@@ -108,7 +108,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testOracleChange_切换DbName() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // testChange(new ChangeTestConfig() {
     // public Properties doChange(Properties prop) {
     // prop.setProperty(TAtomConfParser.GLOBA_DB_NAME_KEY, "test");
@@ -124,7 +124,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
     // }
 
     @Test
-    public void testMsqlChange_切换DbName() throws IOException, AtomAlreadyInitException, Exception {
+    public void testMsqlChange_切换DbName() throws IOException, TddlException, Exception {
         testChange(new ChangeTestConfig() {
 
             public Properties doChange(Properties prop) {
@@ -143,7 +143,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testOracleChange_切换userName() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // testChange(new ChangeTestConfig() {
     // public Properties doChange(Properties prop) {
     // prop.setProperty(TAtomConfParser.APP_USER_NAME_KEY, "test1");
@@ -159,7 +159,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
     // }
 
     @Test
-    public void testMysqlChange_切换userName() throws IOException, AtomAlreadyInitException, Exception {
+    public void testMysqlChange_切换userName() throws IOException, TddlException, Exception {
         testChange(new ChangeTestConfig() {
 
             public Properties doChange(Properties prop) {
@@ -178,7 +178,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testChange_切换DBStatus() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // String appName = "unitTest1";
     // String dbKey = "dev-db1";
     // //初始化持久配置中心数据
@@ -210,7 +210,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     // @Test
     // public void testOracleChange_切换Passwd() throws IOException,
-    // AtomAlreadyInitException, Exception {
+    // TddlException, Exception {
     // testChangePasswd(new ChangeTestConfig() {
     // public Properties doChange(Properties prop) {
     // prop.setProperty(TAtomConfParser.PASSWD_ENC_PASSWD_KEY,
@@ -229,7 +229,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
 
     @Test
     @Ignore("druid运行时改变密码，短期内不会关闭老的链接")
-    public void testMySqlChange_切换Passwd() throws IOException, AtomAlreadyInitException, Exception {
+    public void testMySqlChange_切换Passwd() throws IOException, TddlException, Exception {
         testChangePasswd(new ChangeTestConfig() {
 
             public Properties doChange(Properties prop) {
@@ -246,9 +246,8 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         }, "mysql");
     }
 
-    private void testChangePasswd(ChangeTestConfig change, ChangeTestConfig restore, String dbType)
-                                                                                                   throws IOException,
-                                                                                                   AtomAlreadyInitException,
+    private void testChangePasswd(ChangeTestConfig change, ChangeTestConfig restore, String dbType) throws IOException,
+                                                                                                   TddlException,
                                                                                                    Exception {
         String appName = "tddl_sample";
         String dbKey = "unitTestDb-" + dbType;
@@ -294,7 +293,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
     }
 
     private void testChange(ChangeTestConfig change, ChangeTestConfig restore, String type, String dbType,
-                            String methodName) throws IOException, AtomAlreadyInitException, Exception {
+                            String methodName) throws IOException, TddlException, Exception {
         String appName = "tddl_sample";
         String dbKey = "unitTestDb-" + methodName;
         String configName = dbType;
@@ -334,9 +333,8 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         tAtomDataSource.destroyDataSource();
     }
 
-    private TAtomDataSource createTAtomDataSource(String appName, String dbKey, String configName)
-                                                                                                  throws IOException,
-                                                                                                  AtomAlreadyInitException,
+    private TAtomDataSource createTAtomDataSource(String appName, String dbKey, String configName) throws IOException,
+                                                                                                  TddlException,
                                                                                                   Exception {
         // 全局配置
         String globaStr = PropLoadTestUtil.loadPropFile2String("conf/" + configName + "/globa.properties");

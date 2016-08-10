@@ -17,7 +17,7 @@ import com.taobao.tddl.config.ConfigDataListener;
  */
 public abstract class UnitConfigDataHandler extends AbstractLifecycle implements ConfigDataHandler {
 
-    protected String                   unitName;//单元名
+    protected String                   unitName;
     protected String                   appName;
     protected String                   dataId;
     protected Map<String, Object>      config;

@@ -12,6 +12,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 
 public class ExchangeInTranslation {
@@ -21,7 +22,7 @@ public class ExchangeInTranslation {
     private static DataSource   dataSource   = null;
 
     @BeforeClass
-    public static void setBeforeClass() {
+    public static void setBeforeClass() throws TddlException {
         TGroupDataSource ds = new TGroupDataSource("tddl_sample_group_0", "tddl_sample");
         ds.init();
         dataSource = ds;
