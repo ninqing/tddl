@@ -23,7 +23,7 @@ public class StaticTAtomDataSourceTest {
         dataSource.init();
         JdbcTemplate jtp = new JdbcTemplate();
         jtp.setDataSource(dataSource);
-        int actual = jtp.queryForInt("select 1 from dual");
+        int actual = jtp.queryForObject("select 1 from dual",Integer.class);
         Assert.assertEquals(actual, 1);
         dataSource.destroyDataSource();
     }

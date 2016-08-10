@@ -27,13 +27,13 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         // TAtomDataSource tAtomDataSource = createTAtomDataSource(appName,
         // dbKey, "oracle");
         // JdbcTemplate jtp = new JdbcTemplate(tAtomDataSource);
-        // int actual = jtp.queryForInt(TAtomDataSourceUnitTest.TEST_SQL);
+        // int actual = jtp.queryForObject(TAtomDataSourceUnitTest.TEST_SQL);
         // Assert.assertEquals(actual, 1);
         // tAtomDataSource.destroyDataSource();
         // mysql测试
         TAtomDataSource tAtomDataSource = createTAtomDataSource(appName, dbKey, "mysql");
         JdbcTemplate jtp = new JdbcTemplate(tAtomDataSource);
-        int actual = jtp.queryForInt(TAtomDataSourceTest.TEST_SQL);
+        int actual = jtp.queryForObject(TAtomDataSourceTest.TEST_SQL,Integer.class);
         Assert.assertEquals(actual, 1);
         tAtomDataSource.destroyDataSource();
     }
@@ -256,7 +256,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         configName = dbType;
         TAtomDataSource tAtomDataSource = createTAtomDataSource(appName, dbKey, configName);
         JdbcTemplate jtp = new JdbcTemplate(tAtomDataSource);
-        int actual = jtp.queryForInt(testSql);
+        int actual = jtp.queryForObject(testSql,Integer.class);
         Assert.assertEquals(actual, 1);
         // 设置错误的IP进行推送
         // 全局配置
@@ -276,7 +276,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         // 期待出现错误
         boolean result = false;
         try {
-            actual = jtp.queryForInt(testSql);
+            actual = jtp.queryForObject(testSql,Integer.class);
         } catch (Throwable e) {
             result = true;
         }
@@ -286,7 +286,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
                                                                                                 + "/passwd.properties"))));
         Thread.sleep(3000);
         // 期待结果正常
-        actual = jtp.queryForInt(testSql);
+        actual = jtp.queryForObject(testSql,Integer.class);
         Assert.assertEquals(actual, 1);
         tAtomDataSource.destroyDataSource();
 
@@ -300,7 +300,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         String testSql = TAtomDataSourceTest.TEST_SQL;
         TAtomDataSource tAtomDataSource = createTAtomDataSource(appName, dbKey, configName);
         JdbcTemplate jtp = new JdbcTemplate(tAtomDataSource);
-        int actual = jtp.queryForInt(testSql);
+        int actual = jtp.queryForObject(testSql,Integer.class);
         Assert.assertEquals(actual, 1);
         // 设置错误的IP进行推送
         String fileName = "";
@@ -318,7 +318,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
         // 期待出现错误
         boolean result = false;
         try {
-            actual = jtp.queryForInt(testSql);
+            actual = jtp.queryForObject(testSql,Integer.class);
         } catch (Throwable e) {
             result = true;
         }
@@ -328,7 +328,7 @@ public class TAtomDataSourceTest extends BaseAtomTest {
                                                                                                 + fileName))));
         Thread.sleep(3000);
         // 期待结果正常
-        actual = jtp.queryForInt(testSql);
+        actual = jtp.queryForObject(testSql,Integer.class);
         Assert.assertEquals(actual, 1);
         tAtomDataSource.destroyDataSource();
     }

@@ -32,25 +32,18 @@
 			<artifactId>tddl-group</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-			<!-- HBase -->
-			<dependency>
-				<groupId>org.apache.hbase</groupId>
-				<artifactId>hbase</artifactId>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.zookeeper</groupId>
-				<artifactId>zookeeper</artifactId>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.hadoop</groupId>
-				<artifactId>hadoop-core</artifactId>
-			</dependency>
-
-		<!-- Test libs -->
+		<!-- HBase -->
 		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<scope>test</scope>
+			<groupId>org.apache.hbase</groupId>
+			<artifactId>hbase</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.zookeeper</groupId>
+			<artifactId>zookeeper</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-core</artifactId>
 		</dependency>
 	</dependencies>
 
