@@ -75,7 +75,7 @@ public class SelectAmountLimit extends BaseMatrixTestCase {
         param.add(name);
         param.add(start);
         param.add(limit);
-        rc = andorQueryData(sql, param);
+        rc = tddlQueryData(sql, param);
         Assert.assertEquals(limit, resultsSize(rc));
     }
 
@@ -88,7 +88,7 @@ public class SelectAmountLimit extends BaseMatrixTestCase {
         List<Object> param = new ArrayList<Object>();
         param.add(start);
         param.add(limit);
-        rc = andorQueryData(sql, param);
+        rc = tddlQueryData(sql, param);
         Assert.assertEquals(limit, resultsSize(rc));
     }
 

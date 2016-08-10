@@ -10,8 +10,10 @@ import java.util.Map;
 
 import org.apache.commons.lang.time.DateFormatUtils;
 
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.utils.TStringUtil;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 import com.taobao.tddl.rule.model.sqljep.ComparativeAND;
 import com.taobao.tddl.rule.model.sqljep.ComparativeBaseList;
@@ -65,7 +67,8 @@ public class ComparativeStringAnalyser {
                         comparativeBaseList = new ComparativeAND();
                         op = "AND";
                     } else {
-                        throw new TddlRuleException("decodeComparative not support ComparativeBaseList value:" + value);
+                        throw new TddlRuntimeException(ErrorCode.ERR_ROUTE,
+                            "decodeComparative not support ComparativeBaseList value:" + value);
                     }
                     String[] compValues = TStringUtil.twoPartSplit(value, op);
                     String key = null;
@@ -179,14 +182,14 @@ public class ComparativeStringAnalyser {
                 try {
                     date = parseDate(value.trim(), DATE_FORMATS, Locale.getDefault());
                 } catch (Exception e) {
-                    throw new TddlRuleException("unSupport date parse :" + value.trim());
+                    throw new TddlNestableRuntimeException("unSupport date parse :" + value.trim());
                 }
             }
 
             comparative = new Comparative(compEnum, date);
         } else {
-            throw new TddlRuleException("decodeComparative Error notSupport Comparative valueType value: " + value
-                                        + TYPE_SPLIT + type);
+            throw new TddlRuntimeException(ErrorCode.ERR_ROUTE,
+                "decodeComparative Error notSupport Comparative valueType value: " + value + TYPE_SPLIT + type);
         }
 
         return comparative;

@@ -2,9 +2,7 @@ package com.taobao.tddl.common.jdbc;
 
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang.StringUtils;
-
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.common.utils.TStringUtil;
 
@@ -42,7 +40,7 @@ public class SqlTypeParser {
                    || sqlType == SqlType.ALTER || sqlType == SqlType.RENAME || sqlType == SqlType.PROCEDURE) {
             return false;
         } else {
-            return throwNotSupportSqlTypeException();
+            throw new NotSupportException("SqlTypeParser");
         }
     }
 
@@ -112,12 +110,8 @@ public class SqlTypeParser {
                    || CALL_PATTERN.matcher(noCommentsSql).matches()) {
             sqlType = SqlType.PROCEDURE;
         } else {
-            throwNotSupportSqlTypeException();
+            throw new NotSupportException("SqlTypeParser");
         }
         return sqlType;
-    }
-
-    public static boolean throwNotSupportSqlTypeException() {
-        throw new TddlRuntimeException("only " + StringUtils.join(SqlType.values(), ',') + " sql is supported");
     }
 }

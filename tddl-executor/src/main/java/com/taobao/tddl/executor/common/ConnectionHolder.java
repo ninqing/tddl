@@ -8,25 +8,26 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 
-import javax.sql.DataSource;
-
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
-
+import com.taobao.tddl.common.jdbc.IConnection;
+import com.taobao.tddl.common.jdbc.IDataSource;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.executor.exception.ExecutorException;
+import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 
 public class ConnectionHolder {
 
-    private final static Logger      logger             = LoggerFactory.getLogger(ConnectionHolder.class);
+    private final static Logger       logger             = LoggerFactory.getLogger(ConnectionHolder.class);
 
-    volatile private Set<Connection> connectionsToClose = new HashSet();
-    volatile private Set<Connection> connections        = new HashSet();
+    volatile private Set<IConnection> connectionsToClose = new HashSet();
+    volatile private Set<IConnection> connections        = new HashSet();
 
-    volatile private String          recentAccessGroup  = null;
-    volatile private Connection      recentConnection   = null;
+    volatile private String           recentAccessGroup  = null;
+    volatile private IConnection      recentConnection   = null;
 
-    private final ReentrantLock      lock               = new ReentrantLock();
+    private final ReentrantLock       lock               = new ReentrantLock();
+
+    private boolean                   closed             = false;
 
     public ConnectionHolder(){
 
@@ -39,24 +40,21 @@ public class ConnectionHolder {
      * @return
      * @throws SQLException
      */
-    public Connection getConnection(String groupName, DataSource ds, boolean reuse) throws SQLException {
+    public IConnection getConnection(String groupName, IDataSource ds, boolean reuse) throws SQLException {
         lock.lock();
         try {
-
+            checkClosed();
             if (IDataNodeExecutor.USE_LAST_DATA_NODE.equals(groupName)) {
                 groupName = this.recentAccessGroup;
                 reuse = true;
-
                 if (groupName == null) {
-                    throw new TddlRuntimeException("recent access group is null, you cannot execute this sql");
-
+                    throw new ExecutorException("recent access group is null, you cannot execute this sql");
                 }
             }
 
-            Connection conn = null;
+            IConnection conn = null;
 
             if (reuse) {
-
                 // reuse只有两种情况
                 // 1。事务，事务开启时会清空所有连接
                 // 2.指定使用recent access group
@@ -66,7 +64,7 @@ public class ConnectionHolder {
                         conn = recentConnection;
                         connectionsToClose.remove(conn);
                     } else {
-                        throw new TddlRuntimeException("impossible!");
+                        throw new ExecutorException("impossible!");
                     }
                 }
 
@@ -74,7 +72,6 @@ public class ConnectionHolder {
 
             if (conn == null) {
                 conn = ds.getConnection();
-
                 this.connections.add(conn);
             }
 
@@ -95,6 +92,7 @@ public class ConnectionHolder {
     public void closeAllConnections() {
         lock.lock();
         try {
+
             for (Connection conn : this.connections) {
                 try {
                     conn.close();
@@ -103,10 +101,8 @@ public class ConnectionHolder {
                 }
             }
             connections.clear();
-
             this.recentAccessGroup = null;
             this.recentConnection = null;
-
             this.connectionsToClose.clear();
         } finally {
             lock.unlock();
@@ -114,20 +110,20 @@ public class ConnectionHolder {
 
     }
 
-    public void tryClose(Connection conn) throws SQLException {
+    public void tryClose(IConnection conn) throws SQLException {
 
-        // my_jdbchandler有时候会被重复调用
-        if (conn.isClosed()) {
-            return;
-        }
         lock.lock();
         try {
-            connectionsToClose.add(conn);
+            // my_jdbchandler有时候会被重复调用
+            if (conn != null && conn.isClosed()) {
+                return;
+            }
 
+            if (conn != null) {
+                connectionsToClose.add(conn);
+            }
             List<Connection> connsClosed = new ArrayList();
-
             for (Connection connToClose : this.connectionsToClose) {
-
                 if (!connToClose.isClosed() && connToClose != recentConnection) {
                     try {
                         connToClose.close();
@@ -143,23 +139,83 @@ public class ConnectionHolder {
 
             connectionsToClose.removeAll(connsClosed);
             connections.removeAll(connsClosed);
-
         } finally {
             lock.unlock();
         }
     }
 
     public String getRecentAccessGroup() {
+
         lock.lock();
+
         try {
+            checkClosed();
             return recentAccessGroup;
         } finally {
             lock.unlock();
         }
     }
 
-    public Set<Connection> getAllConnection() {
+    public Set<IConnection> getAllConnection() {
+
         return this.connections;
+    }
+
+    public void kill() throws SQLException {
+
+        lock.lock();
+
+        try {
+            for (IConnection conn : this.connections) {
+                try {
+                    conn.kill();
+                } catch (Exception e) {
+                    logger.error("connection close failed, connection is " + conn, e);
+                }
+            }
+
+            this.closeAllConnections();
+            this.closed = true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void cancel() throws SQLException {
+
+        lock.lock();
+
+        try {
+            for (IConnection conn : this.connections) {
+                try {
+                    conn.cancleQuery();
+                } catch (Exception e) {
+                    logger.error("connection close failed, connection is " + conn, e);
+                }
+            }
+
+            this.tryClose(null);
+
+            this.closed = true;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void checkClosed() {
+        if (!this.closed) {
+            return;
+        }
+
+        throw new ExecutorException("connection holder is closed, cannot do any operations");
+    }
+
+    /**
+     * 查询cancle掉之后，下次新的sql还能执行
+     */
+    public void restart() {
+        this.closed = false;
+
     }
 
 }

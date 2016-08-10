@@ -3,7 +3,7 @@ package com.taobao.tddl.rule;
 import java.util.List;
 
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
-import com.taobao.tddl.rule.exceptions.RouteCompareDiffException;
+import com.taobao.tddl.rule.exception.RouteCompareDiffException;
 import com.taobao.tddl.rule.model.MatcherResult;
 import com.taobao.tddl.rule.model.sqljep.ComparativeMapChoicer;
 

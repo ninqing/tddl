@@ -1,10 +1,10 @@
 package com.taobao.tddl.executor.function.scalar.control;
 
+import java.util.List;
+
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * If expr1 is TRUE (expr1 <> 0 and expr1 <> NULL) then IF() returns expr2;
@@ -44,14 +44,19 @@ public class If extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(1) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(1)).getDataType();
+        DataType lastType = null;
+        List args = function.getArgs();
+        // 遍历所有的then字段的类型
+        for (int i = 1; i < args.size(); i++) {
+            DataType argType = getArgType(args.get(i));
+            if (lastType == null) {
+                lastType = argType;
+            } else if (lastType != argType) {
+                lastType = DataType.StringType;
+            }
         }
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(1));
-        }
-        return type;
+
+        return lastType;
     }
 
     @Override

@@ -8,9 +8,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Returns the number X, truncated to D decimal places. If D is 0, the result
@@ -40,7 +37,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Truncate extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
         if (ExecUtils.isNull(args[0])) {
             return null;
@@ -68,15 +65,7 @@ public class Truncate extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

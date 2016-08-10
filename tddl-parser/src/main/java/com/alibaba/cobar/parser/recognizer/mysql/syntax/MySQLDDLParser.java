@@ -39,6 +39,7 @@ import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_TABLE;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_TO;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_UNSIGNED;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_USING;
+import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_WITH;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_ZEROFILL;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.LITERAL_NULL;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.LITERAL_NUM_PURE_DIGIT;
@@ -64,6 +65,7 @@ import com.alibaba.cobar.parser.ast.fragment.ddl.datatype.DataType;
 import com.alibaba.cobar.parser.ast.fragment.ddl.index.IndexColumnName;
 import com.alibaba.cobar.parser.ast.fragment.ddl.index.IndexDefinition;
 import com.alibaba.cobar.parser.ast.fragment.ddl.index.IndexOption;
+import com.alibaba.cobar.parser.ast.stmt.ddl.CreateSequence;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLAlterTableStatement;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLCreateIndexStatement;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLCreateTableStatement;
@@ -98,11 +100,11 @@ public class MySQLDDLParser extends MySQLParser {
         /** MySQL 5.1 legacy syntax */
         CHARSET,
         /** EXTENSION syntax */
-        POLICY
+        POLICY, SEQUENCE
     }
 
     private static final Map<String, SpecialIdentifier> specialIdentifiers = new HashMap<String, SpecialIdentifier>(1,
-                                                                                                                    1);
+                                                                               1);
     static {
         specialIdentifiers.put("TRUNCATE", SpecialIdentifier.TRUNCATE);
         specialIdentifiers.put("TEMPORARY", SpecialIdentifier.TEMPORARY);
@@ -142,6 +144,7 @@ public class MySQLDDLParser extends MySQLParser {
         specialIdentifiers.put("IMPORT", SpecialIdentifier.IMPORT);
         specialIdentifiers.put("CHARSET", SpecialIdentifier.CHARSET);
         specialIdentifiers.put("POLICY", SpecialIdentifier.POLICY);
+        specialIdentifiers.put("SEQUENCE", SpecialIdentifier.SEQUENCE);
     }
 
     public DDLTruncateStatement truncate() throws SQLSyntaxErrorException {
@@ -217,6 +220,41 @@ public class MySQLDDLParser extends MySQLParser {
                                     }
                                     match(PUNC_RIGHT_PAREN);
                                     return policy;
+
+                                case SEQUENCE:
+                                    lexer.nextToken();
+                                    Identifier name = identifier();
+
+                                    Number batch = null;
+                                    Number increment = null;
+                                    Number start = null;
+
+                                    switch (lexer.token()) {
+                                        case LITERAL_NUM_PURE_DIGIT:
+                                            start = lexer.integerValue();
+                                            break;
+                                        case IDENTIFIER:
+                                            if ("START".equals(lexer.stringValueUppercase())) {
+                                                lexer.nextToken();
+                                                match(KW_WITH);
+                                                switch (lexer.token()) {
+                                                    case LITERAL_NUM_PURE_DIGIT:
+                                                        start = lexer.integerValue();
+                                                        break;
+                                                    case EOF:
+                                                        break;
+                                                    default:
+                                                        throw err("expect digit after start with");
+                                                }
+                                            }
+                                        case EOF:
+                                            break;
+                                        default:
+                                            throw err("expect digit after create sequence");
+                                    }
+
+                                    if (lexer.token() != EOF) lexer.nextToken();
+                                    return new CreateSequence(name, batch, increment, start);
                             }
                         }
                     default:
@@ -346,7 +384,8 @@ public class MySQLDDLParser extends MySQLParser {
             }
             main_switch: switch (lexer.token()) {
                 case KW_CONVERT:
-                    //            | CONVERT TO CHARACTER SET charset_name [COLLATE collation_name]
+                    // | CONVERT TO CHARACTER SET charset_name [COLLATE
+                    // collation_name]
                     lexer.nextToken();
                     match(KW_TO);
                     match(KW_CHARACTER);
@@ -360,7 +399,7 @@ public class MySQLDDLParser extends MySQLParser {
                     stmt.setConvertCharset(new Pair<Identifier, Identifier>(id, id2));
                     break main_switch;
                 case KW_RENAME:
-                    //            | RENAME [TO] new_tbl_name
+                    // | RENAME [TO] new_tbl_name
                     if (lexer.nextToken() == KW_TO) {
                         lexer.nextToken();
                     }
@@ -371,24 +410,24 @@ public class MySQLDDLParser extends MySQLParser {
                     drop_switch: switch (lexer.nextToken()) {
                         case KW_INDEX:
                         case KW_KEY:
-                            //            | DROP {INDEX|KEY} index_name
+                            // | DROP {INDEX|KEY} index_name
                             lexer.nextToken();
                             id = identifier();
                             stmt.addAlterSpecification(new DDLAlterTableStatement.DropIndex(id));
                             break drop_switch;
                         case KW_PRIMARY:
-                            //            | DROP PRIMARY KEY
+                            // | DROP PRIMARY KEY
                             lexer.nextToken();
                             match(KW_KEY);
                             stmt.addAlterSpecification(new DDLAlterTableStatement.DropPrimaryKey());
                             break drop_switch;
                         case IDENTIFIER:
-                            //            | DROP [COLUMN] col_name
+                            // | DROP [COLUMN] col_name
                             id = identifier();
                             stmt.addAlterSpecification(new DDLAlterTableStatement.DropColumn(id));
                             break drop_switch;
                         case KW_COLUMN:
-                            //            | DROP [COLUMN] col_name
+                            // | DROP [COLUMN] col_name
                             lexer.nextToken();
                             id = identifier();
                             stmt.addAlterSpecification(new DDLAlterTableStatement.DropColumn(id));
@@ -398,7 +437,8 @@ public class MySQLDDLParser extends MySQLParser {
                     }
                     break main_switch;
                 case KW_CHANGE:
-                    //            | CHANGE [COLUMN] old_col_name new_col_name column_definition [FIRST|AFTER col_name]
+                    // | CHANGE [COLUMN] old_col_name new_col_name
+                    // column_definition [FIRST|AFTER col_name]
                     if (lexer.nextToken() == KW_COLUMN) {
                         lexer.nextToken();
                     }
@@ -421,7 +461,8 @@ public class MySQLDDLParser extends MySQLParser {
                     }
                     break main_switch;
                 case KW_ALTER:
-                    //            | ALTER [COLUMN] col_name {SET DEFAULT literal | DROP DEFAULT}
+                    // | ALTER [COLUMN] col_name {SET DEFAULT literal | DROP
+                    // DEFAULT}
                     if (lexer.nextToken() == KW_COLUMN) {
                         lexer.nextToken();
                     }
@@ -445,7 +486,8 @@ public class MySQLDDLParser extends MySQLParser {
                 case KW_ADD:
                     add_switch: switch (lexer.nextToken()) {
                         case IDENTIFIER:
-                            //            | ADD [COLUMN] col_name column_definition [FIRST | AFTER col_name ]
+                            // | ADD [COLUMN] col_name column_definition [FIRST
+                            // | AFTER col_name ]
                             id = identifier();
                             colDef = columnDefinition();
                             if (lexer.token() == IDENTIFIER) {
@@ -464,7 +506,7 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break add_switch;
                         case PUNC_LEFT_PAREN:
-                            //            | ADD [COLUMN] (col_name column_definition,...)
+                            // | ADD [COLUMN] (col_name column_definition,...)
                             lexer.nextToken();
                             for (int j = 0; lexer.token() != PUNC_RIGHT_PAREN; ++j) {
                                 DDLAlterTableStatement.AddColumns addColumns = new DDLAlterTableStatement.AddColumns();
@@ -480,7 +522,8 @@ public class MySQLDDLParser extends MySQLParser {
                             break add_switch;
                         case KW_COLUMN:
                             if (lexer.nextToken() == PUNC_LEFT_PAREN) {
-                                //            | ADD [COLUMN] (col_name column_definition,...)
+                                // | ADD [COLUMN] (col_name
+                                // column_definition,...)
                                 lexer.nextToken();
                                 for (int j = 0; lexer.token() != PUNC_RIGHT_PAREN; ++j) {
                                     DDLAlterTableStatement.AddColumns addColumns = new DDLAlterTableStatement.AddColumns();
@@ -494,14 +537,16 @@ public class MySQLDDLParser extends MySQLParser {
                                 }
                                 match(PUNC_RIGHT_PAREN);
                             } else {
-                                //            | ADD [COLUMN] col_name column_definition [FIRST | AFTER col_name ]
+                                // | ADD [COLUMN] col_name column_definition
+                                // [FIRST | AFTER col_name ]
                                 id = identifier();
                                 colDef = columnDefinition();
                                 if (lexer.token() == IDENTIFIER) {
                                     if ("FIRST".equals(lexer.stringValueUppercase())) {
                                         lexer.nextToken();
-                                        stmt.addAlterSpecification(new DDLAlterTableStatement.AddColumn(id, colDef,
-                                                                                                        null));
+                                        stmt.addAlterSpecification(new DDLAlterTableStatement.AddColumn(id,
+                                            colDef,
+                                            null));
                                     } else if ("AFTER".equals(lexer.stringValueUppercase())) {
                                         lexer.nextToken();
                                         id2 = identifier();
@@ -516,7 +561,8 @@ public class MySQLDDLParser extends MySQLParser {
                             break add_switch;
                         case KW_INDEX:
                         case KW_KEY:
-                            //            | ADD {INDEX|KEY} [index_name] [index_type] (index_col_name,...) [index_option] ...
+                            // | ADD {INDEX|KEY} [index_name] [index_type]
+                            // (index_col_name,...) [index_option] ...
                             id = null;
                             if (lexer.nextToken() == IDENTIFIER) {
                                 id = identifier();
@@ -525,14 +571,17 @@ public class MySQLDDLParser extends MySQLParser {
                             stmt.addAlterSpecification(new DDLAlterTableStatement.AddIndex(id, indexDef));
                             break add_switch;
                         case KW_PRIMARY:
-                            //            | ADD  PRIMARY KEY [index_type] (index_col_name,...) [index_option] ...
+                            // | ADD PRIMARY KEY [index_type]
+                            // (index_col_name,...) [index_option] ...
                             lexer.nextToken();
                             match(KW_KEY);
                             indexDef = indexDefinition();
                             stmt.addAlterSpecification(new DDLAlterTableStatement.AddPrimaryKey(indexDef));
                             break add_switch;
                         case KW_UNIQUE:
-                            //            | ADD  UNIQUE [INDEX|KEY] [index_name] [index_type] (index_col_name,...) [index_option] ...
+                            // | ADD UNIQUE [INDEX|KEY] [index_name]
+                            // [index_type] (index_col_name,...) [index_option]
+                            // ...
                             switch (lexer.nextToken()) {
                                 case KW_INDEX:
                                 case KW_KEY:
@@ -546,7 +595,8 @@ public class MySQLDDLParser extends MySQLParser {
                             stmt.addAlterSpecification(new DDLAlterTableStatement.AddUniqueKey(id, indexDef));
                             break add_switch;
                         case KW_FULLTEXT:
-                            //            | ADD FULLTEXT [INDEX|KEY] [index_name] (index_col_name,...) [index_option] ...
+                            // | ADD FULLTEXT [INDEX|KEY] [index_name]
+                            // (index_col_name,...) [index_option] ...
                             switch (lexer.nextToken()) {
                                 case KW_INDEX:
                                 case KW_KEY:
@@ -560,7 +610,8 @@ public class MySQLDDLParser extends MySQLParser {
                             stmt.addAlterSpecification(new DDLAlterTableStatement.AddFullTextIndex(id, indexDef));
                             break add_switch;
                         case KW_SPATIAL:
-                            //            | ADD SPATIAL [INDEX|KEY] [index_name] (index_col_name,...) [index_option] ...
+                            // | ADD SPATIAL [INDEX|KEY] [index_name]
+                            // (index_col_name,...) [index_option] ...
                             switch (lexer.nextToken()) {
                                 case KW_INDEX:
                                 case KW_KEY:
@@ -582,31 +633,32 @@ public class MySQLDDLParser extends MySQLParser {
                     if (si != null) {
                         switch (si) {
                             case IMPORT:
-                                //            | IMPORT TABLESPACE
+                                // | IMPORT TABLESPACE
                                 lexer.nextToken();
                                 matchIdentifier("TABLESPACE");
                                 stmt.setImportTableSpace(true);
                                 break main_switch;
                             case DISCARD:
-                                //            | DISCARD TABLESPACE
+                                // | DISCARD TABLESPACE
                                 lexer.nextToken();
                                 matchIdentifier("TABLESPACE");
                                 stmt.setDiscardTableSpace(true);
                                 break main_switch;
                             case ENABLE:
-                                //            | ENABLE KEYS
+                                // | ENABLE KEYS
                                 lexer.nextToken();
                                 match(KW_KEYS);
                                 stmt.setEnableKeys(true);
                                 break main_switch;
                             case DISABLE:
-                                //            | DISABLE KEYS
+                                // | DISABLE KEYS
                                 lexer.nextToken();
                                 match(KW_KEYS);
                                 stmt.setDisableKeys(true);
                                 break main_switch;
                             case MODIFY:
-                                //            | MODIFY [COLUMN] col_name column_definition [FIRST | AFTER col_name]
+                                // | MODIFY [COLUMN] col_name column_definition
+                                // [FIRST | AFTER col_name]
                                 if (lexer.nextToken() == KW_COLUMN) {
                                     lexer.nextToken();
                                 }
@@ -615,13 +667,15 @@ public class MySQLDDLParser extends MySQLParser {
                                 if (lexer.token() == IDENTIFIER) {
                                     if ("FIRST".equals(lexer.stringValueUppercase())) {
                                         lexer.nextToken();
-                                        stmt.addAlterSpecification(new DDLAlterTableStatement.ModifyColumn(id, colDef,
-                                                                                                           null));
+                                        stmt.addAlterSpecification(new DDLAlterTableStatement.ModifyColumn(id,
+                                            colDef,
+                                            null));
                                     } else if ("AFTER".equals(lexer.stringValueUppercase())) {
                                         lexer.nextToken();
                                         id2 = identifier();
-                                        stmt.addAlterSpecification(new DDLAlterTableStatement.ModifyColumn(id, colDef,
-                                                                                                           id2));
+                                        stmt.addAlterSpecification(new DDLAlterTableStatement.ModifyColumn(id,
+                                            colDef,
+                                            id2));
                                     } else {
                                         stmt.addAlterSpecification(new DDLAlterTableStatement.ModifyColumn(id, colDef));
                                     }
@@ -785,13 +839,18 @@ public class MySQLDDLParser extends MySQLParser {
         match(PUNC_RIGHT_PAREN);
     }
 
-    //      col_name column_definition
-    //    | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (index_col_name,...)    [index_option] ...
-    //    | {INDEX|KEY} [index_name] [index_type] (index_col_name,...)    [index_option] ...
-    //    | [CONSTRAINT [symbol]] UNIQUE [INDEX|KEY] [index_name] [index_type] (index_col_name,...) [index_option] ...
-    //    |           {FULLTEXT|SPATIAL} [INDEX|KEY] [index_name] (index_col_name,...)    [index_option] ...
-    //    | [CONSTRAINT [symbol]] FOREIGN KEY    [index_name] (index_col_name,...) reference_definition
-    //    | CHECK (expr)
+    // col_name column_definition
+    // | [CONSTRAINT [symbol]] PRIMARY KEY [index_type] (index_col_name,...)
+    // [index_option] ...
+    // | {INDEX|KEY} [index_name] [index_type] (index_col_name,...)
+    // [index_option] ...
+    // | [CONSTRAINT [symbol]] UNIQUE [INDEX|KEY] [index_name] [index_type]
+    // (index_col_name,...) [index_option] ...
+    // | {FULLTEXT|SPATIAL} [INDEX|KEY] [index_name] (index_col_name,...)
+    // [index_option] ...
+    // | [CONSTRAINT [symbol]] FOREIGN KEY [index_name] (index_col_name,...)
+    // reference_definition
+    // | CHECK (expr)
     private IndexDefinition indexDefinition() throws SQLSyntaxErrorException {
         IndexDefinition.IndexType indexType = null;
         List<IndexColumnName> columns = new ArrayList<IndexColumnName>(1);
@@ -864,7 +923,7 @@ public class MySQLDDLParser extends MySQLParser {
     }
 
     private IndexColumnName indexColumnName() throws SQLSyntaxErrorException {
-        //        col_name [(length)] [ASC | DESC]
+        // col_name [(length)] [ASC | DESC]
         Identifier colName = identifier();
         Expression len = null;
         if (lexer.token() == PUNC_LEFT_PAREN) {
@@ -884,14 +943,14 @@ public class MySQLDDLParser extends MySQLParser {
         }
     }
 
-    //    data_type:
-    //            | DATE
-    //            | TIME
-    //            | TIMESTAMP
-    //            | DATETIME
-    //            | YEAR
+    // data_type:
+    // | DATE
+    // | TIME
+    // | TIMESTAMP
+    // | DATETIME
+    // | YEAR
 
-    //            | spatial_type
+    // | spatial_type
     private DataType dataType() throws SQLSyntaxErrorException {
         DataType.DataTypeName typeName = null;
         boolean unsigned = false;
@@ -905,7 +964,7 @@ public class MySQLDDLParser extends MySQLParser {
         List<Expression> collectionVals = null;
         typeName: switch (lexer.token()) {
             case KW_TINYINT:
-                //            | TINYINT[(length)] [UNSIGNED] [ZEROFILL]
+                // | TINYINT[(length)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.TINYINT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -922,7 +981,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_SMALLINT:
-                //            | SMALLINT[(length)] [UNSIGNED] [ZEROFILL]
+                // | SMALLINT[(length)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.SMALLINT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -939,7 +998,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_MEDIUMINT:
-                //            | MEDIUMINT[(length)] [UNSIGNED] [ZEROFILL]
+                // | MEDIUMINT[(length)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.MEDIUMINT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -957,8 +1016,8 @@ public class MySQLDDLParser extends MySQLParser {
                 break typeName;
             case KW_INTEGER:
             case KW_INT:
-                //            | INT[(length)] [UNSIGNED] [ZEROFILL]
-                //            | INTEGER[(length)] [UNSIGNED] [ZEROFILL]
+                // | INT[(length)] [UNSIGNED] [ZEROFILL]
+                // | INTEGER[(length)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.INT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -975,7 +1034,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_BIGINT:
-                //            | BIGINT[(length)] [UNSIGNED] [ZEROFILL]
+                // | BIGINT[(length)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.BIGINT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -992,7 +1051,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_REAL:
-                //            | REAL[(length,decimals)] [UNSIGNED] [ZEROFILL]
+                // | REAL[(length,decimals)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.REAL;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1011,7 +1070,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_DOUBLE:
-                //            | DOUBLE[(length,decimals)] [UNSIGNED] [ZEROFILL]
+                // | DOUBLE[(length,decimals)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.DOUBLE;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1030,7 +1089,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_FLOAT:
-                //            | FLOAT[(length,decimals)] [UNSIGNED] [ZEROFILL]
+                // | FLOAT[(length,decimals)] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.FLOAT;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1051,8 +1110,8 @@ public class MySQLDDLParser extends MySQLParser {
             case KW_NUMERIC:
             case KW_DECIMAL:
             case KW_DEC:
-                //            | DECIMAL[(length[,decimals])] [UNSIGNED] [ZEROFILL]
-                //            | NUMERIC[(length[,decimals])] [UNSIGNED] [ZEROFILL]
+                // | DECIMAL[(length[,decimals])] [UNSIGNED] [ZEROFILL]
+                // | NUMERIC[(length[,decimals])] [UNSIGNED] [ZEROFILL]
                 typeName = DataType.DataTypeName.DECIMAL;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1073,7 +1132,8 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_CHAR:
-                //            | CHAR[(length)]  [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | CHAR[(length)] [CHARACTER SET charset_name] [COLLATE
+                // collation_name]
                 typeName = DataType.DataTypeName.CHAR;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1091,7 +1151,8 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_VARCHAR:
-                //            | VARCHAR(length) [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | VARCHAR(length) [CHARACTER SET charset_name] [COLLATE
+                // collation_name]
                 typeName = DataType.DataTypeName.VARCHAR;
                 lexer.nextToken();
                 match(PUNC_LEFT_PAREN);
@@ -1108,7 +1169,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_BINARY:
-                //            | BINARY[(length)]
+                // | BINARY[(length)]
                 typeName = DataType.DataTypeName.BINARY;
                 if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                     lexer.nextToken();
@@ -1117,7 +1178,7 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_VARBINARY:
-                //            | VARBINARY(length) 
+                // | VARBINARY(length)
                 typeName = DataType.DataTypeName.VARBINARY;
                 lexer.nextToken();
                 match(PUNC_LEFT_PAREN);
@@ -1141,7 +1202,8 @@ public class MySQLDDLParser extends MySQLParser {
                 lexer.nextToken();
                 break typeName;
             case KW_TINYTEXT:
-                //            | TINYTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | TINYTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE
+                // collation_name]
                 typeName = DataType.DataTypeName.TINYTEXT;
                 if (lexer.nextToken() == KW_BINARY) {
                     lexer.nextToken();
@@ -1158,7 +1220,8 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_MEDIUMTEXT:
-                //            | MEDIUMTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | MEDIUMTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE
+                // collation_name]
                 typeName = DataType.DataTypeName.MEDIUMTEXT;
                 if (lexer.nextToken() == KW_BINARY) {
                     lexer.nextToken();
@@ -1175,7 +1238,8 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_LONGTEXT:
-                //            | LONGTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | LONGTEXT [BINARY] [CHARACTER SET charset_name] [COLLATE
+                // collation_name]
                 typeName = DataType.DataTypeName.LONGTEXT;
                 if (lexer.nextToken() == KW_BINARY) {
                     lexer.nextToken();
@@ -1192,7 +1256,8 @@ public class MySQLDDLParser extends MySQLParser {
                 }
                 break typeName;
             case KW_SET:
-                //            | SET(value1,value2,value3,...) [CHARACTER SET charset_name] [COLLATE collation_name]
+                // | SET(value1,value2,value3,...) [CHARACTER SET charset_name]
+                // [COLLATE collation_name]
                 typeName = DataType.DataTypeName.SET;
                 lexer.nextToken();
                 match(PUNC_LEFT_PAREN);
@@ -1217,7 +1282,7 @@ public class MySQLDDLParser extends MySQLParser {
                 if (si != null) {
                     switch (si) {
                         case BIT:
-                            //              BIT[(length)]
+                            // BIT[(length)]
                             typeName = DataType.DataTypeName.BIT;
                             if (lexer.nextToken() == PUNC_LEFT_PAREN) {
                                 lexer.nextToken();
@@ -1246,7 +1311,8 @@ public class MySQLDDLParser extends MySQLParser {
                             lexer.nextToken();
                             break typeName;
                         case TEXT:
-                            //            | TEXT [BINARY] [CHARACTER SET charset_name] [COLLATE collation_name]
+                            // | TEXT [BINARY] [CHARACTER SET charset_name]
+                            // [COLLATE collation_name]
                             typeName = DataType.DataTypeName.TEXT;
                             if (lexer.nextToken() == KW_BINARY) {
                                 lexer.nextToken();
@@ -1263,7 +1329,8 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break typeName;
                         case ENUM:
-                            //            | ENUM(value1,value2,value3,...)  [CHARACTER SET charset_name] [COLLATE collation_name]
+                            // | ENUM(value1,value2,value3,...) [CHARACTER SET
+                            // charset_name] [COLLATE collation_name]
                             typeName = DataType.DataTypeName.ENUM;
                             lexer.nextToken();
                             match(PUNC_LEFT_PAREN);
@@ -1291,12 +1358,12 @@ public class MySQLDDLParser extends MySQLParser {
         return new DataType(typeName, unsigned, zerofill, binary, length, decimals, charSet, collation, collectionVals);
     }
 
-    //    column_definition:
-    //        data_type [NOT NULL | NULL] [DEFAULT default_value]
-    //        [AUTO_INCREMENT] [UNIQUE [KEY] | [PRIMARY] KEY]
-    //        [COMMENT 'string']
-    //        [COLUMN_FORMAT {FIXED|DYNAMIC|DEFAULT}]
-    //        [reference_definition]
+    // column_definition:
+    // data_type [NOT NULL | NULL] [DEFAULT default_value]
+    // [AUTO_INCREMENT] [UNIQUE [KEY] | [PRIMARY] KEY]
+    // [COMMENT 'string']
+    // [COLUMN_FORMAT {FIXED|DYNAMIC|DEFAULT}]
+    // [reference_definition]
     private ColumnDefinition columnDefinition() throws SQLSyntaxErrorException {
         DataType dataType = dataType();
         boolean notNull = false;
@@ -1408,9 +1475,9 @@ public class MySQLDDLParser extends MySQLParser {
                 options.setCollation(id);
                 break;
             case KW_DEFAULT:
-                //    | [DEFAULT] CHARSET [=] charset_name    { MySQL 5.1 legacy}
-                //    | [DEFAULT] CHARACTER SET [=] charset_name
-                //    | [DEFAULT] COLLATE [=] collation_name
+                // | [DEFAULT] CHARSET [=] charset_name { MySQL 5.1 legacy}
+                // | [DEFAULT] CHARACTER SET [=] charset_name
+                // | [DEFAULT] COLLATE [=] collation_name
                 switch (lexer.nextToken()) {
                     case KW_CHARACTER:
                         lexer.nextToken();
@@ -1448,7 +1515,7 @@ public class MySQLDDLParser extends MySQLParser {
                         return false;
                 }
             case KW_INDEX:
-                //    | INDEX DIRECTORY [=] 'absolute path to directory'
+                // | INDEX DIRECTORY [=] 'absolute path to directory'
                 lexer.nextToken();
                 if (lexer.token() == IDENTIFIER && "DIRECTORY".equals(lexer.stringValueUppercase())) {
                     if (lexer.nextToken() == OP_EQUALS) {
@@ -1460,7 +1527,7 @@ public class MySQLDDLParser extends MySQLParser {
                 lexer.addCacheToke(KW_INDEX);
                 return true;
             case KW_UNION:
-                //    | UNION [=] (tbl_name[,tbl_name]...)
+                // | UNION [=] (tbl_name[,tbl_name]...)
                 if (lexer.nextToken() == OP_EQUALS) {
                     lexer.nextToken();
                 }
@@ -1479,7 +1546,7 @@ public class MySQLDDLParser extends MySQLParser {
                 if (si != null) {
                     switch (si) {
                         case CHARSET:
-                            //      CHARSET [=] charset_name
+                            // CHARSET [=] charset_name
                             lexer.nextToken();
                             if (lexer.token() == OP_EQUALS) {
                                 lexer.nextToken();
@@ -1488,7 +1555,7 @@ public class MySQLDDLParser extends MySQLParser {
                             options.setCharSet(id);
                             break os;
                         case ENGINE:
-                            //      ENGINE [=] engine_name
+                            // ENGINE [=] engine_name
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1496,7 +1563,7 @@ public class MySQLDDLParser extends MySQLParser {
                             options.setEngine(id);
                             break os;
                         case AUTO_INCREMENT:
-                            //    | AUTO_INCREMENT [=] value
+                            // | AUTO_INCREMENT [=] value
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1504,7 +1571,7 @@ public class MySQLDDLParser extends MySQLParser {
                             options.setAutoIncrement(expr);
                             break os;
                         case AVG_ROW_LENGTH:
-                            //    | AVG_ROW_LENGTH [=] value
+                            // | AVG_ROW_LENGTH [=] value
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1512,7 +1579,7 @@ public class MySQLDDLParser extends MySQLParser {
                             options.setAvgRowLength(expr);
                             break os;
                         case CHECKSUM:
-                            //    | CHECKSUM [=] {0 | 1}
+                            // | CHECKSUM [=] {0 | 1}
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1538,7 +1605,7 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break os;
                         case DELAY_KEY_WRITE:
-                            //    | DELAY_KEY_WRITE [=] {0 | 1}
+                            // | DELAY_KEY_WRITE [=] {0 | 1}
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1564,21 +1631,21 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break os;
                         case COMMENT:
-                            //    | COMMENT [=] 'string'
+                            // | COMMENT [=] 'string'
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setComment((LiteralString) exprParser.expression());
                             break os;
                         case CONNECTION:
-                            //    | CONNECTION [=] 'connect_string'
+                            // | CONNECTION [=] 'connect_string'
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setConnection((LiteralString) exprParser.expression());
                             break os;
                         case DATA:
-                            //    | DATA DIRECTORY [=] 'absolute path to directory'
+                            // | DATA DIRECTORY [=] 'absolute path to directory'
                             lexer.nextToken();
                             matchIdentifier("DIRECTORY");
                             if (lexer.token() == OP_EQUALS) {
@@ -1587,7 +1654,7 @@ public class MySQLDDLParser extends MySQLParser {
                             options.setDataDir((LiteralString) exprParser.expression());
                             break os;
                         case INSERT_METHOD:
-                            //    | INSERT_METHOD [=] { NO | FIRST | LAST }
+                            // | INSERT_METHOD [=] { NO | FIRST | LAST }
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1604,28 +1671,28 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break os;
                         case KEY_BLOCK_SIZE:
-                            //    | KEY_BLOCK_SIZE [=] value
+                            // | KEY_BLOCK_SIZE [=] value
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setKeyBlockSize(exprParser.expression());
                             break os;
                         case MAX_ROWS:
-                            //    | MAX_ROWS [=] value
+                            // | MAX_ROWS [=] value
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setMaxRows(exprParser.expression());
                             break os;
                         case MIN_ROWS:
-                            //    | MIN_ROWS [=] value
+                            // | MIN_ROWS [=] value
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setMinRows(exprParser.expression());
                             break os;
                         case PACK_KEYS:
-                            //    | PACK_KEYS [=] {0 | 1 | DEFAULT}
+                            // | PACK_KEYS [=] {0 | 1 | DEFAULT}
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
@@ -1656,14 +1723,15 @@ public class MySQLDDLParser extends MySQLParser {
                             }
                             break os;
                         case PASSWORD:
-                            //    | PASSWORD [=] 'string'
+                            // | PASSWORD [=] 'string'
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }
                             options.setPassword((LiteralString) exprParser.expression());
                             break os;
                         case ROW_FORMAT:
-                            //    | ROW_FORMAT [=] {DEFAULT|DYNAMIC|FIXED|COMPRESSED|REDUNDANT|COMPACT}
+                            // | ROW_FORMAT [=]
+                            // {DEFAULT|DYNAMIC|FIXED|COMPRESSED|REDUNDANT|COMPACT}
                             if (lexer.nextToken() == OP_EQUALS) {
                                 lexer.nextToken();
                             }

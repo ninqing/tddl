@@ -65,6 +65,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.DALShowStatement;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowAuthors;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinLogEvent;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinaryLog;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowBroadcasts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCharaterSet;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCollation;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowColumns;
@@ -81,6 +82,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowGrants;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowIndex;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowMasterStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowOpenTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowPartitions;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPlugins;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPrivileges;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureCode;
@@ -88,11 +90,14 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcesslist;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfile;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfiles;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowRule;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowSequences;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveHosts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTableStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowTopology;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTriggers;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowVariables;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowWarnings;
@@ -118,7 +123,7 @@ public class MySQLDALParser extends MySQLParser {
         ENGINES, ERRORS, EVENT, EVENTS, FULL, FUNCTION, GLOBAL, GRANTS, HOSTS, INDEXES, INNODB, IPC, LOCAL, MASTER,
         MEMORY, MUTEX, NAMES, OPEN, PAGE, PERFORMANCE_SCHEMA, PLUGINS, PRIVILEGES, PROCESSLIST, PROFILE, PROFILES,
         REPEATABLE, SERIALIZABLE, SESSION, SLAVE, SOURCE, STATUS, STORAGE, SWAPS, TABLES, TRANSACTION, TRIGGERS,
-        UNCOMMITTED, VARIABLES, VIEW, WARNINGS
+        UNCOMMITTED, VARIABLES, VIEW, WARNINGS, SEQUENCES, TOPOLOGY, PARITIONS, BROADCASTS, RULE;
     }
 
     private static final Map<String, SpecialIdentifier> specialIdentifiers = new HashMap<String, SpecialIdentifier>();
@@ -175,6 +180,12 @@ public class MySQLDALParser extends MySQLParser {
         specialIdentifiers.put("REPEATABLE", SpecialIdentifier.REPEATABLE);
         specialIdentifiers.put("SERIALIZABLE", SpecialIdentifier.SERIALIZABLE);
         specialIdentifiers.put("NAMES", SpecialIdentifier.NAMES);
+        specialIdentifiers.put("SEQUENCES", SpecialIdentifier.SEQUENCES);
+        specialIdentifiers.put("TOPOLOGY", SpecialIdentifier.TOPOLOGY);
+        specialIdentifiers.put("PARTITIONS", SpecialIdentifier.PARITIONS);
+        specialIdentifiers.put("BROADCASTS", SpecialIdentifier.BROADCASTS);
+        specialIdentifiers.put("RULE", SpecialIdentifier.RULE);
+
     }
 
     public DescTableStatement desc() throws SQLSyntaxErrorException {
@@ -309,6 +320,48 @@ public class MySQLDALParser extends MySQLParser {
                     break;
                 }
                 switch (tempSi) {
+                    case TOPOLOGY:
+                        tempId = null;
+                        switch (lexer.nextToken()) {
+                            case KW_FROM:
+                                lexer.nextToken();
+                                tempId = identifier();
+                                break;
+                            default:
+                                throw err("unexpect token for SHOW TOPOLOGY");
+                        }
+
+                        return new ShowTopology(tempId);
+                    case BROADCASTS:
+                        lexer.nextToken();
+                        return new ShowBroadcasts();
+                    case SEQUENCES:
+                        lexer.nextToken();
+                        return new ShowSequences();
+
+                    case RULE:
+                        lexer.nextToken();
+
+                        switch (lexer.token()) {
+                            case KW_WHERE:
+                                tempExpr = where();
+                                return new ShowRule(tempExpr);
+                            default:
+                                return new ShowRule();
+                        }
+
+                    case PARITIONS:
+                        tempId = null;
+                        switch (lexer.nextToken()) {
+                            case KW_FROM:
+                                lexer.nextToken();
+                                tempId = identifier();
+                                break;
+                            default:
+                                throw err("unexpect token for SHOW PARTITIONS");
+                        }
+
+                        return new ShowPartitions(tempId);
                     case INDEXES:
                         return showIndex(ShowIndex.Type.INDEXES);
                     case GRANTS:
@@ -889,14 +942,12 @@ public class MySQLDALParser extends MySQLParser {
                     switch (si) {
                         case COMMITTED:
                             lexer.nextToken();
-                            return new MTSSetTransactionStatement(
-                                                                  scope,
-                                                                  MTSSetTransactionStatement.IsolationLevel.READ_COMMITTED);
+                            return new MTSSetTransactionStatement(scope,
+                                MTSSetTransactionStatement.IsolationLevel.READ_COMMITTED);
                         case UNCOMMITTED:
                             lexer.nextToken();
-                            return new MTSSetTransactionStatement(
-                                                                  scope,
-                                                                  MTSSetTransactionStatement.IsolationLevel.READ_UNCOMMITTED);
+                            return new MTSSetTransactionStatement(scope,
+                                MTSSetTransactionStatement.IsolationLevel.READ_UNCOMMITTED);
                     }
                 }
                 throw err("unknown isolation read level: " + lexer.stringValue());
@@ -907,14 +958,12 @@ public class MySQLDALParser extends MySQLParser {
                         case REPEATABLE:
                             lexer.nextToken();
                             match(KW_READ);
-                            return new MTSSetTransactionStatement(
-                                                                  scope,
-                                                                  MTSSetTransactionStatement.IsolationLevel.REPEATABLE_READ);
+                            return new MTSSetTransactionStatement(scope,
+                                MTSSetTransactionStatement.IsolationLevel.REPEATABLE_READ);
                         case SERIALIZABLE:
                             lexer.nextToken();
-                            return new MTSSetTransactionStatement(
-                                                                  scope,
-                                                                  MTSSetTransactionStatement.IsolationLevel.SERIALIZABLE);
+                            return new MTSSetTransactionStatement(scope,
+                                MTSSetTransactionStatement.IsolationLevel.SERIALIZABLE);
                     }
                 }
         }

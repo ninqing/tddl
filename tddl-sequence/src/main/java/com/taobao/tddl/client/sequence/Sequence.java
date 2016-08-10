@@ -2,7 +2,6 @@ package com.taobao.tddl.client.sequence;
 
 import com.taobao.tddl.client.sequence.exception.SequenceException;
 
-
 /**
  * 序列接口
  * 
@@ -17,4 +16,6 @@ public interface Sequence {
      * @throws SequenceException
      */
     long nextValue() throws SequenceException;
+
+    long nextValue(int size) throws SequenceException;
 }

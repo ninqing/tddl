@@ -17,7 +17,7 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
@@ -163,7 +163,7 @@ public class ExtensionLoader<S> {
             loadFile(service, SERVICES_DIRECTORY, loader, extensions);
             loadFile(service, TDDL_DIRECTORY, loader, extensions);
         } catch (IOException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
 
         if (extensions.isEmpty()) {

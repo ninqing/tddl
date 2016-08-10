@@ -112,7 +112,7 @@ public class SelectTest extends BaseMatrixTestCase {
             Arrays.asList(new Object[] { RANDOM_ID, name, school }));
         String sql = "select * from " + studentTableName + " where pk=" + RANDOM_ID;
         try {
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
             rc.next();
             Assert.fail();
         } catch (Exception ex) {
@@ -124,7 +124,7 @@ public class SelectTest extends BaseMatrixTestCase {
     public void selectWithNotExistTableTest() throws Exception {
         String sql = "select * from stu where pk=" + RANDOM_ID;
         try {
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
             rc.next();
             Assert.fail();
         } catch (Exception ex) {

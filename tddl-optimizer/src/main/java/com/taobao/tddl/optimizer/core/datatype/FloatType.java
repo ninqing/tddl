@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 public class FloatType extends CommonType<Float> {
 
@@ -123,12 +122,8 @@ public class FloatType extends CommonType<Float> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Float v = DataDecoder.decodeFloatObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Float v = DataDecoder.decodeFloatObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -156,4 +151,8 @@ public class FloatType extends CommonType<Float> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.FLOAT;
+    }
 }

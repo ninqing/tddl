@@ -2,11 +2,9 @@ package com.taobao.tddl.executor.handler;
 
 import java.util.List;
 
-import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -45,7 +43,7 @@ public class ReplaceHandler extends PutHandlerCommon {
                     Object v = put.getUpdateValues().get(i);
                     if (v instanceof IFunction) {
                         if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
-                            throw new TddlRuntimeException("replace 中不允许出现聚合函数");
+                            throw new ExecutorException("replace is not support aggregate function");
                         }
                         IFunction func = ((IFunction) v);
 
@@ -67,7 +65,7 @@ public class ReplaceHandler extends PutHandlerCommon {
         if (put.getPutType() == IPut.PUT_TYPE.INSERT) {
             CloneableRecord value1 = table.get(executionContext, key, meta, put.getTableName());
             if (value1 != null) {
-                throw new TddlException(ExceptionErrorCodeUtils.Duplicate_entry, "exception insert existed :" + key);
+                throw new ExecutorException("Duplicate_entry :" + key);
             }
         }
         ITHLog iThLog = transaction.getHistoryLog();

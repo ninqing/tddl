@@ -7,7 +7,7 @@ import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 优化器执行接口

@@ -9,8 +9,6 @@ import java.util.Map.Entry;
 import java.util.NavigableMap;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.executor.codec.CodecFactory;
-import com.taobao.tddl.executor.codec.RecordCodec;
 import com.taobao.tddl.executor.common.DuplicateKVPair;
 import com.taobao.tddl.executor.common.KVPair;
 import com.taobao.tddl.executor.cursor.Cursor;
@@ -31,7 +29,6 @@ public class DemoCursor implements Cursor {
     private final NavigableMap<Object, CloneableRecord> ccmap;
     private boolean                                     asc                   = true;
     private Iterator<Entry<Object, CloneableRecord>>    currentCursorIterator = null;
-    private RecordCodec                                 keyCodec;
     private IndexMeta                                   indexMeta;
     private ICursorMeta                                 iCursorMeta;
     private boolean                                     duplicate             = false;
@@ -39,7 +36,6 @@ public class DemoCursor implements Cursor {
     private volatile boolean                            closed                = false;
 
     public DemoCursor(IndexMeta indexMeta, NavigableMap<Object, CloneableRecord> ccmap){
-        keyCodec = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH).getCodec(indexMeta.getKeyColumns());
         this.ccmap = ccmap;
         this.indexMeta = indexMeta;
         this.iCursorMeta = ExecUtils.convertToICursorMeta(this.indexMeta);
@@ -49,7 +45,6 @@ public class DemoCursor implements Cursor {
                 throw new IllegalStateException("只支持单值索引yet");
             }
 
-            this.keyStr = cmArray.get(0).getName().toUpperCase();
         } else {
             throw new IllegalStateException("key array is null");
         }
@@ -59,11 +54,6 @@ public class DemoCursor implements Cursor {
 	 * 
 	 */
     private IRowSet current = null;
-
-    /**
-     * 这个数据的map中，key的列名
-     */
-    private String  keyStr;
 
     @Override
     public boolean skipTo(CloneableRecord key) {
@@ -268,14 +258,17 @@ public class DemoCursor implements Cursor {
 
     @Override
     public List<ColumnMeta> getReturnColumns() {
-        // TODO Auto-generated method stub
-        return null;
+        List retColumns = new ArrayList();
+        retColumns.addAll(this.indexMeta.getKeyColumns());
+        retColumns.addAll(indexMeta.getValueColumns());
+
+        return retColumns;
+
     }
 
     @Override
     public boolean isDone() {
-        // TODO Auto-generated method stub
-        return false;
+        return true;
     }
 
 }

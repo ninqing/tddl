@@ -90,6 +90,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.DALSetStatement;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowAuthors;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinLogEvent;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinaryLog;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowBroadcasts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCharaterSet;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCollation;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowColumns;
@@ -106,6 +107,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowGrants;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowIndex;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowMasterStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowOpenTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowPartitions;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPlugins;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPrivileges;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureCode;
@@ -113,14 +115,18 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcesslist;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfile;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfiles;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowRule;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowSequences;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveHosts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTableStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowTopology;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTriggers;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowVariables;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowWarnings;
+import com.alibaba.cobar.parser.ast.stmt.ddl.CreateSequence;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLAlterTableStatement;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLAlterTableStatement.AlterSpecification;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLCreateIndexStatement;
@@ -133,6 +139,7 @@ import com.alibaba.cobar.parser.ast.stmt.ddl.DescTableStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLCallStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLDeleteStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLInsertStatement;
+import com.alibaba.cobar.parser.ast.stmt.dml.DMLLoadStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLReplaceStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectUnionStatement;
@@ -150,7 +157,7 @@ import com.alibaba.cobar.parser.util.Pair;
  */
 public class EmptySQLASTVisitor implements SQLASTVisitor {
 
-    @SuppressWarnings( { "rawtypes" })
+    @SuppressWarnings({ "rawtypes" })
     private void visitInternal(Object obj) {
         if (obj == null) return;
         if (obj instanceof ASTNode) {
@@ -792,6 +799,39 @@ public class EmptySQLASTVisitor implements SQLASTVisitor {
 
     @Override
     public void visit(ExtDDLDropPolicy node) {
+    }
+
+    @Override
+    public void visit(CreateSequence createSequence) {
+
+    }
+
+    @Override
+    public void visit(ShowSequences showSequences) {
+
+    }
+
+    @Override
+    public void visit(ShowTopology showTopology) {
+
+    }
+
+    @Override
+    public void visit(DMLLoadStatement dmlLoadStatement) {
+    }
+
+    @Override
+    public void visit(ShowPartitions showPartitions) {
+    }
+
+    @Override
+    public void visit(ShowBroadcasts showBroadcasts) {
+
+    }
+
+    @Override
+    public void visit(ShowRule showRule) {
+
     }
 
 }

@@ -1,14 +1,13 @@
 package com.taobao.tddl.executor.handler;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.KVPair;
 import com.taobao.tddl.executor.common.TransactionConfig;
 import com.taobao.tddl.executor.cursor.IAffectRowCursor;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.repo.RepositoryConfig;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -28,8 +27,6 @@ import com.taobao.tddl.optimizer.core.plan.IPut;
  */
 public abstract class PutHandlerCommon extends HandlerCommon {
 
-    private static final Logger logger = LoggerFactory.getLogger(PutHandlerCommon.class);
-
     public PutHandlerCommon(){
         super();
     }
@@ -38,35 +35,28 @@ public abstract class PutHandlerCommon extends HandlerCommon {
     public ISchematicCursor handle(IDataNodeExecutor executor, ExecutionContext executionContext) throws TddlException {
 
         if (executionContext.getParams() != null && executionContext.getParams().isBatch()) {
-            throw new TddlRuntimeException("batch is not supported for :"
-                                           + executionContext.getCurrentRepository().getClass());
+            throw new ExecutorException("batch is not supported for :"
+                                        + executionContext.getCurrentRepository().getClass());
         }
 
         long time = System.currentTimeMillis();
         IPut put = (IPut) executor;
         TableAndIndex ti = new TableAndIndex();
-
         buildTableAndMeta(put, ti, executionContext);
 
         int affect_rows = 0;
         ITransaction transaction = executionContext.getTransaction();
-
         ITable table = ti.table;
-
         IndexMeta meta = ti.index;
 
-        boolean autoCommit = false;
         try {
             if (transaction == null) {// 客户端没有用事务，这里手动加上。
-
                 throw new IllegalAccessError("txn is null");
-
             }
             affect_rows = executePut(executionContext, put, table, meta);
         } catch (Exception e) {
             time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Fail, time);
-
-            throw new TddlException(e);
+            throw new TddlNestableRuntimeException(e);
         }
 
         // 这里返回key->value的方式的东西，类似Key=affectRow val=1 这样的软编码

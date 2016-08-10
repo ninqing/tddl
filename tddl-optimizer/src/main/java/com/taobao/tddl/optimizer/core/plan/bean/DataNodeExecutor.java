@@ -10,13 +10,15 @@ public abstract class DataNodeExecutor<RT extends IDataNodeExecutor> implements 
     protected Long    requestId;
     protected Long    subRequestId;
     protected String  targetNode;
-    protected boolean consistentRead = true;
+    protected boolean consistentRead   = true;
     protected Integer thread;
     protected Object  extra;
-    protected boolean useBIO         = false;
+    protected boolean useBIO           = false;
     protected String  sql;
-    protected boolean streaming      = false;
-    protected boolean lazyLoad       = false;
+    protected boolean streaming        = false;
+    protected boolean lazyLoad         = false;
+    protected boolean existSequenceVal = false; // 是否存在sequence
+    protected Long    lastSequenceVal  = null; // 上一次生成的sequenceVal
 
     @Override
     public RT executeOn(String targetNode) {
@@ -142,8 +144,29 @@ public abstract class DataNodeExecutor<RT extends IDataNodeExecutor> implements 
         return this.lazyLoad;
     }
 
+    @Override
     public void setLazyLoad(boolean lazyLoad) {
         this.lazyLoad = lazyLoad;
+    }
+
+    @Override
+    public boolean isExistSequenceVal() {
+        return this.existSequenceVal;
+    }
+
+    @Override
+    public void setExistSequenceVal(boolean existSequenceVal) {
+        this.existSequenceVal = existSequenceVal;
+    }
+
+    @Override
+    public Long getLastSequenceVal() {
+        return lastSequenceVal;
+    }
+
+    @Override
+    public void setLastSequenceVal(Long lastSequenceVal) {
+        this.lastSequenceVal = lastSequenceVal;
     }
 
 }

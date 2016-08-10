@@ -23,6 +23,7 @@ import java.util.logging.Logger;
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.plugin.PreSqlPlugin;
@@ -57,6 +58,7 @@ public class TDataSource extends AbstractLifecycle implements DataSource {
      */
     private ExecutorService                      globalExecutorService = null;
     private LinkedBlockingQueue<ExecutorService> executorServiceQueue  = null;
+    private String                               sequenceFile;
     private List<PreSqlPlugin>                   preSqlPlugins;
 
     @Override
@@ -78,6 +80,7 @@ public class TDataSource extends AbstractLifecycle implements DataSource {
         configHolder.setUnitName(unitName);
         configHolder.setTopologyFilePath(this.machineTopologyFile);
         configHolder.setSchemaFilePath(this.schemaFile);
+        configHolder.setSequenceFile(this.sequenceFile);
         configHolder.setRuleFilePath(this.ruleFilePath);
         configHolder.setConnectionProperties(this.connectionProperties);
         configHolder.setDynamicRule(dynamicRule);
@@ -101,7 +104,8 @@ public class TDataSource extends AbstractLifecycle implements DataSource {
                 ConnectionProperties.CONCURRENT_THREAD_SIZE);
 
             if (poolSizeObj == null) {
-                throw new TddlRuntimeException("如果线程池为整个datasource共用，请使用CONCURRENT_THREAD_SIZE指定线程池大小");
+                throw new TddlRuntimeException(ErrorCode.ERR_CONFIG,
+                    "如果线程池为整个datasource共用，请使用CONCURRENT_THREAD_SIZE指定线程池大小");
             }
 
             poolSize = Integer.valueOf(poolSizeObj.toString());
@@ -111,7 +115,7 @@ public class TDataSource extends AbstractLifecycle implements DataSource {
     }
 
     @Override
-    public Connection getConnection() throws SQLException {
+    public TConnection getConnection() throws SQLException {
         try {
             return new TConnection(this);
         } catch (Exception e) {
@@ -310,9 +314,15 @@ public class TDataSource extends AbstractLifecycle implements DataSource {
         this.subApps = subApps;
     }
 
-    public void setPreSqlPluginList(List<PreSqlPlugin> preSqlPlugins)
+    public String getSequenceFile() {
+        return sequenceFile;
+    }
 
-    {
+    public void setSequenceFile(String sequenceFile) {
+        this.sequenceFile = sequenceFile;
+    }
+
+    public void setPreSqlPluginList(List<PreSqlPlugin> preSqlPlugins) {
         this.preSqlPlugins = preSqlPlugins;
     }
 

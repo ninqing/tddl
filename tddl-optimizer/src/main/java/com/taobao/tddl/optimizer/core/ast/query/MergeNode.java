@@ -16,7 +16,6 @@ import com.taobao.tddl.optimizer.core.ast.build.QueryTreeNodeBuilder;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * @author Dreamond
@@ -61,7 +60,7 @@ public class MergeNode extends QueryTreeNode {
         return this;
     }
 
-    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) {
         subquerytoDataNodeExecutor(shareIndex);
         IMerge merge = ASTNodeFactory.getInstance().createMerge();
         merge.setLimitFrom(this.getLimitFrom());
@@ -85,6 +84,7 @@ public class MergeNode extends QueryTreeNode {
         merge.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
         merge.setSubqueryFilter(this.getSubqueryFilter());
         merge.setCorrelatedSubquery(this.isCorrelatedSubquery());
+        merge.setExistSequenceVal(this.isExistSequenceVal());
         return merge;
     }
 

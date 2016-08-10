@@ -4,10 +4,10 @@ import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.convertor.Convertor;
 import com.taobao.tddl.common.utils.convertor.ConvertorException;
 import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * @since 5.0.0
@@ -25,7 +25,7 @@ public abstract class AbstractDataType<DATA> implements DataType<DATA> {
             }
 
             if (type == null) {
-                throw new TddlRuntimeException("you should specify DataType<DATA> for DATA type, ie: DataType<String>");
+                throw new OptimizerException("you should specify DataType<DATA> for DATA type, ie: DataType<String>");
             }
             dataClass = (Class) getGenericClass((ParameterizedType) type, 0);
         }

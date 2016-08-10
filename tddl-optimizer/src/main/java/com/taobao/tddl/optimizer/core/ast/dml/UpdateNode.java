@@ -2,6 +2,7 @@ package com.taobao.tddl.optimizer.core.ast.dml;
 
 import java.util.List;
 
+import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.DMLNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
@@ -10,7 +11,6 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.dml.IUpdate;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 public class UpdateNode extends DMLNode<UpdateNode> {
 
@@ -37,10 +37,14 @@ public class UpdateNode extends DMLNode<UpdateNode> {
     }
 
     @Override
-    public IPut toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IPut toDataNodeExecutor(int shareIndex) {
         IUpdate update = ASTNodeFactory.getInstance().createUpdate();
         for (ISelectable updateColumn : this.getColumns()) {
-            if (this.getNode().getTableMeta().getPrimaryIndex().getPartitionColumns().contains(updateColumn)) {
+            List<String> partiionColumns = OptimizerContext.getContext()
+                .getRule()
+                .getSharedColumns(this.getNode().getTableMeta().getTableName());
+
+            if (partiionColumns.contains(updateColumn.getColumnName())) {
                 throw new IllegalArgumentException("column :" + updateColumn.getColumnName() + " 是分库键，不允许修改");
             }
 
@@ -72,6 +76,7 @@ public class UpdateNode extends DMLNode<UpdateNode> {
         update.setBatchIndexs(this.getBatchIndexs());
         update.setMultiValues(this.isMultiValues());
         update.setMultiValues(this.getMultiValues());
+        update.setExistSequenceVal(this.isExistSequenceVal());
         return update;
     }
 

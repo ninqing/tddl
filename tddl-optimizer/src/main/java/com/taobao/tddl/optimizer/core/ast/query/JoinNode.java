@@ -21,7 +21,6 @@ import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -202,7 +201,7 @@ public class JoinNode extends QueryTreeNode {
 
     }
 
-    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) {
         subquerytoDataNodeExecutor(shareIndex);
         IJoin join = ASTNodeFactory.getInstance().createJoin();
         // 不能传递shareIndex,代理对象会自处理
@@ -231,6 +230,7 @@ public class JoinNode extends QueryTreeNode {
         join.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
         join.setSubqueryFilter(this.getSubqueryFilter());
         join.setCorrelatedSubquery(this.isCorrelatedSubquery());
+        join.setExistSequenceVal(this.isExistSequenceVal());
         return join;
     }
 

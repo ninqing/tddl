@@ -4,7 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * <pre>
@@ -36,7 +35,7 @@ public class StrCmp extends ScalarFunction {
     }
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         for (Object arg : args) {
             if (ExecUtils.isNull(arg)) {
                 return null;
@@ -46,7 +45,6 @@ public class StrCmp extends ScalarFunction {
         String str2 = DataType.StringType.convertFrom(args[1]);
 
         return DataType.StringType.compare(str1, str2);
-
     }
 
 }

@@ -37,6 +37,7 @@ public class PutNode extends DMLNode<PutNode> {
         put.setDelayed(this.isDelayed());
         put.setMultiValues(this.isMultiValues());
         put.setMultiValues(this.getMultiValues());
+        put.setExistSequenceVal(this.isExistSequenceVal());
         return put;
     }
 

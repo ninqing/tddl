@@ -7,6 +7,7 @@ import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
+import com.taobao.tddl.optimizer.core.expression.ISequenceVal;
 import com.taobao.tddl.optimizer.core.expression.bean.BindVal;
 import com.taobao.tddl.optimizer.core.expression.bean.BooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.bean.Column;
@@ -14,6 +15,7 @@ import com.taobao.tddl.optimizer.core.expression.bean.Function;
 import com.taobao.tddl.optimizer.core.expression.bean.LogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
 import com.taobao.tddl.optimizer.core.expression.bean.OrderBy;
+import com.taobao.tddl.optimizer.core.expression.bean.SequenceVal;
 import com.taobao.tddl.optimizer.core.plan.bean.Delete;
 import com.taobao.tddl.optimizer.core.plan.bean.Insert;
 import com.taobao.tddl.optimizer.core.plan.bean.Join;
@@ -91,6 +93,10 @@ public class ASTNodeFactory {
 
     public IBindVal createBindValue(int bind) {
         return new BindVal(bind);
+    }
+
+    public ISequenceVal createSequenceValue(Object name) {
+        return new SequenceVal(name);
     }
 
     public IBooleanFilter createBooleanFilter() {

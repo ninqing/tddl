@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 /**
  * DbConfigManager holds the configuration parameters for an environment. In
@@ -374,12 +375,13 @@ public class ParamManager {
     public static int getIntVal(Map<String, String> props, IntConfigParam param) {
         String val = ParamManager.getVal(props, param);
         if (val == null) {
-            throw new TddlRuntimeException("No value for " + param.getName());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "No value for " + param.getName());
         }
         try {
             return Integer.parseInt(val);
         } catch (NumberFormatException e) {
-            throw new TddlRuntimeException("Bad value for " + param.getName() + ": " + e.getMessage());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "Bad value for " + param.getName() + ": "
+                                                                 + e.getMessage());
         }
     }
 
@@ -389,12 +391,13 @@ public class ParamManager {
     public static long getLongVal(Map<String, String> props, LongConfigParam param) {
         String val = ParamManager.getVal(props, param);
         if (val == null) {
-            throw new TddlRuntimeException("No value for " + param.getName());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "No value for " + param.getName());
         }
         try {
             return Long.parseLong(val);
         } catch (NumberFormatException e) {
-            throw new TddlRuntimeException("Bad value for " + param.getName() + ": " + e.getMessage());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "Bad value for " + param.getName() + ": "
+                                                                 + e.getMessage());
         }
     }
 
@@ -411,7 +414,7 @@ public class ParamManager {
     public static boolean getBooleanVal(Map<String, String> props, BooleanConfigParam param) {
         String val = ParamManager.getVal(props, param);
         if (val == null) {
-            throw new TddlRuntimeException("No value for " + param.getName());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "No value for " + param.getName());
         }
         return Boolean.parseBoolean(val);
     }
@@ -433,12 +436,13 @@ public class ParamManager {
         }
         String val = ParamManager.getVal(props, param);
         if (val == null) {
-            throw new TddlRuntimeException("No value for " + param.getName());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "No value for " + param.getName());
         }
         try {
             return unit.convert(PropUtil.parseDuration(val), TimeUnit.MILLISECONDS);
         } catch (IllegalArgumentException e) {
-            throw new TddlRuntimeException("Bad value for " + param.getName() + ": " + e.getMessage());
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "Bad value for " + param.getName() + ": "
+                                                                 + e.getMessage());
         }
     }
 

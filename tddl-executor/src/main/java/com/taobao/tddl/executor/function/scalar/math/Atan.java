@@ -4,7 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Returns the arc tangent of X, that is, the value whose tangent is X.
@@ -27,7 +26,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Atan extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
         if (ExecUtils.isNull(args[0])) {
             return null;

@@ -196,7 +196,7 @@ public class UpdateTest extends BaseMatrixTestCase {
 
         sql = "select * from " + normaltblTableName + " where pk = 1";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         String[] columnParam = { "gmt_create", "gmt_timestamp", "gmt_datetime" };
         assertOrder(rs, rc, columnParam);
     }

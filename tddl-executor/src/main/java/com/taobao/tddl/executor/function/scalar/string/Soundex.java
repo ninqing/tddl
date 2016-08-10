@@ -3,7 +3,6 @@ package com.taobao.tddl.executor.function.scalar.string;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * 不支持！太奇葩！
@@ -24,7 +23,7 @@ public class Soundex extends ScalarFunction {
     }
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         throw new UnsupportedOperationException("如果没法下推，soundex不支持");
 
     }

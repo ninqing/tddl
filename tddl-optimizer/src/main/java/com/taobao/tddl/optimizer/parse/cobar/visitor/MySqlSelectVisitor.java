@@ -19,9 +19,11 @@ import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectUnionStatement;
 import com.alibaba.cobar.parser.util.Pair;
 import com.alibaba.cobar.parser.visitor.EmptySQLASTVisitor;
 import com.taobao.tddl.common.exception.NotSupportException;
+import com.taobao.tddl.optimizer.config.table.SchemaManager;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
+import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
@@ -35,9 +37,14 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
 
     private QueryTreeNode parent;
     private QueryTreeNode tableNode;
+    private boolean       dual;
 
     public MySqlSelectVisitor(){
 
+    }
+
+    public MySqlSelectVisitor(boolean dual){
+        this.dual = dual;
     }
 
     public MySqlSelectVisitor(QueryTreeNode parent){
@@ -57,6 +64,8 @@ public class MySqlSelectVisitor extends EmptySQLASTVisitor {
         TableReferences tables = node.getTables();
         if (tables != null) {
             handleFrom(tables);
+        } else if (dual) {
+            this.tableNode = new TableNode(SchemaManager.DUAL);
         }
 
         List<Pair<Expression, String>> items = node.getSelectExprList();

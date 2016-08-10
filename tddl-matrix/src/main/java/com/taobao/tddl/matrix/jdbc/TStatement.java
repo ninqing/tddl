@@ -1,37 +1,37 @@
 package com.taobao.tddl.matrix.jdbc;
 
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.jdbc.IStatement;
 import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.executor.common.ExecutionContext;
-import com.taobao.tddl.matrix.jdbc.utils.PreParser;
-
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.matrix.jdbc.utils.PreParser;
 
 /**
  * @author mengshi.sunmengshi 2013-11-22 下午3:26:28
  * @since 5.0.0
  */
-public class TStatement implements Statement {
+public class TStatement implements IStatement {
 
-    private static final Logger   log                  = LoggerFactory.getLogger(TStatement.class);
+    private static final Logger   log                    = LoggerFactory.getLogger(TStatement.class);
 
     protected String              sql;
     protected TDataSource         ds;
     protected TConnection         conn;
 
-    protected ExecutionContext    executionContext     = null;
+    protected ExecutionContext    executionContext       = null;
     /**
      * 更新计数，如果执行了多次，那么这个值只会返回最后一次执行的结果。 如果是一个query，那么返回的数据应该是-1
      */
@@ -42,7 +42,7 @@ public class TStatement implements Statement {
      */
     protected ResultSet           currentResultSet;
 
-    protected Map<String, Object> extraCmd             = new HashMap<String, Object>(4);
+    protected Map<String, Object> extraCmd               = new HashMap<String, Object>(4);
 
     /**
      * 当前statment 是否是关闭的
@@ -59,11 +59,13 @@ public class TStatement implements Statement {
 
     protected List<String>        batchedArgs;
 
-    protected int                 resultSetType        = -1;
+    protected int                 resultSetType          = -1;
 
-    protected int                 resultSetConcurrency = -1;
+    protected int                 resultSetConcurrency   = -1;
 
-    protected int                 resultSetHoldability = -1;
+    protected int                 resultSetHoldability   = -1;
+
+    private InputStream           localInFileInputStream = null;
 
     public TStatement(TDataSource ds, TConnection tConnection, ExecutionContext executionContext){
         this.ds = ds;
@@ -227,7 +229,7 @@ public class TStatement implements Statement {
                 conn.removeStatement(this);
             }
         } catch (Exception e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         } finally {
             currentResultSet = null;
         }
@@ -417,15 +419,13 @@ public class TStatement implements Statement {
         throw new UnsupportedOperationException("cancel");
     }
 
-	@Override
-	public void closeOnCompletion() throws SQLException {
-		// TODO Auto-generated method stub
-		
-	}
+    @Override
+    public void setLocalInfileInputStream(InputStream stream) {
+        this.executionContext.setLocalInfileInputStream(stream);
+    }
 
-	@Override
-	public boolean isCloseOnCompletion() throws SQLException {
-		// TODO Auto-generated method stub
-		return false;
-	}
+    @Override
+    public InputStream getLocalInfileInputStream() {
+        return this.executionContext.getLocalInfileInputStream();
+    }
 }

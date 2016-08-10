@@ -122,4 +122,6 @@ public interface DataType<DATA> extends Comparator<Object> {
      * 数据计算器
      */
     Calculator getCalculator();
+
+    int getSqlType();
 }

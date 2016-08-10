@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.BaseRowSet;
 
 public class StringType extends AbstractDataType<String> {
@@ -145,20 +144,15 @@ public class StringType extends AbstractDataType<String> {
         if (value == null) {
             return 1;
         } else {
-
             return KeyEncoder.calculateEncodedStringLength(this.convertFrom(value));
         }
     }
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            String[] vs = new String[1];
-            int lenght = DataDecoder.decodeString(bytes, offset, vs);
-            return new DecodeResult(vs[0], lenght);
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        String[] vs = new String[1];
+        int lenght = DataDecoder.decodeString(bytes, offset, vs);
+        return new DecodeResult(vs[0], lenght);
     }
 
     @Override
@@ -214,4 +208,8 @@ public class StringType extends AbstractDataType<String> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.VARCHAR;
+    }
 }

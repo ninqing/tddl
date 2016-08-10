@@ -13,7 +13,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 import com.google.common.collect.Lists;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 
 /**
  * @author jianghang 2013-11-8 下午7:55:16
@@ -86,7 +86,7 @@ public class PackageUtils {
 
             return result;
         } catch (IOException e) {
-            throw new FunctionException("findClassesInPackage : " + packageName + " is failed. ", e);
+            throw new TddlNestableRuntimeException("findClassesInPackage : " + packageName + " is failed. ", e);
         }
 
     }

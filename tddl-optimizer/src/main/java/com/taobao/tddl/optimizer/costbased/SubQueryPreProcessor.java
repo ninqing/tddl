@@ -17,8 +17,7 @@ import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.UniqIdGen;
 
@@ -54,14 +53,14 @@ public class SubQueryPreProcessor {
         return qtn;
     }
 
-    public static IFunction findNextSubqueryOnFilter(QueryTreeNode qtn) throws QueryException {
+    public static IFunction findNextSubqueryOnFilter(QueryTreeNode qtn) {
         return findNextSubqueryOnFilter(qtn, false);
     }
 
     /**
      * 查找filter需要处理的下一个subquery (采取了深度优先遍历,链表中第一个为叶子节点)
      */
-    public static IFunction findNextSubqueryOnFilter(QueryTreeNode qtn, boolean existCorrelated) throws QueryException {
+    public static IFunction findNextSubqueryOnFilter(QueryTreeNode qtn, boolean existCorrelated) {
         if (qtn == null) {
             return null;
         }

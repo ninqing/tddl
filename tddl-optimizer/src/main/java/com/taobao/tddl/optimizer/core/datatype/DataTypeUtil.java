@@ -8,9 +8,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 public class DataTypeUtil {
 
@@ -69,7 +69,7 @@ public class DataTypeUtil {
             return ((ISelectable) v).getDataType();
         }
 
-        throw new TddlRuntimeException("type: " + v.getClass().getSimpleName() + " is not supported");
+        throw new OptimizerException("type: " + v.getClass().getSimpleName() + " is not supported");
     }
 
 }

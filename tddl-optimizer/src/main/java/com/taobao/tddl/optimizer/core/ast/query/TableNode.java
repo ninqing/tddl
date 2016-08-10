@@ -34,7 +34,6 @@ import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -82,7 +81,7 @@ public class TableNode extends QueryTreeNode {
     }
 
     @Override
-    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) {
         // 不能传递shareIndex,代理对象会自处理
         return this.convertToJoinIfNeed().toDataNodeExecutor();
     }
@@ -135,6 +134,7 @@ public class TableNode extends QueryTreeNode {
             keyIndexQuery.setLockMode(this.getLockMode());
             keyIndexQuery.setParent(this.getParent());
             keyIndexQuery.setCorrelatedSubquery(this.isCorrelatedSubquery());
+            keyIndexQuery.setSql(this.getSql());
             keyIndexQuery.build();
             return keyIndexQuery;
         } else { // 非主键索引

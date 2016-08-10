@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 public class ShortType extends CommonType<Short> {
 
@@ -122,12 +121,8 @@ public class ShortType extends CommonType<Short> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Short v = DataDecoder.decodeShortObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Short v = DataDecoder.decodeShortObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -155,4 +150,8 @@ public class ShortType extends CommonType<Short> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.SMALLINT;
+    }
 }

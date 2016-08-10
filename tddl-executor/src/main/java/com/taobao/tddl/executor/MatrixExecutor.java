@@ -11,8 +11,6 @@ import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.AtomicNumberCreator;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
@@ -31,7 +29,10 @@ import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
 
@@ -47,22 +48,55 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
      */
     public ResultCursor execute(String sql, ExecutionContext executionContext) throws TddlException {
         // client端核心流程
+
+        List columnsForResultSet = null;
         try {
             int explainIndex = explainIndex(sql);
             if (explainIndex > 0) {
                 sql = sql.substring(explainIndex);
             }
             IDataNodeExecutor qc = parseAndOptimize(sql, executionContext);
+
+            if (qc.isExistSequenceVal()) {
+                executionContext.getConnection().setLastInsertId(qc.getLastSequenceVal());
+            }
+
+            if (IDataNodeExecutor.USE_LAST_DATA_NODE.equals(qc.getDataNode())) {
+                qc.executeOn("DUAL_GROUP");
+            }
+
             if (explainIndex > 0) {
                 return createQueryPlanResultCursor(qc);
             }
 
             return execByExecPlanNode(qc, executionContext);
         } catch (EmptyResultFilterException e) {
-            return new ResultCursor.EmptyResultCursor(executionContext);
+            if (e.getAstNode() instanceof QueryTreeNode) {
+                columnsForResultSet = ((QueryTreeNode) e.getAstNode()).getColumnsSelected();
+
+                if (((QueryTreeNode) e.getAstNode()).getAlias() != null) {
+                    columnsForResultSet = ExecUtils.copySelectables(columnsForResultSet);
+                    for (Object s : columnsForResultSet) {
+                        ((ISelectable) s).setTableName(((QueryTreeNode) e.getAstNode()).getAlias());
+                    }
+                }
+            }
+            return new ResultCursor.EmptyResultCursor(executionContext, columnsForResultSet);
         } catch (Exception e) {
             if (ExceptionUtils.getCause(e) instanceof EmptyResultFilterException) {
-                return new ResultCursor.EmptyResultCursor(executionContext);
+                EmptyResultFilterException ex = (EmptyResultFilterException) ExceptionUtils.getCause(e);
+                if (ex.getAstNode() instanceof QueryTreeNode) {
+                    columnsForResultSet = ((QueryTreeNode) ex.getAstNode()).getColumnsSelected();
+
+                    if (((QueryTreeNode) ex.getAstNode()).getAlias() != null) {
+                        columnsForResultSet = ExecUtils.copySelectables(columnsForResultSet);
+                        for (Object s : columnsForResultSet) {
+                            ((ISelectable) s).setTableName(((QueryTreeNode) ex.getAstNode()).getAlias());
+                        }
+                    }
+                }
+
+                return new ResultCursor.EmptyResultCursor(executionContext, columnsForResultSet);
             } else {
                 throw new TddlException(e);
             }
@@ -111,6 +145,7 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
         }
 
         ASTNode ast = (ASTNode) astOrHint;
+
         boolean existSubquery = false;
         IFunction subQueryFunction = ast.getNextSubqueryOnFilter();
         while (true) {
@@ -142,6 +177,10 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
         IDataNodeExecutor queryPlan = op.optimizePlan(ast,
             executionContext.getParams(),
             executionContext.getExtraCmds());
+
+        if (queryPlan.getDataNode() == null) {
+            queryPlan.executeOn("DUAL_GROUP");
+        }
         return queryPlan;
 
     }
@@ -153,7 +192,7 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
             logger.warn("extraCmd:\n" + executionContext.getExtraCmds());
             logger.warn("ParameterContext:\n" + executionContext.getParams());
         }
-
+        List columnsForResultSet = null;
         // client端核心流程y
         try {
             long time = System.currentTimeMillis();
@@ -165,7 +204,7 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
             time = Monitor.monitorAndRenewTime(Monitor.KEY1, Monitor.KEY2_TDDL_EXECUTE, Monitor.Key3Success, time);
             if (qc instanceof IQueryTree) {
                 // 做下表名替换
-                List columnsForResultSet = ((IQueryTree) qc).getColumns();
+                columnsForResultSet = ((IQueryTree) qc).getColumns();
                 if (((IQueryTree) qc).getAlias() != null) {
                     columnsForResultSet = ExecUtils.copySelectables(columnsForResultSet);
                     for (Object s : columnsForResultSet) {
@@ -176,10 +215,10 @@ public class MatrixExecutor extends AbstractLifecycle implements IExecutor {
             }
             return rc;
         } catch (EmptyResultFilterException e) {
-            return new ResultCursor.EmptyResultCursor(executionContext);
+            return new ResultCursor.EmptyResultCursor(executionContext, columnsForResultSet);
         } catch (Exception e) {
             if (ExceptionUtils.getCause(e) instanceof EmptyResultFilterException) {
-                return new ResultCursor.EmptyResultCursor(executionContext);
+                return new ResultCursor.EmptyResultCursor(executionContext, columnsForResultSet);
             } else {
                 throw new TddlException(e);
             }

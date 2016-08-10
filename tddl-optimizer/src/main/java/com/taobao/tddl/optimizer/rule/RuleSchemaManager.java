@@ -11,15 +11,21 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Matrix;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.optimizer.config.table.ColumnMeta;
+import com.taobao.tddl.optimizer.config.table.IndexMeta;
+import com.taobao.tddl.optimizer.config.table.IndexType;
+import com.taobao.tddl.optimizer.config.table.Relationship;
 import com.taobao.tddl.optimizer.config.table.RepoSchemaManager;
 import com.taobao.tddl.optimizer.config.table.SchemaManager;
 import com.taobao.tddl.optimizer.config.table.StaticSchemaManager;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.rule.model.TargetDB;
 
 /**
@@ -101,7 +107,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
         }
     }
 
-    public TableMeta getTable0(String tableName) {
+    private TableMeta getTable0(String tableName) {
         TargetDB targetDB = rule.shardAny(tableName);
         TableMeta ts = null;
         if (targetDB.getDbIndex() == null) {
@@ -112,7 +118,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
             Group group = matrix.getGroup(targetDB.getDbIndex()); // 先找到group
 
             if (group == null) {
-                throw new TddlRuntimeException("not found groupName : " + targetDB.getDbIndex());
+                throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "not found groupName : " + targetDB.getDbIndex());
             }
             try {
                 ts = repos.get(group).getTable(tableName, targetDB.getTableNames().iterator().next());
@@ -122,7 +128,7 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
         }
 
         if (ts == null) {
-            throw new TddlRuntimeException(tableName + " is not found");
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, tableName + " is not found");
         }
 
         return ts;
@@ -130,6 +136,10 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
 
     @Override
     public TableMeta getTable(String tableName) {
+        // if (tableName.equals(DUAL)) {
+        // return buildDualTable();
+        // }
+
         TableMeta meta = null;
         if (local != null) {// 本地如果开启了，先找本地
             meta = local.getTable(tableName);
@@ -143,14 +153,14 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
             try {
                 meta = cache.get(tableName);
             } catch (Exception e) {
-                throw new TddlRuntimeException("table : " + tableName + " is not found", e);
+                throw new TddlNestableRuntimeException("table : " + tableName + " is not found", e);
             }
         } else {
             meta = this.getTable0(tableName);
         }
 
         if (meta == null) {
-            throw new IllegalArgumentException("table : " + tableName + " is not found");
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, tableName + " is not found");
         }
 
         return meta;
@@ -179,6 +189,18 @@ public class RuleSchemaManager extends AbstractLifecycle implements SchemaManage
 
         return metas;
 
+    }
+
+    protected TableMeta buildDualTable() {
+        IndexMeta index = new IndexMeta(SchemaManager.DUAL,
+            new ArrayList<ColumnMeta>(),
+            new ArrayList<ColumnMeta>(),
+            IndexType.NONE,
+            Relationship.NONE,
+            false,
+            true);
+
+        return new TableMeta(DUAL, new ArrayList<ColumnMeta>(), index, new ArrayList<IndexMeta>());
     }
 
     public void setRule(OptimizerRule rule) {

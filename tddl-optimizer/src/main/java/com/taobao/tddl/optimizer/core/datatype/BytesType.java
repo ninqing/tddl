@@ -5,7 +5,6 @@ import java.sql.SQLException;
 
 import com.google.common.primitives.Bytes;
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.BaseRowSet;
 
 /**
@@ -37,13 +36,9 @@ public class BytesType extends AbstractDataType<byte[]> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            byte[][] data = new byte[0][];
-            int length = DataDecoder.decode(bytes, offset, data);
-            return new DecodeResult(data[0], length);
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        byte[][] data = new byte[0][];
+        int length = DataDecoder.decode(bytes, offset, data);
+        return new DecodeResult(data[0], length);
     }
 
     @Override
@@ -145,6 +140,11 @@ public class BytesType extends AbstractDataType<byte[]> {
             }
             return 0;
         }
+    }
+
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.BINARY;
     }
 
 }

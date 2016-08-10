@@ -17,11 +17,11 @@ import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.executor.common.IRowsValueScaner;
 import com.taobao.tddl.executor.common.RowsValueScanerImp;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.config.table.ColumnMessage;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
 
 public class CursorMetaImp implements ICursorMeta {
 
@@ -49,7 +49,7 @@ public class CursorMetaImp implements ICursorMeta {
         }
 
         if (indexMap == null) {
-            throw new TddlRuleException("impossible, indexMap is null");
+            throw new ExecutorException("impossible, indexMap is null");
         }
     }
 
@@ -80,9 +80,8 @@ public class CursorMetaImp implements ICursorMeta {
             this.indexToColumnMeta.put(index, columnMeta);
         }
         this.indexRange = indexRange;
-
         if (indexMap == null) {
-            throw new TddlRuleException("impossible, indexMap is null");
+            throw new ExecutorException("impossible, indexMap is null");
         }
 
     }
@@ -112,9 +111,8 @@ public class CursorMetaImp implements ICursorMeta {
             this.indexToColumnMeta.put(index, cm);
         }
         this.indexRange = indexRange;
-
         if (indexMap == null) {
-            throw new TddlRuleException("impossible, indexMap is null");
+            throw new ExecutorException("impossible, indexMap is null");
         }
 
     }
@@ -134,9 +132,8 @@ public class CursorMetaImp implements ICursorMeta {
 
         }
         this.indexRange = indexRange;
-
         if (indexMap == null) {
-            throw new TddlRuleException("impossible, indexMap is null");
+            throw new ExecutorException("impossible, indexMap is null");
         }
 
     }
@@ -482,7 +479,7 @@ public class CursorMetaImp implements ICursorMeta {
             return this.indexToColumnMeta.get(index);
         }
 
-        throw new TddlRuleException("index is not in cursor meta, indexToColumnMeta is " + this.indexToColumnMeta
+        throw new ExecutorException("index is not in cursor meta, indexToColumnMeta is " + this.indexToColumnMeta
                                     + ", " + this);
 
     }

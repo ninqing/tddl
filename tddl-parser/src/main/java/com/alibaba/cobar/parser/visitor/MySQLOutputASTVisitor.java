@@ -107,6 +107,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.DALSetStatement;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowAuthors;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinLogEvent;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowBinaryLog;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowBroadcasts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCharaterSet;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowCollation;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowColumns;
@@ -123,6 +124,7 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowGrants;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowIndex;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowMasterStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowOpenTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowPartitions;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPlugins;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowPrivileges;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureCode;
@@ -130,14 +132,18 @@ import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcedureStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProcesslist;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfile;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowProfiles;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowRule;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowSequences;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveHosts;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowSlaveStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTableStatus;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTables;
+import com.alibaba.cobar.parser.ast.stmt.dal.ShowTopology;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowTriggers;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowVariables;
 import com.alibaba.cobar.parser.ast.stmt.dal.ShowWarnings;
+import com.alibaba.cobar.parser.ast.stmt.ddl.CreateSequence;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLAlterTableStatement;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLAlterTableStatement.AlterSpecification;
 import com.alibaba.cobar.parser.ast.stmt.ddl.DDLCreateIndexStatement;
@@ -150,6 +156,7 @@ import com.alibaba.cobar.parser.ast.stmt.ddl.DescTableStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLCallStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLDeleteStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLInsertStatement;
+import com.alibaba.cobar.parser.ast.stmt.dml.DMLLoadStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLReplaceStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectStatement;
 import com.alibaba.cobar.parser.ast.stmt.dml.DMLSelectUnionStatement;
@@ -1900,7 +1907,13 @@ public class MySQLOutputASTVisitor implements SQLASTVisitor {
             else appendable.append(", ");
             p.getKey().accept(this);
             appendable.append(" = ");
-            p.getValue().accept(this);
+
+            Expression value = p.getValue();
+
+            boolean paren = value.getPrecedence() <= Expression.PRECEDENCE_COMPARISION;
+            if (paren) appendable.append('(');
+            value.accept(this);
+            if (paren) appendable.append(')');
         }
         Expression where = node.getWhere();
         if (where != null) {
@@ -2005,6 +2018,182 @@ public class MySQLOutputASTVisitor implements SQLASTVisitor {
     public void visit(ExtDDLDropPolicy node) {
         appendable.append("DROP POLICY ");
         node.getPolicyName().accept(this);
+    }
+
+    @Override
+    public void visit(CreateSequence node) {
+        appendable.append("CREATE SEQUENCE ");
+        node.getName().accept(this);
+        appendable.append(" ");
+        appendable.append(node.getStart());
+    }
+
+    @Override
+    public void visit(ShowSequences showSequences) {
+        appendable.append("SHOW SEQUENCES");
+
+    }
+
+    @Override
+    public void visit(ShowTopology node) {
+        appendable.append("SHOW TOPOLOGY ");
+        node.getName().accept(this);
+
+    }
+
+    @Override
+    public void visit(DMLLoadStatement node) {
+        appendable.append("LOAD DATA ");
+
+        switch (node.getMode()) {
+            case CONCURRENT:
+                appendable.append("CONCURRENT ");
+                break;
+            case LOW:
+                appendable.append("LOW_PRIORITY ");
+                break;
+
+            case UNDEF:
+                break;
+            default:
+                throw new IllegalArgumentException("unknown mode for LOAD DATA: " + node.getMode());
+        }
+
+        if (node.isLocal()) {
+            appendable.append("LOCAL ");
+        }
+
+        appendable.append("INFILE ");
+
+        node.getFileName().accept(this);
+        appendable.append(" ");
+
+        switch (node.getDuplicateMode()) {
+            case IGNORE:
+                appendable.append("IGNORE ");
+                break;
+            case REPLACE:
+                appendable.append("REPLACE ");
+                break;
+            case UNDEF:
+                break;
+
+            default:
+                throw new IllegalArgumentException("unknown mode for LOAD DATA: " + node.getDuplicateMode());
+        }
+
+        appendable.append("INTO TABLE ");
+
+        node.getTable().accept(this);
+
+        if (node.getCharSet() != null) {
+            appendable.append("CHARACTER SET ");
+            appendable.append(node.getCharSet()).append(" ");
+        }
+
+        if (node.getFieldsEnclosedBy() != null || node.getFieldsEscapedBy() != null
+            || node.getFiledsTerminatedBy() != null) {
+            appendable.append("COLUMNS ");
+
+            if (node.getFiledsTerminatedBy() != null) {
+                appendable.append("TERMINATED BY ");
+                node.getFiledsTerminatedBy().accept(this);
+                appendable.append(" ");
+
+            }
+
+            if (node.getFieldsEnclosedBy() != null) {
+                if (node.isOptionally()) {
+                    appendable.append("OPTIONALLY ENCLOSED BY ");
+                } else {
+                    appendable.append("ENCLOSED BY ");
+
+                }
+
+                node.getFieldsEnclosedBy().accept(this);
+
+                appendable.append(" ");
+
+            }
+
+            if (node.getFieldsEscapedBy() != null) {
+                appendable.append("ESCAPED BY ");
+                node.getFieldsEscapedBy().accept(this);
+
+                appendable.append(" ");
+
+            }
+
+        }
+
+        if (node.getLinesStartingBy() != null || node.getLinesTerminatedBy() != null) {
+            appendable.append("LINES");
+
+            if (node.getLinesStartingBy() != null) {
+                appendable.append("STARTING BY ");
+                node.getLinesStartingBy().accept(this);
+                appendable.append(" ");
+
+            }
+
+            if (node.getLinesTerminatedBy() != null) {
+                appendable.append("TERMINATED BY ");
+                node.getLinesTerminatedBy().accept(this);
+                appendable.append(" ");
+
+            }
+
+        }
+
+        if (node.getIgnoreLines() != null) {
+            appendable.append("IGNORE ");
+            appendable.append(node.getIgnoreLines());
+            appendable.append(" LINES ");
+        }
+
+        List<Identifier> cols = node.getColumnNameList();
+        if (cols != null && !cols.isEmpty()) {
+            appendable.append('(');
+            printList(cols);
+            appendable.append(") ");
+        }
+
+        if (node.getValues() != null) {
+            appendable.append("SET ");
+            boolean isFst = true;
+            for (Pair<Identifier, Expression> p : node.getValues()) {
+                if (isFst) isFst = false;
+                else appendable.append(", ");
+                p.getKey().accept(this);
+                appendable.append(" = ");
+
+                Expression value = p.getValue();
+
+                boolean paren = value.getPrecedence() <= Expression.PRECEDENCE_COMPARISION;
+                if (paren) appendable.append('(');
+                value.accept(this);
+                if (paren) appendable.append(')');
+            }
+        }
+
+    }
+
+    @Override
+    public void visit(ShowPartitions node) {
+        appendable.append("SHOW PARTITIONS ");
+        node.getName().accept(this);
+    }
+
+    @Override
+    public void visit(ShowBroadcasts showBroadcasts) {
+        appendable.append("SHOW BROADCASTS");
+
+    }
+
+    @Override
+    public void visit(ShowRule showRule) {
+        appendable.append("SHOW RULE");
+
     }
 
 }

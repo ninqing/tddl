@@ -182,7 +182,7 @@ public class SelectWithOperatorTest extends BaseMatrixTestCase {
         param.add(end);
         {
             rs = mysqlQueryData(sql, param);
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             Assert.assertEquals(resultsSize(rs), resultsSize(rc));
         }
     }

@@ -8,9 +8,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Rounds the argument X to D decimal places. The rounding algorithm depends on
@@ -41,7 +38,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Round extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
         if (ExecUtils.isNull(args[0])) {
             return null;
@@ -69,15 +66,7 @@ public class Round extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

@@ -2,8 +2,6 @@ package com.taobao.tddl.optimizer.core.datatype;
 
 import java.math.BigDecimal;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-
 /**
  * {@link BigDecimal}类型
  * 
@@ -136,13 +134,9 @@ public class BigDecimalType extends CommonType<BigDecimal> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            BigDecimal[] vs = new BigDecimal[1];
-            int lenght = DataDecoder.decode(bytes, offset, vs);
-            return new DecodeResult(vs[0], lenght);
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        BigDecimal[] vs = new BigDecimal[1];
+        int lenght = DataDecoder.decode(bytes, offset, vs);
+        return new DecodeResult(vs[0], lenght);
     }
 
     @Override
@@ -170,4 +164,8 @@ public class BigDecimalType extends CommonType<BigDecimal> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.DECIMAL;
+    }
 }

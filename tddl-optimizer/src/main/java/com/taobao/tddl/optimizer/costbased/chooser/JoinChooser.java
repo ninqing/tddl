@@ -24,7 +24,6 @@ import com.taobao.tddl.optimizer.costbased.FilterSpliter;
 import com.taobao.tddl.optimizer.costbased.esitimater.Cost;
 import com.taobao.tddl.optimizer.costbased.esitimater.CostEsitimaterFactory;
 import com.taobao.tddl.optimizer.costbased.pusher.OrderByPusher;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 
 /**
@@ -78,7 +77,7 @@ public class JoinChooser {
      * 所以需要先对子查询进行优化，再对外层查询进行优化，回溯完成
      * </pre>
      */
-    private static void optimizeSubQuery(QueryTreeNode qtn, Map<String, Object> extraCmd) throws QueryException {
+    private static void optimizeSubQuery(QueryTreeNode qtn, Map<String, Object> extraCmd) {
         if (qtn instanceof QueryNode) {
             QueryNode qn = (QueryNode) qtn;
             if (qn.getChild() != null) {
@@ -181,8 +180,7 @@ public class JoinChooser {
     /**
      * 遍历每个节点 分解Query 为Query选择索引与Join策略 只遍历一棵子查询树
      */
-    private static QueryTreeNode chooseStrategyAndIndexAndSplitQuery(QueryTreeNode node, Map<String, Object> extraCmd)
-                                                                                                                      throws QueryException {
+    private static QueryTreeNode chooseStrategyAndIndexAndSplitQuery(QueryTreeNode node, Map<String, Object> extraCmd) {
         if (node instanceof JoinNode) {
             for (int i = 0; i < node.getChildren().size(); i++) {
                 QueryTreeNode child = (QueryTreeNode) node.getChildren().get(i);

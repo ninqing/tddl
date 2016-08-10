@@ -30,112 +30,127 @@ import com.taobao.tddl.client.sequence.SequenceRange;
 import com.taobao.tddl.client.sequence.exception.SequenceException;
 import com.taobao.tddl.client.sequence.util.RandomSequence;
 import com.taobao.tddl.common.GroupDataSourceRouteHelper;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.monitor.eagleeye.EagleeyeHelper;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author JIECHEN 2013-10-31 下午5:48:48
  * @since 5.0.0
  */
-public class GroupSequenceDao implements SequenceDao {
+public class GroupSequenceDao extends AbstractLifecycle implements SequenceDao {
 
-    private static final Logger       logger                           = LoggerFactory.getLogger(GroupSequenceDao.class);
+    private static final Logger                       logger                           = LoggerFactory.getLogger(GroupSequenceDao.class);
     // private static final int MIN_STEP = 1;
     // private static final int MAX_STEP = 100000;
 
-    private static final int          DEFAULT_INNER_STEP               = 1000;
+    private static final int                          DEFAULT_INNER_STEP               = 1000;
 
-    private static final int          DEFAULT_RETRY_TIMES              = 2;
+    private static final int                          DEFAULT_RETRY_TIMES              = 2;
 
-    private static final String       DEFAULT_TABLE_NAME               = "sequence";
-    private static final String       DEFAULT_TEMP_TABLE_NAME          = "sequence_temp";
+    private static final String                       DEFAULT_TABLE_NAME               = "sequence";
+    private static final String                       DEFAULT_TEMP_TABLE_NAME          = "sequence_temp";
 
-    private static final String       DEFAULT_NAME_COLUMN_NAME         = "name";
-    private static final String       DEFAULT_VALUE_COLUMN_NAME        = "value";
-    private static final String       DEFAULT_GMT_MODIFIED_COLUMN_NAME = "gmt_modified";
+    private static final String                       DEFAULT_NAME_COLUMN_NAME         = "name";
+    private static final String                       DEFAULT_VALUE_COLUMN_NAME        = "value";
+    private static final String                       DEFAULT_GMT_MODIFIED_COLUMN_NAME = "gmt_modified";
 
-    private static final int          DEFAULT_DSCOUNT                  = 2;                                              // 默认
-    private static final Boolean      DEFAULT_ADJUST                   = false;
+    private static final int                          DEFAULT_DSCOUNT                  = 2;                                                     // 默认
+    private static final Boolean                      DEFAULT_ADJUST                   = false;
 
-    protected static final long       DELTA                            = 100000000L;
+    protected static final long                       DELTA                            = 100000000L;
 
     /**
      * 应用名
      */
-    protected String                  appName;
+    protected String                                  appName;
 
     /**
      * group阵列
      */
-    protected List<String>            dbGroupKeys;
+    protected List<String>                            dbGroupKeys;
 
-    protected List<String>            oriDbGroupKeys;
+    protected List<String>                            oriDbGroupKeys;
 
     /**
      * 数据源
      */
-    protected Map<String, DataSource> dataSourceMap;
+    protected Map<String, DataSource>                 dataSourceMap;
 
     /**
      * 自适应开关
      */
-    protected boolean                 adjust                           = DEFAULT_ADJUST;
+    protected boolean                                 adjust                           = DEFAULT_ADJUST;
     /**
      * 重试次数
      */
-    protected int                     retryTimes                       = DEFAULT_RETRY_TIMES;
+    protected int                                     retryTimes                       = DEFAULT_RETRY_TIMES;
 
     /**
      * 数据源个数
      */
-    protected int                     dscount                          = DEFAULT_DSCOUNT;
+    protected int                                     dscount                          = DEFAULT_DSCOUNT;
 
     /**
      * 内步长
      */
-    protected int                     innerStep                        = DEFAULT_INNER_STEP;
+    protected int                                     innerStep                        = DEFAULT_INNER_STEP;
 
     /**
      * 外步长
      */
-    protected int                     outStep                          = DEFAULT_INNER_STEP;
+    protected int                                     outStep                          = DEFAULT_INNER_STEP;
 
     /**
      * 序列所在的表名
      */
-    protected String                  tableName                        = DEFAULT_TABLE_NAME;
+    protected String                                  tableName                        = DEFAULT_TABLE_NAME;
 
-    protected String                  switchTempTable                  = DEFAULT_TEMP_TABLE_NAME;
+    protected String                                  switchTempTable                  = DEFAULT_TEMP_TABLE_NAME;
 
-    private String                    TEST_TABLE_PREFIX                = "__test_";
+    private String                                    TEST_TABLE_PREFIX                = "__test_";
     // 全链路压测对应sequence表的影子表
-    protected String                  testTableName                    = TEST_TABLE_PREFIX + tableName;
+    protected String                                  testTableName                    = TEST_TABLE_PREFIX + tableName;
     // 全链路压测对应sequence_temp表的影子表
-    protected String                  testSwitchTempTable              = TEST_TABLE_PREFIX + switchTempTable;
+    protected String                                  testSwitchTempTable              = TEST_TABLE_PREFIX
+                                                                                         + switchTempTable;
 
     /**
      * 存储序列名称的列名
      */
-    protected String                  nameColumnName                   = DEFAULT_NAME_COLUMN_NAME;
+    protected String                                  nameColumnName                   = DEFAULT_NAME_COLUMN_NAME;
 
     /**
      * 存储序列值的列名
      */
-    protected String                  valueColumnName                  = DEFAULT_VALUE_COLUMN_NAME;
+    protected String                                  valueColumnName                  = DEFAULT_VALUE_COLUMN_NAME;
 
     /**
      * 存储序列最后更新时间的列名
      */
-    protected String                  gmtModifiedColumnName            = DEFAULT_GMT_MODIFIED_COLUMN_NAME;
+    protected String                                  gmtModifiedColumnName            = DEFAULT_GMT_MODIFIED_COLUMN_NAME;
+
+    /* ds index, 掠过次数 */
+    private ConcurrentHashMap<Integer, AtomicInteger> excludedKeyCount                 = new ConcurrentHashMap<Integer, AtomicInteger>(dscount);
+    // 最大略过次数后恢复
+    private int                                       maxSkipCount                     = 10;
+    // 使用慢速数据库保护
+    private boolean                                   useSlowProtect                   = false;
+    // 保护的时间
+    private int                                       protectMilliseconds              = 50;
+
+    private ExecutorService                           exec                             = Executors.newFixedThreadPool(1);
+
+    protected Lock                                    configLock                       = new ReentrantLock();
 
     /**
      * 初试化
-     * 
-     * @throws SequenceException
      */
-    public void init() throws SequenceException {
+    public void doInit() throws TddlException {
         // 如果应用名为空，直接抛出
         if (StringUtils.isEmpty(appName)) {
             SequenceException sequenceException = new SequenceException("appName is Null ");
@@ -168,6 +183,11 @@ public class GroupSequenceDao implements SequenceDao {
         outStep = innerStep * dscount;// 计算外步长
 
         outputInitResult();
+    }
+
+    @Override
+    protected void doDestroy() throws TddlException {
+        // do nothing
     }
 
     /**
@@ -293,8 +313,8 @@ public class GroupSequenceDao implements SequenceDao {
         } catch (SQLException e) { // 吃掉SQL异常，抛Sequence异常
             logger.error("由于SQLException,更新初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index) + "，sequence Name：" + name
                          + "更新过程：" + value + "-->" + newValue, e);
-            throw new SequenceException("由于SQLException,更新初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index)
-                                        + "，sequence Name：" + name + "更新过程：" + value + "-->" + newValue, e);
+            throw new SequenceException(e, "由于SQLException,更新初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index)
+                                           + "，sequence Name：" + name + "更新过程：" + value + "-->" + newValue);
         } finally {
             closeDbResource(null, stmt, conn);
         }
@@ -331,24 +351,12 @@ public class GroupSequenceDao implements SequenceDao {
         } catch (SQLException e) {
             logger.error("由于SQLException,插入初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index) + "，sequence Name：" + name
                          + "   value:" + newValue, e);
-            throw new SequenceException("由于SQLException,插入初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index)
-                                        + "，sequence Name：" + name + "   value:" + newValue, e);
+            throw new SequenceException(e, "由于SQLException,插入初值自适应失败！dbGroupIndex:" + dbGroupKeys.get(index)
+                                           + "，sequence Name：" + name + "   value:" + newValue);
         } finally {
             closeDbResource(rs, stmt, conn);
         }
     }
-
-    private ConcurrentHashMap<Integer/* ds index */, AtomicInteger/* 掠过次数 */> excludedKeyCount    = new ConcurrentHashMap<Integer, AtomicInteger>(dscount);
-    // 最大略过次数后恢复
-    private int                                                               maxSkipCount        = 10;
-    // 使用慢速数据库保护
-    private boolean                                                           useSlowProtect      = false;
-    // 保护的时间
-    private int                                                               protectMilliseconds = 50;
-
-    private ExecutorService                                                   exec                = Executors.newFixedThreadPool(1);
-
-    protected Lock                                                            configLock          = new ReentrantLock();
 
     /**
      * 检查groupKey对象是否已经关闭

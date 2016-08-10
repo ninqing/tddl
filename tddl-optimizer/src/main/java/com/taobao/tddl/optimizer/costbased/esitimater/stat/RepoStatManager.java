@@ -11,7 +11,7 @@ import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.extension.ExtensionLoader;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 基于repo的{@linkplain StatManager}的委托实现

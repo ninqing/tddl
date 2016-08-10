@@ -7,6 +7,7 @@ import java.util.Map;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.optimizer.OptimizerContext;
@@ -26,14 +27,14 @@ public abstract class AbstractSubQueryFunction extends ScalarFunction {
 
     protected IQueryTree getQueryPlan(Object[] args) {
         if (args == null || args.length != 1) {
-            throw new IllegalAccessError("impossible");
+            throw new ExecutorException("impossible");
         }
 
         if (args[0] instanceof IQueryTree) {
             return (IQueryTree) args[0];
+        } else {
+            throw new ExecutorException("sub query is not IQueryTree");
         }
-        throw new IllegalAccessError("sub query 函数的参数不是IQueryTree，不可能");
-
     }
 
     private IQueryTree getQueryPlan() {
@@ -53,11 +54,11 @@ public abstract class AbstractSubQueryFunction extends ScalarFunction {
         } else if (args.get(0) instanceof QueryTreeNode) {
             returnColumns = ((QueryTreeNode) args.get(0)).getColumnsSelected();
         } else {
-            throw new IllegalAccessError("sub query 函数的参数不是IQueryTree也不是QueryTreeNode，不可能");
+            throw new ExecutorException("subQuery is not IQueryTree or QueryTreeNode");
         }
 
         if (returnColumns.size() != 1) {
-            throw new TddlRuntimeException("only one column can be in sub query, sub query is: " + this.getQueryPlan());
+            throw new ExecutorException("only one column can be in sub query, sub query is: " + this.getQueryPlan());
         }
 
         ISelectable returnColumn = returnColumns.get(0);
@@ -98,9 +99,8 @@ public abstract class AbstractSubQueryFunction extends ScalarFunction {
         if (from_kv == null) return null;
 
         index = from_kv.getParentCursorMeta().getIndex(c.getTableName(), c.getColumnName(), c.getAlias());
-
         if (index == null) {
-            throw new TddlRuntimeException("子查询中涉及的外部列一定要在外部的select列表中,列:" + c + ", row:" + from_kv);
+            throw new ExecutorException("subquery correlated column:" + c + "is not found in row:" + from_kv);
         }
 
         Object v = from_kv.getObject(index);

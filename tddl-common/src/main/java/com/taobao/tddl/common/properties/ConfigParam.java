@@ -8,6 +8,7 @@
 package com.taobao.tddl.common.properties;
 
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 /**
  * A ConfigParam embodies the metadata about a JE configuration parameter: the
@@ -96,7 +97,8 @@ public class ConfigParam {
      */
     private void validateName(String name) throws IllegalArgumentException {
         if ((name == null) || (name.length() < 1)) {
-            throw new TddlRuntimeException("A configuration parameter name can't be null or 0 length");
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG,
+                "A configuration parameter name can't be null or 0 length");
         }
     }
 

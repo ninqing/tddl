@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 /**
  * {@linkplain Long}类型
@@ -125,12 +124,8 @@ public class LongType extends CommonType<Long> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Long v = DataDecoder.decodeLongObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Long v = DataDecoder.decodeLongObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -158,4 +153,8 @@ public class LongType extends CommonType<Long> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.BIGINT;
+    }
 }

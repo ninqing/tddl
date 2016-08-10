@@ -1,11 +1,11 @@
 package com.taobao.tddl.optimizer.core.expression.bean;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.PlanVisitor;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 绑定变量
@@ -14,8 +14,8 @@ import com.taobao.tddl.optimizer.core.expression.IBindVal;
  */
 public class BindVal implements IBindVal {
 
-    private final int index;
-    private Object    value;
+    protected int    index;
+    protected Object value;
 
     public BindVal(int index){
         this.index = index;
@@ -30,8 +30,8 @@ public class BindVal implements IBindVal {
     public Object assignment(Parameters parameterSettings) {
         ParameterContext paramContext = parameterSettings.getCurrentParameter().get(index);
         if (paramContext == null) {
-            throw new TddlRuntimeException("can't find param by index :" + index + " ." + "context : "
-                                           + parameterSettings);
+            throw new OptimizerException("can't find param by index :" + index + " ." + "context : "
+                                         + parameterSettings);
         }
 
         if (paramContext.getArgs()[1] == null) {

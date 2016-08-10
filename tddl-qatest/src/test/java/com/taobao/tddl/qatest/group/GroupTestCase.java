@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.taobao.diamond.mockserver.MockServer;
 import com.taobao.tddl.common.GroupDataSourceRouteHelper;
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.qatest.BaseAtomGroupTestCase;
 import com.taobao.tddl.qatest.util.LoadPropsUtil;
@@ -87,7 +88,11 @@ public class GroupTestCase extends BaseAtomGroupTestCase {
         tds = new TGroupDataSource();
         tds.setAppName(APPNAME);
         tds.setDbGroupKey(dbGroupKey);
-        tds.init();
+        try {
+            tds.init();
+        } catch (TddlException e) {
+            Assert.fail();
+        }
         return new JdbcTemplate(tds);
     }
 

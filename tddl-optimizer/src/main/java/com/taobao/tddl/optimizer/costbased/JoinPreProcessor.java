@@ -3,7 +3,6 @@ package com.taobao.tddl.optimizer.costbased;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * 预先处理join
@@ -18,7 +17,7 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
  */
 public class JoinPreProcessor {
 
-    public static QueryTreeNode optimize(QueryTreeNode qtn) throws QueryException {
+    public static QueryTreeNode optimize(QueryTreeNode qtn) {
         qtn = findAndChangeRightJoinToLeftJoin(qtn);
         return qtn;
     }

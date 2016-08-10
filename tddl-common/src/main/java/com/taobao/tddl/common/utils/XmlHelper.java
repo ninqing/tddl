@@ -18,7 +18,9 @@ import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 /**
  * xml处理的一些简单包装
@@ -37,22 +39,22 @@ public class XmlHelper {
 
                 @Override
                 public void warning(SAXParseException exception) throws SAXException {
-                    throw new TddlRuntimeException("Xml Parser Warning.", exception);
+                    throw new TddlNestableRuntimeException(exception);
                 }
 
                 @Override
                 public void fatalError(SAXParseException exception) throws SAXException {
-                    throw new TddlRuntimeException("Xml Parser Fetal Error.", exception);
+                    throw new TddlNestableRuntimeException(exception);
                 }
 
                 @Override
                 public void error(SAXParseException exception) throws SAXException {
-                    throw new TddlRuntimeException("Xml Parser Error.", exception);
+                    throw new TddlNestableRuntimeException(exception);
                 }
             });
             return builder.parse(xml);
         } catch (Exception e) {
-            throw new TddlRuntimeException("Xml Parser Error.", e);
+            throw new TddlRuntimeException(ErrorCode.ERR_OTHER, e, "Xml Parser Error.");
         }
     }
 
@@ -66,7 +68,7 @@ public class XmlHelper {
             xformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "no");
             xformer.transform(source, result);
         } catch (Exception e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
     }
 }

@@ -10,6 +10,7 @@ import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.expression.ISequenceVal;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
 import com.taobao.tddl.optimizer.costbased.SubQueryPreProcessor;
 import com.taobao.tddl.optimizer.utils.OptimizerToString;
@@ -198,10 +199,20 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         boolean isMatch = true;
         if (isMultiValues) {
             for (List<Object> vs : multiValues) {
+                for (Object v : vs) {
+                    if (v instanceof ISequenceVal) {
+                        existSequenceVal = true;
+                    }
+                }
                 isMatch &= (vs.size() == columns.size());
             }
         } else {
             isMatch &= (values.size() == columns.size());
+            for (Object v : values) {
+                if (v instanceof ISequenceVal) {
+                    existSequenceVal = true;
+                }
+            }
         }
 
         if (!isMatch) {
@@ -235,7 +246,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
             Comparable c = cs.get(i);
             Object v = vs.get(i);
             DataType type = null;
-            if (v == null || v instanceof IBindVal || v instanceof NullValue) {
+            if (v == null || v instanceof IBindVal || v instanceof ISequenceVal || v instanceof NullValue) {
                 continue;
             }
 
@@ -326,6 +337,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         to.table = this.table;
         to.multiValues = this.multiValues;
         to.isMultiValues = this.isMultiValues;
+        to.existSequenceVal = this.existSequenceVal;
 
         to.lowPriority = this.lowPriority;
         to.highPriority = this.highPriority;
@@ -345,7 +357,9 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
                     to.values.add(((ISelectable) value).copy());
                 } else if (value instanceof IBindVal) {
                     to.values.add(((IBindVal) value).copy());
-                } else to.values.add(value);
+                } else {
+                    to.values.add(value);
+                }
             }
         }
 
@@ -360,6 +374,7 @@ public abstract class DMLNode<RT extends DMLNode> extends ASTNode<RT> {
         }
 
         to.table = this.table.deepCopy();
+        to.existSequenceVal = this.existSequenceVal;
 
         to.lowPriority = this.lowPriority;
         to.highPriority = this.highPriority;

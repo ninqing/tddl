@@ -11,7 +11,7 @@ import javax.sql.DataSource;
 
 import com.taobao.tddl.group.config.GroupConfigManager;
 import com.taobao.tddl.group.config.GroupExtraConfig;
-import com.taobao.tddl.group.exception.NoMoreDataSourceException;
+import com.taobao.tddl.group.exception.GroupNotAvaliableException;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 import com.taobao.tddl.group.utils.WeightRandom;
 
@@ -132,7 +132,7 @@ public class EquityDbManager extends AbstractDBSelector {
             String name = selectAliveKey(wr, excludeKeys);
             if (name == null) {
                 // 为了扩展
-                exceptions.add(new NoMoreDataSourceException("tryTime:" + i + ", excludeKeys:" + excludeKeys
+                exceptions.add(new GroupNotAvaliableException("tryTime:" + i + ", excludeKeys:" + excludeKeys
                                                              + ", weightConfig:" + wr.getWeightConfig()));
                 break;
             }

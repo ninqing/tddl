@@ -12,7 +12,6 @@ import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.KVIndexStat;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.TableStat;
-import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 
 /**
@@ -20,7 +19,7 @@ import com.taobao.tddl.optimizer.utils.FilterUtils;
  */
 public class QueryNodeCostEstimater implements QueryTreeCostEstimater {
 
-    public Cost estimate(QueryTreeNode q) throws StatisticsUnavailableException {
+    public Cost estimate(QueryTreeNode q) {
         QueryTreeNode query = (QueryTreeNode) q;
         Cost cost = new Cost();
         long rowCount = 0;

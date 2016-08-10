@@ -14,6 +14,9 @@ import com.taobao.tddl.common.model.lifecycle.Lifecycle;
  */
 public interface SchemaManager extends Lifecycle {
 
+    // tddl系统表
+    public static final String DUAL = "DUAL";
+
     public TableMeta getTable(String tableName);
 
     public void putTable(String tableName, TableMeta tableMeta);

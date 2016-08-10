@@ -11,6 +11,21 @@ import com.taobao.tddl.executor.common.ExecutionContext;
  */
 public interface ITransaction {
 
+    public enum RW {
+        READ, WRITE
+    }
+
+    public enum DistributedTransaction {
+        /**
+         * 禁止任何事务中的跨库操作
+         */
+        DEFAULT,
+        /**
+         * 允许跨库的读
+         */
+        ALLOW_READ_CROSS_DB
+    }
+
     long getId();
 
     void commit() throws TddlException;

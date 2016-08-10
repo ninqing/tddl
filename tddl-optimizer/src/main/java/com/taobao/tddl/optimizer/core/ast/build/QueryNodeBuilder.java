@@ -49,6 +49,7 @@ public class QueryNodeBuilder extends QueryTreeNodeBuilder {
         }
 
         this.buildExistAggregate();
+        this.buildExistSequenceVal();
     }
 
     private void buildAlias() {

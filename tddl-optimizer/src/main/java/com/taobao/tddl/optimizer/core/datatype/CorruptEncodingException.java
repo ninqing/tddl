@@ -1,8 +1,8 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlException;
+import org.apache.commons.lang.exception.NestableRuntimeException;
 
-public class CorruptEncodingException extends TddlException {
+public class CorruptEncodingException extends NestableRuntimeException {
 
     private static final long serialVersionUID = -7798002309588878953L;
 

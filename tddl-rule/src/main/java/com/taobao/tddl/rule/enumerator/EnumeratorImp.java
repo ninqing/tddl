@@ -10,13 +10,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.rule.enumerator.handler.BigIntegerPartDiscontinousRangeEnumerator;
 import com.taobao.tddl.rule.enumerator.handler.CloseIntervalFieldsEnumeratorHandler;
 import com.taobao.tddl.rule.enumerator.handler.DatePartDiscontinousRangeEnumerator;
 import com.taobao.tddl.rule.enumerator.handler.DefaultEnumerator;
 import com.taobao.tddl.rule.enumerator.handler.IntegerPartDiscontinousRangeEnumerator;
 import com.taobao.tddl.rule.enumerator.handler.LongPartDiscontinousRangeEnumerator;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
+import com.taobao.tddl.rule.exception.TddlRuleException;
 import com.taobao.tddl.rule.model.AdvancedParameter;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 import com.taobao.tddl.rule.model.sqljep.ComparativeAND;
@@ -109,7 +110,7 @@ public class EnumeratorImp implements Enumerator {
                 compArg2.setValue(EnumeratorUtils.toPrimaryValue(compArg2.getValue()));
                 compResult = compArg1.getValue().compareTo(compArg2.getValue());
             } catch (NullPointerException e) {
-                throw new IllegalArgumentException("and条件中有一个值为null", e);
+                throw new IllegalArgumentException("ComparativeAnd args is null", e);
             }
 
             if (compResult == 0) {
@@ -136,7 +137,7 @@ public class EnumeratorImp implements Enumerator {
                     needMergeValueInCloseInterval);
             }
         } else {
-            throw new TddlRuleException("目前只支持一个and节点上有两个子节点");
+            throw new TddlRuleException("ComparativeAND only support two args");
         }
     }
 
@@ -160,7 +161,7 @@ public class EnumeratorImp implements Enumerator {
                 // 各种需要全取的情况
                 throw new EnumerationInterruptException(comp);
             default:
-                throw new TddlRuleException("not support yet");
+                throw new NotSupportException();
         }
     }
 
@@ -215,8 +216,6 @@ public class EnumeratorImp implements Enumerator {
                         // from为LessThanOrEqual，或者为Equals,为开区间，无交集
                         // do nothing.
                     }
-                } else {
-                    throw new TddlRuleException("should not be here");
                 }
             }
         }
@@ -283,7 +282,7 @@ public class EnumeratorImp implements Enumerator {
             return enumeratorMap.get(DEFAULT_ENUMERATOR);
         }
         if (comp == null) {
-            throw new IllegalArgumentException("不知道当前值是什么类型的，无法找到对应的枚举器" + comp);
+            throw new IllegalArgumentException("comp is null");
         }
 
         Comparable value = comp.getValue();
@@ -292,7 +291,8 @@ public class EnumeratorImp implements Enumerator {
             for (Comparative comparative : comparativeBaseList.getList()) {
                 return getCloseIntervalEnumeratorHandlerByComparative(comparative, needMergeValueInCloseInterval);
             }
-            throw new TddlRuleException("should not be here");
+
+            throw new NotSupportException();// 不可能到这一步
         } else if (value instanceof Comparative) {
             return getCloseIntervalEnumeratorHandlerByComparative(comp, needMergeValueInCloseInterval);
         } else {
@@ -310,7 +310,7 @@ public class EnumeratorImp implements Enumerator {
 
     private Comparative valid2varableInAndIsNotComparativeBaseList(Comparable<?> arg) {
         if (arg instanceof ComparativeBaseList) {
-            throw new TddlRuleException("在一组and条件中只支持两个范围的值共同决定分表，不支持3个");
+            throw new TddlRuleException("ComparativeAND only support two args");
         }
 
         if (arg instanceof Comparative) {

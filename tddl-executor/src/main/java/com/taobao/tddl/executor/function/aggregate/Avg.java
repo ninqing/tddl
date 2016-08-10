@@ -6,7 +6,6 @@ import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Avg函数处理比较特殊，会将AVG转化为SUM + COUNT，拿到所有库的数据后再计算AVG
@@ -19,7 +18,7 @@ public class Avg extends AggregateFunction {
     private Object total = null;
 
     @Override
-    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) {
         count++;
         Object o = args[0];
 
@@ -34,7 +33,7 @@ public class Avg extends AggregateFunction {
     }
 
     @Override
-    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) {
         if (args[0] == null || args[1] == null) {
             return;
         }

@@ -7,16 +7,21 @@ import java.util.Map;
 
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Group.GroupType;
 import com.taobao.tddl.common.model.Matrix;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.config.impl.holder.AbstractConfigDataHolder;
 import com.taobao.tddl.config.impl.holder.ConfigHolderFactory;
 import com.taobao.tddl.executor.TopologyExecutor;
 import com.taobao.tddl.executor.common.ExecutorContext;
+import com.taobao.tddl.executor.common.SequenceLoadFromDBManager;
+import com.taobao.tddl.executor.common.SequenceManager;
 import com.taobao.tddl.executor.common.TopologyHandler;
 import com.taobao.tddl.optimizer.Optimizer;
 import com.taobao.tddl.optimizer.OptimizerContext;
@@ -29,6 +34,7 @@ import com.taobao.tddl.optimizer.costbased.esitimater.stat.StatManager;
 import com.taobao.tddl.optimizer.rule.OptimizerRule;
 import com.taobao.tddl.optimizer.rule.RuleIndexManager;
 import com.taobao.tddl.optimizer.rule.RuleSchemaManager;
+import com.taobao.tddl.optimizer.sequence.ISequenceManager;
 import com.taobao.tddl.rule.TddlRule;
 
 /**
@@ -37,6 +43,8 @@ import com.taobao.tddl.rule.TddlRule;
  * @since 5.0.0
  */
 public class MatrixConfigHolder extends AbstractConfigDataHolder {
+
+    private final static Logger logger                   = LoggerFactory.getLogger(MatrixConfigHolder.class);
 
     private static final String GROUP_CONFIG_HOLDER_NAME = "com.taobao.tddl.group.config.GroupConfigHolder";
     private String              appName;
@@ -49,6 +57,7 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     private OptimizerRule       optimizerRule;
     private TopologyHandler     topologyHandler;
     private TopologyExecutor    topologyExecutor;
+    private ISequenceManager    seqManager               = null;
     private SchemaManager       schemaManager;
     private IndexManager        indexManger;
     private Optimizer           optimizer;
@@ -59,6 +68,7 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
     private Map<String, Object> connectionProperties;
     private final boolean       createGroupExecutor      = true;
     private List<App>           subApps;
+    private String              sequenceFile;
 
     @Override
     public void doInit() throws TddlException {
@@ -76,9 +86,11 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
         ruleInit();
         schemaInit();
         optimizerInit();
+        sequenceInit();
 
         executorContext.setTopologyHandler(topologyHandler);
         executorContext.setTopologyExecutor(topologyExecutor);
+        executorContext.setSeqManager(seqManager);
 
         oc.setIndexManager(this.indexManger);
         oc.setMatrix(topologyHandler.getMatrix());
@@ -99,6 +111,21 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
         } finally {
             ConfigHolderFactory.removeConfigHoder(appName);
         }
+    }
+
+    private void sequenceInit() throws TddlException {
+
+        SequenceLoadFromDBManager subManager = new SequenceLoadFromDBManager(appName, unitName, optimizerRule);
+        try {
+            subManager.init();
+        } catch (Exception ex) {
+            subManager = null;
+            logger.error("sub sequence manager init error", ex);
+        }
+        this.seqManager = new SequenceManager(appName, unitName, sequenceFile, subManager);
+
+        this.seqManager.init();
+
     }
 
     @Override
@@ -138,7 +165,7 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
                 String singleDbIndex = matrix.getGroups().get(0).getName();
                 optimizerRule = new OptimizerRule(null, singleDbIndex);
             } else {
-                throw new TddlException("非sharding模式group列表为空或则存在多个值,请配置为单group");
+                throw new TddlException(ErrorCode.ERR_CONFIG, "非sharding模式group列表为空或则存在多个值,请配置为单group");
             }
         }
 
@@ -163,6 +190,7 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
         IndexManager indexManager = new RuleIndexManager(ruleSchemaManager);
         indexManager.init();
         this.indexManger = indexManager;
+
     }
 
     public void optimizerInit() throws TddlException {
@@ -289,6 +317,14 @@ public class MatrixConfigHolder extends AbstractConfigDataHolder {
 
     public void setSubApps(List<App> subApps) {
         this.subApps = subApps;
+    }
+
+    public String getSequenceFile() {
+        return sequenceFile;
+    }
+
+    public void setSequenceFile(String sequenceFile) {
+        this.sequenceFile = sequenceFile;
     }
 
 }

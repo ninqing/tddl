@@ -4,7 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Returns the argument X, converted from degrees to radians. (Note that π
@@ -21,7 +20,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Radians extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
         if (ExecUtils.isNull(args[0])) {
             return null;

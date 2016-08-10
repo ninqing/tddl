@@ -4,20 +4,18 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Set;
 
-import javax.sql.DataSource;
-
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.jdbc.IConnection;
+import com.taobao.tddl.common.jdbc.IDataSource;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.AtomicNumberCreator;
 import com.taobao.tddl.executor.common.ConnectionHolder;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.spi.ITHLog;
 import com.taobao.tddl.executor.spi.ITransaction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * @author mengshi.sunmengshi 2013-12-6 上午11:31:29
@@ -50,7 +48,7 @@ public class My_Transaction implements ITransaction {
                 try {
                     conn.setAutoCommit(true);
                 } catch (SQLException e) {
-                    throw new TddlRuntimeException(e);
+                    throw new TddlNestableRuntimeException(e);
                 }
             }
         } else {
@@ -70,7 +68,7 @@ public class My_Transaction implements ITransaction {
      * true时，会创建事务链接，而如果sConsistent=false则会创建非事务链接
      * @return
      */
-    public Connection getConnection(String groupName, DataSource ds) throws SQLException {
+    public IConnection getConnection(String groupName, IDataSource ds, RW rw) throws SQLException {
         if (groupName == null) {
             throw new IllegalArgumentException("group name is null");
         }
@@ -78,7 +76,8 @@ public class My_Transaction implements ITransaction {
         if (autoCommit) {// 自动提交，不建立事务链接
             return this.executionContext.getConnectionHolder().getConnection(groupName, ds, false);
         }
-        Connection conn = null;
+
+        IConnection conn = null;
         if (transactionalNodeName != null) {// 已经有事务链接了
             if (transactionalNodeName.equalsIgnoreCase(groupName)
                 || IDataNodeExecutor.USE_LAST_DATA_NODE.equals(groupName)) {
@@ -90,7 +89,7 @@ public class My_Transaction implements ITransaction {
             conn.setAutoCommit(false);
         } else {// 没有事务建立，新建事务
             transactionalNodeName = groupName;
-            conn = getConnection(groupName, ds);
+            conn = getConnection(groupName, ds, rw);
 
         }
         return conn;
@@ -101,13 +100,13 @@ public class My_Transaction implements ITransaction {
         if (logger.isDebugEnabled()) {
             logger.debug("commit");
         }
-        Set<Connection> conns = executionContext.getConnectionHolder().getAllConnection();
+        Set<IConnection> conns = executionContext.getConnectionHolder().getAllConnection();
 
-        for (Connection conn : conns) {
+        for (IConnection conn : conns) {
             try {
                 conn.commit();
             } catch (SQLException e) {
-                throw new TddlException(ExceptionErrorCodeUtils.UNKNOWN_EXCEPTION, e);
+                throw new TddlNestableRuntimeException(e);
             }
         }
 
@@ -120,13 +119,13 @@ public class My_Transaction implements ITransaction {
         if (logger.isDebugEnabled()) {
             logger.debug("rollback");
         }
-        Set<Connection> conns = executionContext.getConnectionHolder().getAllConnection();
+        Set<IConnection> conns = executionContext.getConnectionHolder().getAllConnection();
 
-        for (Connection conn : conns) {
+        for (IConnection conn : conns) {
             try {
                 conn.rollback();
             } catch (SQLException e) {
-                throw new TddlException(ExceptionErrorCodeUtils.UNKNOWN_EXCEPTION, e);
+                throw new TddlNestableRuntimeException(e);
             }
         }
         beginTransaction();

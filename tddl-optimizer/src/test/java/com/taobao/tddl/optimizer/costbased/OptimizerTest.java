@@ -8,10 +8,14 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.taobao.tddl.common.jdbc.ParameterContext;
+import com.taobao.tddl.common.jdbc.ParameterMethod;
+import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
+import com.taobao.tddl.optimizer.core.ast.query.QueryNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
@@ -24,8 +28,7 @@ import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 /**
@@ -312,31 +315,64 @@ public class OptimizerTest extends BaseOptimizerTest {
         Assert.assertEquals(null, query.getLimitTo());
     }
 
-    // @Test
-    public void test_两表join_单库多表_单库单表会进行merge展开() {
+    @Test
+    public void test_两表join_单库多表_单表_生成JoinMergeJoin() {
         TableNode table = new TableNode("TABLE1");
         JoinNode join = table.join("TABLE8", "ID", "ID");
         join.query("TABLE1.ID IN (0,1)");
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
         Assert.assertTrue(qc instanceof IMerge);
-        Assert.assertEquals(QUERY_CONCURRENCY.CONCURRENT, ((IMerge) qc).getQueryConcurrency());// 串行
+        Assert.assertEquals(QUERY_CONCURRENCY.GROUP_CONCURRENT, ((IMerge) qc).getQueryConcurrency());// 串行
     }
 
     @Test
-    public void test_两表join_单库单表_单库多不会进行merge展开_右节点未决() {
+    public void test_两表join_单表_单库多表_生成JoinMergeJoin() {
         TableNode table = new TableNode("TABLE8");
         JoinNode join = table.join("TABLE1", "ID", "ID");
         join.query("TABLE1.ID IN (0,1)");
+        IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
+        Assert.assertTrue(qc instanceof IMerge);
+        Assert.assertEquals(QUERY_CONCURRENCY.GROUP_CONCURRENT, ((IMerge) qc).getQueryConcurrency());// 串行
+    }
+
+    @Test
+    public void test_两表join_单表子查询_单库多表_生成JoinMergeJoin() {
+        TableNode table = new TableNode("TABLE8");
+        QueryNode query = new QueryNode(table);
+        JoinNode join = query.join("TABLE1", "ID", "ID");
+        join.query("TABLE1.ID IN (0,1)");
+        IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
+        Assert.assertTrue(qc instanceof IMerge);
+        Assert.assertEquals(QUERY_CONCURRENCY.GROUP_CONCURRENT, ((IMerge) qc).getQueryConcurrency());// 串行
+    }
+
+    @Test
+    public void test_两表join_单表子查询_单库多表_单表存在limit_生成JoinMergeJoin() {
+        TableNode table = new TableNode("TABLE8");
+        QueryNode query = new QueryNode(table);
+        query.limit(1, 10);
+        JoinNode join = query.join("TABLE1", "ID", "ID");
+        join.query("TABLE1.ID IN (0,1)");
+        IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
+        Assert.assertTrue(qc instanceof IMerge);
+        Assert.assertEquals(QUERY_CONCURRENCY.GROUP_CONCURRENT, ((IMerge) qc).getQueryConcurrency());// 串行
+    }
+
+    @Test
+    public void test_两表join_多库单表_单库多表_直接是join() {
+        TableNode table = new TableNode("TABLE1");
+        JoinNode join = table.join("TABLE8", "ID", "ID");
+        join.query("TABLE1.ID IN (1,2)");
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
         Assert.assertTrue(qc instanceof IJoin);
         Assert.assertEquals(QUERY_CONCURRENCY.SEQUENTIAL, ((IJoin) qc).getQueryConcurrency());// 串行
     }
 
     @Test
-    public void test_两表join_多库单表_单库多会进行merge展开() {
+    public void test_两表join_单库单表_单表会优化为下推() {
         TableNode table = new TableNode("TABLE1");
-        JoinNode join = table.join("TABLE8", "ID", "ID");
-        join.query("TABLE1.ID IN (1,2)");
+        JoinNode join = table.join("TABLE8", "NAME", "NAME");
+        join.query("TABLE1.ID = 0");
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(join, null, extraCmd);
         Assert.assertTrue(qc instanceof IJoin);
         Assert.assertEquals(QUERY_CONCURRENCY.SEQUENTIAL, ((IJoin) qc).getQueryConcurrency());// 串行
@@ -514,7 +550,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_in模式() throws SqlParserException {
         String sql = "SELECT ID,NAME FROM TABLE1 WHERE NAME IN (SELECT NAME FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME) AND ID IN (1,2)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -532,7 +568,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_多字段in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_多字段in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE (ID,SCHOOL) IN (SELECT ID,SCHOOL FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -547,7 +583,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_not_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_not_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID NOT IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -562,7 +598,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询correlated_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询correlated_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -577,7 +613,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_exist模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_exist模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE  EXISTS (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -592,7 +628,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_not_exist模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_not_exist模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE NOT EXISTS (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -610,7 +646,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_all模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_all模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID > ALL (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
         Assert.assertTrue(qc instanceof IMerge);
@@ -628,7 +664,7 @@ public class OptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_any模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_any模式() throws SqlParserException {
         // SubqueryAnyExpression
         String sql = "SELECT * FROM TABLE1 WHERE ID <= ANY (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
@@ -646,4 +682,38 @@ public class OptimizerTest extends BaseOptimizerTest {
         Assert.assertEquals("MAX", func.getFunctionName());
     }
 
+    @Test
+    public void test_lastInsertId() throws SqlParserException {
+        String sql = "SELECT LAST_INSERT_ID()";
+        IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
+        Assert.assertTrue(qc.getSql() != null);
+        Assert.assertEquals(IDataNodeExecutor.USE_LAST_DATA_NODE, qc.getDataNode());
+    }
+
+    @Test
+    public void test_nextval() throws SqlParserException {
+        String sql = "SELECT TABLE1.NEXTVAL FROM DUAL";
+        IQueryTree qc = (IQueryTree) optimizer.optimizeAndAssignment(sql, null, extraCmd, true);
+        Assert.assertTrue(qc.getSql() == null);
+        Assert.assertEquals("[1]", qc.getColumns().toString());
+        Assert.assertEquals(Long.valueOf(1), qc.getLastSequenceVal());
+    }
+
+    @Test
+    public void test_batchNextVal() throws SqlParserException {
+        String sql = "INSERT INTO TABLE1(ID,NAME,SCHOOL) VALUES(TABLE1.NEXTVAL,?,?)";
+
+        Parameters parameterSettings = new Parameters();
+        for (int i = 0; i < 10; i++) {
+            ParameterContext p1 = new ParameterContext(ParameterMethod.setString, new Object[] { 1, "ljh" + i });
+            ParameterContext p2 = new ParameterContext(ParameterMethod.setString, new Object[] { 2, "school" + i });
+            parameterSettings.getCurrentParameter().put(1, p1);
+            parameterSettings.getCurrentParameter().put(2, p2);
+
+            parameterSettings.addBatch();
+        }
+
+        IMerge merge = (IMerge) optimizer.optimizeAndAssignment(sql, parameterSettings, extraCmd, true);
+        System.out.println(merge);
+    }
 }

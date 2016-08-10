@@ -26,8 +26,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.executor.cursor.IAffectRowCursor;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ResultCursor;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -190,13 +191,19 @@ public class TResultSet implements ResultSet {
     }
 
     public int getAffectRows() throws SQLException {
-        if (next()) {
-            Integer index = currentKVPair.getParentCursorMeta().getIndex(null, ResultCursor.AFFECT_ROW, null);
 
-            return currentKVPair.getInteger(index);
-        } else {
-            return 0;
+        if (this.resultCursor.getCursor() instanceof IAffectRowCursor) {
+            if (currentKVPair != null || next()) {
+                Integer index = currentKVPair.getParentCursorMeta().getIndex(null, ResultCursor.AFFECT_ROW, null);
+
+                return currentKVPair.getInteger(index);
+            } else {
+                return 0;
+            }
         }
+
+        return -1;
+
     }
 
     private void checkClosed() throws SQLException {
@@ -218,6 +225,7 @@ public class TResultSet implements ResultSet {
                 throw GeneralUtil.mergeException(exs);
             }
             isClosed = true;
+
         } catch (Exception e) {
             throw new SQLException(e);
 
@@ -276,9 +284,8 @@ public class TResultSet implements ResultSet {
                         // 要以别名优先
 
                         indexInCursorMeta = cm.getIndex(tableName, ic.getName(), ic.getAlias());
-
                         if (indexInCursorMeta == null) {
-                            throw new TddlRuntimeException("不可能出现");
+                            throw new TddlNestableRuntimeException("impossible");
                         }
                         logicalIndexToActualIndex.put(i, indexInCursorMeta);
                         if (i != indexInCursorMeta) {
@@ -286,7 +293,7 @@ public class TResultSet implements ResultSet {
                         }
                     }
                 } catch (SQLException e) {
-                    throw new TddlRuntimeException(e);
+                    throw new TddlNestableRuntimeException(e);
                 }
             }
         }

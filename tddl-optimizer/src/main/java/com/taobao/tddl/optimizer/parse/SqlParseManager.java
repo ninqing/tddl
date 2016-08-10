@@ -1,7 +1,7 @@
 package com.taobao.tddl.optimizer.parse;
 
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 
 /**
  * 基于sql构建语法树

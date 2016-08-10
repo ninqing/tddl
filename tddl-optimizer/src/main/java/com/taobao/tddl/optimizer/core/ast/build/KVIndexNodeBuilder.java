@@ -11,7 +11,7 @@ import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
 /**
@@ -36,6 +36,7 @@ public class KVIndexNodeBuilder extends QueryTreeNodeBuilder {
         this.buildOrderBy();
         this.buildWhere();
         this.buildExistAggregate();
+        this.buildExistSequenceVal();
     }
 
     /**

@@ -51,6 +51,16 @@ public class TableMeta implements Serializable, Cloneable {
         this.tableName = tableName;
         if (primaryIndex != null) {
             this.primaryIndexes.put(primaryIndex.getName(), primaryIndex);
+
+            for (ColumnMeta c : primaryIndex.getKeyColumns()) {
+                this.primaryKeys.put(c.getName(), c);
+                this.allColumns.put(c.getName(), c);
+            }
+
+            for (ColumnMeta c : primaryIndex.getValueColumns()) {
+                this.columns.put(c.getName(), c);
+                this.allColumns.put(c.getName(), c);
+            }
         }
 
         if (secondaryIndexes != null) {
@@ -60,19 +70,10 @@ public class TableMeta implements Serializable, Cloneable {
         }
 
         this.allColumnsOrderByDefined.addAll(allColumnsOrderByDefined);
-        for (ColumnMeta c : primaryIndex.getKeyColumns()) {
-            this.primaryKeys.put(c.getName(), c);
-            this.allColumns.put(c.getName(), c);
-        }
-
-        for (ColumnMeta c : primaryIndex.getValueColumns()) {
-            this.columns.put(c.getName(), c);
-            this.allColumns.put(c.getName(), c);
-        }
     }
 
     public IndexMeta getPrimaryIndex() {
-        return primaryIndexes == null ? null : primaryIndexes.values().iterator().next();
+        return primaryIndexes.isEmpty() ? null : primaryIndexes.values().iterator().next();
     }
 
     public List<IndexMeta> getSecondaryIndexes() {
@@ -114,7 +115,10 @@ public class TableMeta implements Serializable, Cloneable {
 
     public List<IndexMeta> getIndexs() {
         List<IndexMeta> indexs = new ArrayList<IndexMeta>();
-        indexs.add(this.getPrimaryIndex());
+        IndexMeta index = this.getPrimaryIndex();
+        if (index != null) {
+            indexs.add(this.getPrimaryIndex());
+        }
         indexs.addAll(this.getSecondaryIndexes());
         return indexs;
     }

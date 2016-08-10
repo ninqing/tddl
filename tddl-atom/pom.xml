@@ -13,6 +13,10 @@
 	<name>${project.artifactId} module for tddl ${project.version}</name>
 	<dependencies>
 		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>${project.groupId}</groupId>
 			<artifactId>tddl-common</artifactId>
 			<version>${project.version}</version>

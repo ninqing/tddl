@@ -8,6 +8,11 @@ import com.taobao.tddl.executor.handler.MergeHandler;
 import com.taobao.tddl.executor.handler.NestedLoopJoinHandler;
 import com.taobao.tddl.executor.handler.QueryHandler;
 import com.taobao.tddl.executor.handler.ReplaceHandler;
+import com.taobao.tddl.executor.handler.ShowBroadcastsHandler;
+import com.taobao.tddl.executor.handler.ShowPartitionsHandler;
+import com.taobao.tddl.executor.handler.ShowRuleHandler;
+import com.taobao.tddl.executor.handler.ShowTablesHandler;
+import com.taobao.tddl.executor.handler.ShowTopologyHandler;
 import com.taobao.tddl.executor.handler.SortMergeJoinHandler;
 import com.taobao.tddl.executor.handler.UpdateHandler;
 import com.taobao.tddl.executor.spi.ICommandHandler;
@@ -19,6 +24,9 @@ import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
+import com.taobao.tddl.optimizer.core.plan.query.IShow;
+import com.taobao.tddl.optimizer.core.plan.query.IShowPartitions;
+import com.taobao.tddl.optimizer.core.plan.query.IShowTables;
 
 /**
  * @author mengshi.sunmengshi 2014年4月10日 下午5:16:43
@@ -39,6 +47,11 @@ public class CommandExecutorFactoryDemoImp implements ICommandHandlerFactory {
         NEST_LOOP_JOIN_HANDLER = new NestedLoopJoinHandler();
         SORT_MERGE_JOIN_HANDLER = new SortMergeJoinHandler();
         CONDENSABLE_JOIN_HANDLER = new QueryHandler();
+        SHOW_TOPOLOGY_HANDLER = new ShowTopologyHandler();
+        SHOW_PARITIONS_HANDLER = new ShowPartitionsHandler();
+        SHOW_TABLES_HANDLER = new ShowTablesHandler();
+        SHOW_BROADCASTS_HANDLER = new ShowBroadcastsHandler();
+        SHOW_RULE_HANDLER = new ShowRuleHandler();
     }
 
     private final ICommandHandler INSERT_HANDLER;
@@ -50,6 +63,11 @@ public class CommandExecutorFactoryDemoImp implements ICommandHandlerFactory {
     private final ICommandHandler INDEX_NEST_LOOP_JOIN_HANDLER;
     private final ICommandHandler NEST_LOOP_JOIN_HANDLER;
     private final ICommandHandler SORT_MERGE_JOIN_HANDLER;
+    private final ICommandHandler SHOW_TOPOLOGY_HANDLER;
+    private final ICommandHandler SHOW_BROADCASTS_HANDLER;
+    private final ICommandHandler SHOW_PARITIONS_HANDLER;
+    private final ICommandHandler SHOW_TABLES_HANDLER;
+    private final ICommandHandler SHOW_RULE_HANDLER;
 
     @Override
     public ICommandHandler getCommandHandler(IDataNodeExecutor executor, ExecutionContext executionContext) {
@@ -86,33 +104,26 @@ public class CommandExecutorFactoryDemoImp implements ICommandHandlerFactory {
                 default:
                     throw new IllegalArgumentException("should not be here");
             }
+        } else if (executor instanceof IShow) {
+
+            switch (((IShow) executor).getType()) {
+                case TOPOLOGY:
+                    return SHOW_TOPOLOGY_HANDLER;
+                case BRAODCASTS:
+                    return SHOW_BROADCASTS_HANDLER;
+                case RULE:
+                    return SHOW_RULE_HANDLER;
+                default:
+                    throw new IllegalArgumentException("should not be here");
+
+            }
+        } else if (executor instanceof IShowPartitions) {
+            return SHOW_PARITIONS_HANDLER;
+        } else if (executor instanceof IShowTables) {
+            return SHOW_TABLES_HANDLER;
         } else {
             throw new IllegalArgumentException("should not be here");
         }
     }
 
-    private boolean isCondensable(IDataNodeExecutor executor) {
-        IJoin ijoin = (IJoin) executor;
-        String leftNode = ijoin.getLeftNode().getDataNode();
-        String rightNode = ijoin.getRightNode().getDataNode();
-        if (leftNode == null || rightNode == null) {
-            return false;
-        } else if (!leftNode.equals(rightNode)) {
-            return false;
-        }
-
-        if (ijoin.getLeftNode() instanceof IMerge || ijoin.getRightNode() instanceof IMerge) {
-            return false;
-        }
-        boolean leftJoin = true;
-        boolean rightJoin = true;
-        if (ijoin.getLeftNode() instanceof IJoin) {
-            leftJoin = isCondensable(ijoin.getLeftNode());
-        }
-        if (ijoin.getRightNode() instanceof IJoin) {
-            rightJoin = isCondensable(ijoin.getRightNode());
-        }
-
-        return leftJoin & rightJoin;
-    }
 }

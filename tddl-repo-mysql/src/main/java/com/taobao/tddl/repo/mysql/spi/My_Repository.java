@@ -8,10 +8,9 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
-import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.TransactionConfig;
 import com.taobao.tddl.executor.repo.RepositoryConfig;
@@ -61,7 +60,7 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
                             table.setSelect(false);
                             return table;
                         } catch (Exception ex) {
-                            throw new TddlException(ExceptionErrorCodeUtils.Read_only, ex);
+                            throw new TddlNestableRuntimeException(ex);
                         }
                     }
 
@@ -106,7 +105,7 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
             try {
                 return tables.get(groupNode).get(meta);
             } catch (ExecutionException e) {
-                throw new TddlRuntimeException(e);
+                throw new TddlNestableRuntimeException(e);
             }
         }
     }
@@ -152,7 +151,7 @@ public class My_Repository extends AbstractLifecycle implements IRepository {
         try {
             return executors.get(group);
         } catch (ExecutionException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
 
     }

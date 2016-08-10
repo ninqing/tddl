@@ -126,7 +126,16 @@ public class TResultSetMetaData implements ResultSetMetaData {
 
     @Override
     public int getColumnType(int column) throws SQLException {
-        return 0;
+        column--;
+        ColumnMeta c = this.columnMetas.get(column);
+
+        DataType type = c.getDataType();
+
+        if (type == null) {
+            throw new SQLException("data type is null, column is: " + c);
+        }
+
+        return type.getSqlType();
     }
 
     @Override

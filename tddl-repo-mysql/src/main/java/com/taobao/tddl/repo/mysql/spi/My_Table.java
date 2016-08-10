@@ -1,5 +1,6 @@
 package com.taobao.tddl.repo.mysql.spi;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -10,11 +11,11 @@ import java.util.Map.Entry;
 import javax.sql.DataSource;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.spi.IDataSourceGetter;
 import com.taobao.tddl.executor.spi.ITable;
@@ -24,6 +25,9 @@ import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.repo.mysql.cursor.SchematicMyCursor;
 import com.taobao.tddl.repo.mysql.utils.MysqlRepoUtils;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 public class My_Table implements ITable {
 
@@ -114,15 +118,19 @@ public class My_Table implements ITable {
 
             int i = 1;
             for (Object v : values) {
+
+                if (v instanceof BigDecimal) {
+                    v = ((BigDecimal) v).doubleValue();
+                }
                 ps.setObject(i++, v);
             }
             int res = ps.executeUpdate();
             if (res <= 0) {
-                throw new TddlException("执行失败" + key.getColumnList());
+                throw new ExecutorException("execute failed : " + key.getColumnList());
             }
         } catch (SQLException e) {
             log.error("error: 底层数据库异常", e);
-            throw new TddlException("error: 底层数据库异常", e);
+            throw new TddlNestableRuntimeException(e);
         } finally {
             try {
                 if (ps != null) {
@@ -173,7 +181,7 @@ public class My_Table implements ITable {
             ps = con.prepareStatement(delSb.toString());
             int res = ps.executeUpdate();
             if (res < 0) {
-                throw new TddlException("执行失败:" + key.getColumnList() + "\n\r " + ps.getWarnings());
+                throw new ExecutorException("execute failed : " + key.getColumnList() + "\n\r " + ps.getWarnings());
             }
         } catch (SQLException e) {
             log.error("error: 底层数据库异常", e);

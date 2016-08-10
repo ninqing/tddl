@@ -1,7 +1,6 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 public class BooleanType extends CommonType<Boolean> {
 
@@ -120,12 +119,8 @@ public class BooleanType extends CommonType<Boolean> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Boolean v = DataDecoder.decodeBooleanObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Boolean v = DataDecoder.decodeBooleanObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -153,4 +148,8 @@ public class BooleanType extends CommonType<Boolean> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.BOOLEAN;
+    }
 }

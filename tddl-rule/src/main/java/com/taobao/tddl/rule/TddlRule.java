@@ -10,9 +10,10 @@ import java.util.Set;
 import com.google.common.collect.Lists;
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.monitor.logger.LoggerInit;
-import com.taobao.tddl.rule.exceptions.RouteCompareDiffException;
+import com.taobao.tddl.rule.exception.RouteCompareDiffException;
 import com.taobao.tddl.rule.model.Field;
 import com.taobao.tddl.rule.model.MatcherResult;
 import com.taobao.tddl.rule.model.TargetDB;
@@ -136,11 +137,11 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
         }
     }
 
-    @Override
     public MatcherResult routeMverAndCompare(boolean isSelect, String vtab, ComparativeMapChoicer choicer,
                                              List<Object> args) throws RouteCompareDiffException {
         if (super.getAllVersions().size() == 0) {
-            throw new RuntimeException("routeWithMulVersion method just support multy version rule,use route method instead or config with multy version style!");
+            throw new TddlRuntimeException(ErrorCode.ERR_ROUTE,
+                "routeWithMulVersion method just support multy version rule,use route method instead or config with multy version style!");
         }
 
         // 如果只有单套规则,直接返回这套规则的路由结果
@@ -176,15 +177,16 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
 
         // 如果不止一套规则,那么计算两套规则,默认都返回新规则
         if (super.getAllVersions().size() != 2) {
-            throw new RuntimeException("not support more than 2 copy rule compare");
+            throw new TddlRuntimeException(ErrorCode.ERR_ROUTE, "not support more than 2 copy rule compare");
         }
 
         if (this.subRule) {
-            throw new TddlRuntimeException("sub rule support 1 version only, sub app name is: " + this.appName);
+            throw new TddlRuntimeException(ErrorCode.ERR_ROUTE, "sub rule support 1 version only, sub app name is: "
+                                                                + this.appName);
         }
 
         if (!this.subRules.isEmpty()) {
-            throw new TddlRuntimeException("if you use sub rule, you can only have 1 version");
+            throw new TddlRuntimeException(ErrorCode.ERR_ROUTE, "if you use sub rule, you can only have 1 version");
         }
         // 第一个排位的为旧规则
         MatcherResult oldResult = route(vtab, choicer, args, super.getCurrentRule());
@@ -197,7 +199,7 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
             if (compareResult) {
                 return oldResult;
             } else {
-                throw new RouteCompareDiffException("sql type is not-select,rule calculate result diff");
+                throw new RouteCompareDiffException();
             }
         }
     }
@@ -279,5 +281,32 @@ public class TddlRule extends TddlRuleConfig implements TddlTableRule {
             }
         }
         return rule;
+    }
+
+    /**
+     * 获取所有的规则表
+     */
+    public List<TableRule> getTables() {
+        List<TableRule> result = new ArrayList<TableRule>();
+        Map<String, TableRule> tables = super.getCurrentRule().getTableRules();
+        result.addAll(tables.values());
+        for (TddlRule subRule : this.subRules) {
+            tables = subRule.getCurrentRule().getTableRules();
+            result.addAll(tables.values());
+        }
+        return result;
+    }
+
+    public Map<String, String> getDbIndexMap() {
+        Map<String, String> result = new HashMap<String, String>();
+        Map<String, String> dbIndexMap = super.getCurrentRule().getDbIndexMap();
+        if (dbIndexMap != null) {
+            result.putAll(dbIndexMap);
+        }
+        for (TddlRule subRule : this.subRules) {
+            dbIndexMap = subRule.getCurrentRule().getDbIndexMap();
+            result.putAll(dbIndexMap);
+        }
+        return result;
     }
 }

@@ -4,13 +4,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.hadoop.hbase.rest.protobuf.generated.TableSchemaMessage.TableSchema;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.executor.common.ExecutionContext;
@@ -50,11 +48,6 @@ public class DemoRepository extends AbstractLifecycle implements IRepository {
     public int cleanLog() {
         // do nothing
         return 0;
-    }
-
-    // @Override
-    public boolean removeTable(TableSchema schema) throws Exception {
-        return false;
     }
 
     public IRepository getRepo() {
@@ -130,7 +123,7 @@ public class DemoRepository extends AbstractLifecycle implements IRepository {
         try {
             return executors.get(group);
         } catch (ExecutionException e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
     }
 

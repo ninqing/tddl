@@ -18,7 +18,6 @@ import com.taobao.tddl.optimizer.core.plan.dml.IInsert;
 import com.taobao.tddl.optimizer.core.plan.dml.IReplace;
 import com.taobao.tddl.optimizer.core.plan.dml.IUpdate;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * 批处理测试
@@ -29,7 +28,7 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
 public class BatchTest extends BaseOptimizerTest {
 
     @Test
-    public void testInsert() throws QueryException {
+    public void testInsert() {
         String sql = "INSERT INTO TABLE1(ID) VALUES(?)";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -52,7 +51,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_多value() throws QueryException {
+    public void testInsert_多value() {
         String sql = "INSERT INTO TABLE1(ID) VALUES (?),(?),(?)";
 
         Parameters parameterSettings = new Parameters();
@@ -74,7 +73,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_单库单表() throws QueryException {
+    public void testInsert_单库单表() {
         String sql = "INSERT INTO STUDENT(ID) VALUES(?)";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -96,7 +95,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_单库单表_多value() throws QueryException {
+    public void testInsert_单库单表_多value() {
         String sql = "INSERT INTO STUDENT(ID) VALUES (?),(?),(?)";
 
         Parameters parameterSettings = new Parameters();
@@ -115,7 +114,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPut() throws QueryException {
+    public void testPut() {
         String sql = "REPLACE INTO TABLE1(ID) VALUES(?)";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -138,7 +137,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPut_多value() throws QueryException {
+    public void testPut_多value() {
         String sql = "REPLACE INTO TABLE1(ID) VALUES (?),(?),(?)";
 
         Parameters parameterSettings = new Parameters();
@@ -160,7 +159,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testUpdate() throws QueryException {
+    public void testUpdate() {
         String sql = "UPDATE TABLE1 SET NAME = ? WHERE ID = ?";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -187,7 +186,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPut_单库单表_多value() throws QueryException {
+    public void testPut_单库单表_多value() {
         String sql = "REPLACE INTO STUDENT(ID) VALUES (?),(?),(?)";
 
         Parameters parameterSettings = new Parameters();
@@ -206,7 +205,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testUpdate_范围查询() throws QueryException {
+    public void testUpdate_范围查询() {
         String sql = "UPDATE TABLE1 SET NAME = ? WHERE ID > ? AND ID < ?";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -238,7 +237,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testUpdate_in查询() throws QueryException {
+    public void testUpdate_in查询() {
         String sql = "UPDATE TABLE1 SET NAME = ? WHERE ID IN (?,?)";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -270,7 +269,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete() throws QueryException {
+    public void testDelete() {
         String sql = "DELETE FROM TABLE1 WHERE ID = ?";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -293,7 +292,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete_范围查询() throws QueryException {
+    public void testDelete_范围查询() {
         String sql = "DELETE FROM TABLE1 WHERE ID > ? AND ID < ?";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -321,7 +320,7 @@ public class BatchTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete_in查询() throws QueryException {
+    public void testDelete_in查询() {
         String sql = "DELETE FROM TABLE1 WHERE ID IN (?,?)";
 
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();

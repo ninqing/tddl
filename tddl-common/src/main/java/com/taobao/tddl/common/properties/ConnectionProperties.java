@@ -132,4 +132,9 @@ public class ConnectionProperties {
      */
     public static final String MAX_ROW_RETURN_FROM_RIGHT_INDEX_NESTED_LOOP = "MAX_ROW_RETURN_FROM_RIGHT_INDEX_NESTED_LOOP";
 
+    /**
+     * Sequence表名
+     */
+    public static final String SEQUENCE_TABLE_NAME                         = "SEQUENCE_TABLE_NAME";
+
 }

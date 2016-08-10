@@ -64,6 +64,7 @@
 		<module>tddl-group</module>
 		<module>tddl-repo-mysql</module>
 
+		<module>tddl-repo-demo</module>
 		<module>tddl-optimizer</module>
 		<module>tddl-executor</module>
 		<module>tddl-matrix</module>
@@ -187,6 +188,24 @@
 				<version>${logback_version}</version>
 				<scope>provided</scope>
 			</dependency>
+
+			<!-- HBase -->
+			<dependency>
+				<groupId>org.apache.hbase</groupId>
+				<artifactId>hbase</artifactId>
+				<version>0.94.12</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.zookeeper</groupId>
+				<artifactId>zookeeper</artifactId>
+				<version>3.4.5</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.hadoop</groupId>
+				<artifactId>hadoop-core</artifactId>
+				<version>1.0.4</version>
+			</dependency>
+
 			<!-- Test libs -->
 			<dependency>
 				<groupId>junit</groupId>
@@ -205,6 +224,27 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<configuration>
+					<encoding>${file_encoding}</encoding>
+					<charset>${file_encoding}</charset>
+					<aggregate>true</aggregate>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>

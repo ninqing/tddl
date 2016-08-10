@@ -46,11 +46,6 @@ public class IndexMeta implements Serializable, Cloneable {
     private final boolean           isStronglyConsistent;
     private final boolean           isPrimaryKeyIndex;
 
-    /**
-     * 该索引的拆分键
-     */
-    private final List<ColumnMeta>  partitionColumns;
-
     // ================== 冗余字段 ==============
 
     /**
@@ -64,8 +59,7 @@ public class IndexMeta implements Serializable, Cloneable {
     private Map<String, ColumnMeta> columnsMap       = new HashMap();
 
     public IndexMeta(String tableName, List<ColumnMeta> keys, List<ColumnMeta> values, IndexType indexType,
-                     Relationship relationship, boolean isStronglyConsistent, boolean isPrimaryKeyIndex,
-                     List<ColumnMeta> partitionColumns){
+                     Relationship relationship, boolean isStronglyConsistent, boolean isPrimaryKeyIndex){
         this.tableName = tableName;
         this.keyColumns = uniq(keys);
         this.valueColumns = uniq(values);
@@ -73,7 +67,6 @@ public class IndexMeta implements Serializable, Cloneable {
         this.relationship = relationship;
         this.isPrimaryKeyIndex = isPrimaryKeyIndex;
         this.isStronglyConsistent = isStronglyConsistent;
-        this.partitionColumns = partitionColumns;
         this.name = buildName(tableName, keys);
         this.columnsMap = buildColumnsMap();
 
@@ -139,10 +132,6 @@ public class IndexMeta implements Serializable, Cloneable {
 
     public boolean isPrimaryKeyIndex() {
         return isPrimaryKeyIndex;
-    }
-
-    public List<ColumnMeta> getPartitionColumns() {
-        return partitionColumns;
     }
 
     public String getTableName() {

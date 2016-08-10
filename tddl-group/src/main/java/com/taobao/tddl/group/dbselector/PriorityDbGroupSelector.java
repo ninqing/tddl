@@ -9,11 +9,12 @@ import javax.sql.DataSource;
 
 import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.common.jdbc.sorter.ExceptionSorter;
-import com.taobao.tddl.group.exception.NoMoreDataSourceException;
+import com.taobao.tddl.group.exception.GroupNotAvaliableException;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
+
 
 /**
  * <pre>
@@ -94,12 +95,12 @@ public class PriorityDbGroupSelector extends AbstractDBSelector {
         public T onSQLException(List<SQLException> exceptions, ExceptionSorter exceptionSorter, Object... args)
                                                                                                                throws SQLException {
             Exception last = exceptions.get(exceptions.size() - 1);
-            if (last instanceof NoMoreDataSourceException) {
+            if (last instanceof GroupNotAvaliableException) {
                 if (exceptions.size() > 1) {
                     exceptions.remove(exceptions.size() - 1);
                 }
                 historyExceptions.addAll(exceptions);
-                throw (NoMoreDataSourceException) last;
+                throw (GroupNotAvaliableException) last;
             } else {
                 return tryer.onSQLException(exceptions, exceptionSorter, args);
             }
@@ -123,7 +124,7 @@ public class PriorityDbGroupSelector extends AbstractDBSelector {
         for (int i = 0; i < priorityGroups.length; i++) {
             try {
                 return priorityGroups[i].tryExecute(failedDataSources, wrapperTryer, times, args);
-            } catch (NoMoreDataSourceException e) {
+            } catch (GroupNotAvaliableException e) {
                 logger.warn("NoMoreDataSource for retry for priority group " + i);
             }
         }

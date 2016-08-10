@@ -4,8 +4,11 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
+import com.taobao.tddl.optimizer.config.table.SchemaManager;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
@@ -33,6 +36,7 @@ public class TableNodeBuilder extends QueryTreeNodeBuilder {
         this.buildOrderBy();
         this.buildHaving();
         this.buildExistAggregate();
+        this.buildExistSequenceVal();
     }
 
     public TableNode getNode() {
@@ -119,6 +123,9 @@ public class TableNodeBuilder extends QueryTreeNodeBuilder {
             return c;
         }
 
+        if (SchemaManager.DUAL.equals(getNode().getTableName())) {
+            throw new TddlRuntimeException(ErrorCode.ERR_PARSER, "can't not vistor column in dual");
+        }
         return this.getSelectableFromChild(c.getColumnName());
     }
 

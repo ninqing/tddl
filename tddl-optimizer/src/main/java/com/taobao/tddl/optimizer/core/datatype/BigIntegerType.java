@@ -2,8 +2,6 @@ package com.taobao.tddl.optimizer.core.datatype;
 
 import java.math.BigInteger;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-
 /**
  * {@link BigInteger}类型
  * 
@@ -137,13 +135,9 @@ public class BigIntegerType extends CommonType<BigInteger> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            BigInteger[] vs = new BigInteger[1];
-            int lenght = DataDecoder.decode(bytes, offset, vs);
-            return new DecodeResult(vs[0], lenght);
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        BigInteger[] vs = new BigInteger[1];
+        int lenght = DataDecoder.decode(bytes, offset, vs);
+        return new DecodeResult(vs[0], lenght);
     }
 
     @Override
@@ -169,6 +163,11 @@ public class BigIntegerType extends CommonType<BigInteger> {
     @Override
     public Calculator getCalculator() {
         return calculator;
+    }
+
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.BIGINT;
     }
 
 }

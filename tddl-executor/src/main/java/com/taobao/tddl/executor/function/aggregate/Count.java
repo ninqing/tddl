@@ -3,7 +3,6 @@ package com.taobao.tddl.executor.function.aggregate;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * @since 5.0.0
@@ -13,12 +12,12 @@ public class Count extends AggregateFunction {
     private long count = 0;
 
     @Override
-    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) {
         count++;
     }
 
     @Override
-    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) {
         DataType type = this.getReturnType();
         Object o = args[0];
         if (o != null) {

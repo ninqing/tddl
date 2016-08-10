@@ -6,7 +6,6 @@ import java.sql.Time;
 import java.util.Calendar;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.BaseRowSet;
 import com.taobao.tddl.common.utils.convertor.Convertor;
 
@@ -153,16 +152,12 @@ public class TimeType extends AbstractDataType<java.sql.Time> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Long v = DataDecoder.decodeLongObj(bytes, offset);
-            if (v == null) {
-                return new DecodeResult(null, getLength(v));
-            } else {
-                Time date = (Time) longToDate.convert(v, getDataClass());
-                return new DecodeResult(date, getLength(v));
-            }
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
+        Long v = DataDecoder.decodeLongObj(bytes, offset);
+        if (v == null) {
+            return new DecodeResult(null, getLength(v));
+        } else {
+            Time date = (Time) longToDate.convert(v, getDataClass());
+            return new DecodeResult(date, getLength(v));
         }
     }
 
@@ -209,4 +204,8 @@ public class TimeType extends AbstractDataType<java.sql.Time> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.TIME;
+    }
 }

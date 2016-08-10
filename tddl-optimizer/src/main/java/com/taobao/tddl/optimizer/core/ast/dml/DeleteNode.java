@@ -7,7 +7,6 @@ import com.taobao.tddl.optimizer.core.ast.query.TableNode;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.dml.IDelete;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 public class DeleteNode extends DMLNode<DeleteNode> {
 
@@ -16,7 +15,7 @@ public class DeleteNode extends DMLNode<DeleteNode> {
     }
 
     @Override
-    public IPut toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IPut toDataNodeExecutor(int shareIndex) {
         IDelete delete = ASTNodeFactory.getInstance().createDelete();
         delete.setConsistent(true);
         delete.executeOn(this.getNode().getDataNode());
@@ -38,6 +37,7 @@ public class DeleteNode extends DMLNode<DeleteNode> {
         delete.setDelayed(this.isDelayed());
         delete.setMultiValues(this.isMultiValues());
         delete.setMultiValues(this.getMultiValues());
+        delete.setExistSequenceVal(this.isExistSequenceVal());
         return delete;
     }
 

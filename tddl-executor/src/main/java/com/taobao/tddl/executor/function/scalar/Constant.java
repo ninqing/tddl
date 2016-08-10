@@ -5,7 +5,6 @@ import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * 对应select 1中的1常量
@@ -33,7 +32,7 @@ public class Constant extends ScalarFunction {
     }
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         return args[0];
     }
 

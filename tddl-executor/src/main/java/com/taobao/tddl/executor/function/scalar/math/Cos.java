@@ -4,7 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Returns the cosine of X, where X is given in radians.
@@ -20,7 +19,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Cos extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
 
         if (ExecUtils.isNull(args[0])) {

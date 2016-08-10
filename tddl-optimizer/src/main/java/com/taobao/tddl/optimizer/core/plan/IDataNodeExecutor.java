@@ -11,6 +11,10 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
 
     public String USE_LAST_DATA_NODE = "_USE_LAST_DATA_NODE_";
 
+    public String LAST_SEQUENCE_VAL  = "LAST_SEQUENCE_VAL";
+
+    public String DUAL_GROUP         = "DUAL_GROUP";
+
     /**
      * 设定当前的查询在哪里执行
      * 
@@ -125,6 +129,14 @@ public interface IDataNodeExecutor<RT extends IDataNodeExecutor> extends CanVisi
     public boolean lazyLoad();
 
     public void setLazyLoad(boolean lazyLoad);
+
+    public boolean isExistSequenceVal();
+
+    public void setExistSequenceVal(boolean existSequenceVal);
+
+    public Long getLastSequenceVal();
+
+    public void setLastSequenceVal(Long sequenceVal);
 
     // ------------------复制----------------
 

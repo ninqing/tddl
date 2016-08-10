@@ -12,12 +12,16 @@ import java.util.logging.Logger;
 import javax.sql.DataSource;
 
 import com.taobao.tddl.common.TddlConstants;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
+import com.taobao.tddl.common.jdbc.IDataSource;
 import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.model.DataSourceType;
+import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.common.utils.mbean.TddlMBeanServer;
 import com.taobao.tddl.group.config.GroupConfigManager;
 import com.taobao.tddl.group.dbselector.DBSelector;
-import com.taobao.tddl.group.exception.TGroupDataSourceException;
 import com.taobao.tddl.group.listener.DataSourceChangeListener;
 import com.taobao.tddl.monitor.logger.LoggerInit;
 
@@ -39,7 +43,7 @@ import com.taobao.tddl.monitor.logger.LoggerInit;
  * @author yangzhu
  * @author linxuan
  */
-public class TGroupDataSource implements DataSource {
+public class TGroupDataSource extends AbstractLifecycle implements IDataSource, Lifecycle {
 
     public static final String                    VERSION                   = "2.4.1";
     public static final String                    PREFIX                    = "com.taobao.tddl.jdbc.group_V" + VERSION
@@ -99,8 +103,7 @@ public class TGroupDataSource implements DataSource {
      * 
      * @throws com.taobao.tddl.jdbc.group.exception.ConfigException
      */
-    public void init() {
-
+    public void doInit() throws TddlException {
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("TGroupDataSource start init");
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + appName);
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + unitName);
@@ -131,47 +134,38 @@ public class TGroupDataSource implements DataSource {
 
     }
 
-    public void init(DataSourceWrapper... dataSourceWrappers) {
+    public void init(DataSourceWrapper... dataSourceWrappers) throws TddlException {
         init(Arrays.asList(dataSourceWrappers));
     }
 
-    public void init(List<DataSourceWrapper> dataSourceWrappers) {
+    public void init(List<DataSourceWrapper> dataSourceWrappers) throws TddlException {
         configManager = new GroupConfigManager(this);
         configManager.init(dataSourceWrappers);
-    }
-
-    public static TGroupDataSource build(String groupKey, String dsWeights, DataSourceFetcher fetcher,
-                                         DataSourceType dataSourceType) {
-        List<DataSourceWrapper> dss = GroupConfigManager.buildDataSourceWrapper(dsWeights, fetcher);
-        TGroupDataSource tGroupDataSource = new TGroupDataSource();
-        tGroupDataSource.setDataSourceType(dataSourceType);
-        tGroupDataSource.setDbGroupKey(groupKey);
-        tGroupDataSource.init(dss);
-        return tGroupDataSource;
+        isInited = true;
     }
 
     /**
      * 如果构造的是TAtomDataSource，必须检查dbGroupKey、appName两个属性的值是否合法
      */
-    private void checkProperties() {
+    private void checkProperties() throws TddlException {
         if (dbGroupKey == null) {
-            throw new TGroupDataSourceException("dbGroupKey不能为null");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "dbGroupKey is empty");
         }
         dbGroupKey = dbGroupKey.trim();
         if (dbGroupKey.length() < 1) {
-            throw new TGroupDataSourceException("dbGroupKey的长度要大于0，前导空白和尾部空白不算在内");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "dbGroupKey is empty");
         }
 
         if (appName == null) {
-            throw new TGroupDataSourceException("appName不能为null");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "appName is null");
         }
         appName = appName.trim();
         if (appName.length() < 1) {
-            throw new TGroupDataSourceException("appName的长度要大于0，前导空白和尾部空白不算在内");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "appName is empty");
         }
 
         if (dataSourceType == null) {
-            throw new TGroupDataSourceException("dataSouceType不能为null");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "dataSouceType is null");
         }
     }
 
@@ -398,6 +392,11 @@ public class TGroupDataSource implements DataSource {
      * @throws Exception
      */
     public void destroyDataSource() throws Exception {
+        destroy();
+    }
+
+    @Override
+    protected void doDestroy() throws TddlException {
         if (configManager != null) {
             configManager.destroyDataSource();
         }

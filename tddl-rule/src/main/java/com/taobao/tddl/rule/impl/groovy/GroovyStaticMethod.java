@@ -4,6 +4,9 @@ import java.util.Calendar;
 import java.util.Date;
 
 import com.taobao.tddl.common.client.util.ThreadLocalMap;
+import com.taobao.tddl.common.utils.convertor.Convertor;
+import com.taobao.tddl.common.utils.convertor.ConvertorException;
+import com.taobao.tddl.common.utils.convertor.ConvertorHelper;
 
 /**
  * 可直接用于groovy规则中的便捷方法
@@ -17,6 +20,8 @@ public class GroovyStaticMethod {
     private final static long[] pow10                         = { 1, 10, 100, 1000, 10000, 100000, 1000000, 10000000,
             100000000, 1000000000, 10000000000L, 100000000000L, 1000000000000L, 10000000000000L, 100000000000000L,
             1000000000000000L, 10000000000000000L, 100000000000000000L, 1000000000000000000L };
+    
+    private final static Convertor commonConvertor = ConvertorHelper.commonToCommon;
 
     /**
      * @return 返回4位年份
@@ -326,5 +331,23 @@ public class GroovyStaticMethod {
         int length = right.length();
         int start = length - rightLength;
         return right.substring(start < 0 ? 0 : start);
+    }
+
+    public static Long longValue(Object o) {
+        if (o == null) {
+            return null;
+        }
+        
+        try {
+            return (Long) commonConvertor.convert(o, Long.class);
+        } catch (ConvertorException e) {
+            Convertor convertor = ConvertorHelper.getInstance().getConvertor(o.getClass(), Long.class);
+            if (convertor != null) {
+                return (Long) convertor.convert(o, Long.class);
+            } else {
+                throw new ConvertorException("Unsupported convert: [" + o.getClass().getName() + "," + Long.class.getName()
+                    + "]");
+            }
+        }
     }
 }

@@ -11,12 +11,12 @@ import javax.sql.DataSource;
 import com.taobao.tddl.atom.common.TAtomConstants;
 import com.taobao.tddl.atom.config.TAtomDsConfHandle;
 import com.taobao.tddl.atom.config.listener.AtomDbStatusListener;
-import com.taobao.tddl.atom.exception.AtomAlreadyInitException;
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.utils.TStringUtil;
+import com.taobao.tddl.monitor.logger.LoggerInit;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
-import com.taobao.tddl.monitor.logger.LoggerInit;
 
 /**
  * 动态数据源，支持数据源参数动态修改
@@ -32,14 +32,15 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
     private volatile TAtomDsConfHandle            dsConfHandle       = new TAtomDsConfHandle();
 
     @Override
-    public void init(String appName, String dsKey, String unitName) throws Exception {
+    public void init(String appName, String dsKey, String unitName) throws TddlException {
         setAppName(appName);
         setDbKey(dsKey);
         setUnitName(unitName);
         init();
     }
 
-    public void init() throws Exception {
+    @Override
+    public void doInit() throws TddlException {
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("TAtomDataSource start init");
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + this.getAppName());
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + this.getUnitName());
@@ -80,8 +81,18 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
     /**
      * 刷新数据源
      */
+    @Override
     public void flushDataSource() {
         this.dsConfHandle.flushDataSource();
+    }
+
+    @Override
+    protected void doDestroy() throws TddlException {
+        String dbName = TAtomConstants.getDbNameStr(this.getUnitName(), this.getAppName(), this.getDbKey());
+        synchronized (cacheConfHandleMap) {
+            this.dsConfHandle.destroyDataSource();
+            cacheConfHandleMap.remove(dbName);
+        }
     }
 
     /**
@@ -89,12 +100,9 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
      * 
      * @throws Exception
      */
+    @Override
     public void destroyDataSource() throws Exception {
-        String dbName = TAtomConstants.getDbNameStr(this.getUnitName(), this.getAppName(), this.getDbKey());
-        synchronized (cacheConfHandleMap) {
-            this.dsConfHandle.destroyDataSource();
-            cacheConfHandleMap.remove(dbName);
-        }
+        destroy();
     }
 
     public String getAppName() {
@@ -105,11 +113,11 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
         return this.dsConfHandle.getDbKey();
     }
 
-    public void setAppName(String appName) throws AtomAlreadyInitException {
+    public void setAppName(String appName) throws TddlException {
         this.dsConfHandle.setAppName(TStringUtil.trim(appName));
     }
 
-    public void setDbKey(String dbKey) throws AtomAlreadyInitException {
+    public void setDbKey(String dbKey) throws TddlException {
         this.dsConfHandle.setDbKey(TStringUtil.trim(dbKey));
     }
 
@@ -121,6 +129,7 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
         return this.dsConfHandle.getUnitName();
     }
 
+    @Override
     public TAtomDbStatusEnum getDbStatus() {
         return this.dsConfHandle.getStatus();
     }
@@ -134,26 +143,28 @@ public class TAtomDataSource extends AbstractTAtomDataSource {
     }
 
     /** =======以下是设置本地优先的配置属性，如果设置了会忽略推送的配置而使用本地的配置======= */
-    public void setPasswd(String passwd) throws AtomAlreadyInitException {
+    public void setPasswd(String passwd) throws TddlException {
         this.dsConfHandle.setLocalPasswd(passwd);
     }
 
-    public void setDriverClass(String driverClass) throws AtomAlreadyInitException {
+    public void setDriverClass(String driverClass) throws TddlException {
         this.dsConfHandle.setLocalDriverClass(driverClass);
     }
 
+    @Override
     public TAtomDbTypeEnum getDbType() {
         return this.dsConfHandle.getDbType();
     }
 
-    public void setSorterClass(String sorterClass) throws AtomAlreadyInitException {
+    public void setSorterClass(String sorterClass) throws TddlException {
         this.dsConfHandle.setLocalSorterClass(sorterClass);
     }
 
-    public void setConnectionProperties(Map<String, String> map) throws AtomAlreadyInitException {
+    public void setConnectionProperties(Map<String, String> map) throws TddlException {
         this.dsConfHandle.setLocalConnectionProperties(map);
     }
 
+    @Override
     protected DataSource getDataSource() throws SQLException {
         return this.dsConfHandle.getDataSource();
     }

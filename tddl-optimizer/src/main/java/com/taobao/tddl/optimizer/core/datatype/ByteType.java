@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 /**
  * {@link Byte} 类型
@@ -128,12 +127,8 @@ public class ByteType extends CommonType<Byte> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Byte v = DataDecoder.decodeByteObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Byte v = DataDecoder.decodeByteObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -161,4 +156,8 @@ public class ByteType extends CommonType<Byte> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.TINYINT;
+    }
 }

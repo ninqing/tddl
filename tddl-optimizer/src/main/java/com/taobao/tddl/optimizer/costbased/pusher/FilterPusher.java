@@ -13,7 +13,6 @@ import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -54,14 +53,14 @@ public class FilterPusher {
     /**
      * 详细优化见类描述 {@linkplain FilterPusher}
      */
-    public static QueryTreeNode optimize(QueryTreeNode qtn) throws QueryException {
+    public static QueryTreeNode optimize(QueryTreeNode qtn) {
         qtn = pushFilter(qtn, null);
         qtn = pushJoinOnFilter(qtn, null);
         qtn.build();
         return qtn;
     }
 
-    private static QueryTreeNode pushFilter(QueryTreeNode qtn, List<IFilter> DNFNodeToPush) throws QueryException {
+    private static QueryTreeNode pushFilter(QueryTreeNode qtn, List<IFilter> DNFNodeToPush) {
         // 如果是根节点，接收filter做为where条件,否则继续合并当前where条件，然后下推
         if (qtn.getChildren().isEmpty()) {
             IFilter node = FilterUtils.DNFToAndLogicTree(DNFNodeToPush);
@@ -188,7 +187,7 @@ public class FilterPusher {
      * 优化成: able1.query("table1.id>10").join(table2.query("table2.id<5")) t但如果条件中包含||条件则暂不优化
      * </pre>
      */
-    private static QueryTreeNode pushJoinOnFilter(QueryTreeNode qtn, List<IFilter> DNFNodeToPush) throws QueryException {
+    private static QueryTreeNode pushJoinOnFilter(QueryTreeNode qtn, List<IFilter> DNFNodeToPush) {
         if (qtn.getChildren().isEmpty()) {
             IFilter node = FilterUtils.DNFToAndLogicTree(DNFNodeToPush);
             if (node != null) {
@@ -299,11 +298,10 @@ public class FilterPusher {
      * @param DNF 要复制的DNF filter
      * @param other 要复制的目标节点
      * @param qnColumns 源节点的join字段
-     * @param otherColumns 目标节点的join字段
-     * @throws QueryException
+     * @param otherColumns 目标节点的join字段 @
      */
     private static List<IFilter> copyFilterToJoinOnColumns(List<IFilter> DNF, List<ISelectable> qnColumns,
-                                                           List<ISelectable> otherColumns) throws QueryException {
+                                                           List<ISelectable> otherColumns) {
         List<IFilter> newIFilterToPush = new LinkedList<IFilter>();
         for (IFilter bool : DNF) {
             int index = qnColumns.indexOf(((IBooleanFilter) bool).getColumn());
@@ -325,7 +323,7 @@ public class FilterPusher {
     /**
      * 将原本的Join的where条件中的a.id=b.id构建为join条件，并从where条件中移除
      */
-    private static void findJoinKeysAndRemoveIt(List<IFilter> DNFNode, JoinNode join) throws QueryException {
+    private static void findJoinKeysAndRemoveIt(List<IFilter> DNFNode, JoinNode join) {
         // filter中可能包含join列,如id=id
         // 目前必须满足以下条件
         // 1、不包含or

@@ -1,12 +1,9 @@
 package com.taobao.tddl.executor.function.scalar.math;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * Returns the absolute value of X.
@@ -34,14 +31,10 @@ public class Abs extends ScalarFunction {
         Object arg = type.convertFrom(args[0]);
         Object zero = type.convertFrom(0);
 
-        if (arg instanceof Comparable) {
-            if (((Comparable) arg).compareTo(zero) < 0) {
-                return type.getCalculator().multiply(arg, -1);
-            }
-
-            return arg;
+        if (type.compare(arg, zero) < 0) {
+            return type.getCalculator().multiply(arg, -1);
         } else {
-            throw new TddlRuntimeException("不支持abs的类型计算:" + type);
+            return arg;
         }
     }
 
@@ -52,15 +45,7 @@ public class Abs extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

@@ -43,7 +43,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select id,name from " + normaltblTableName
                          + " where TO_DAYS(gmt_create)-TO_DAYS('2011-05-15')>30";
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "id", "name" };
             assertContentSame(rs, rc, columnParam1);
@@ -51,7 +51,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             sql = "select TO_DAYS(gmt_create) as da,name from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam2 = { "da", "name" };
             assertContentSame(rs, rc, columnParam2);
@@ -64,7 +64,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select FROM_DAYS(TO_DAYS(gmt_create)) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -77,7 +77,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
         if (!normaltblTableName.startsWith("ob")) {
             String sql = "select DAYOFWEEK(gmt_create)  as da from " + normaltblTableName + " where pk=0";
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -90,7 +90,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select WEEKDAY(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -103,7 +103,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select DAYOFYEAR(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -116,7 +116,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select MONTH(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -129,7 +129,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select MONTHNAME(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -142,7 +142,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select QUARTER(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -155,7 +155,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select WEEK(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -169,26 +169,26 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select YEAR(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             assertContentSame(rs, rc, columnParam1);
 
             sql = "select HOUR(gmt_create)  as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
             assertContentSame(rs, rc, columnParam1);
 
             sql = "select MINUTE(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
             assertContentSame(rs, rc, columnParam1);
 
             sql = "select SECOND(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
             assertContentSame(rs, rc, columnParam1);
         }
     }
@@ -199,7 +199,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select DAYNAME(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -212,7 +212,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select DAYOFMONTH(gmt_create) as da from " + normaltblTableName + " where pk=0";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -226,7 +226,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
                          + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -239,7 +239,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
         List<Object> param = new ArrayList<Object>();
         param.add(31);
         rs = mysqlQueryData(sql, param);
-        rc = andorQueryData(sql, param);
+        rc = tddlQueryData(sql, param);
 
         String[] columnParam1 = { "da" };
         assertContentSame(rs, rc, columnParam1);
@@ -273,7 +273,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select TO_DAYS(gmt_create) as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -287,7 +287,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
                          + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -300,7 +300,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select timestampdiff(second,now(),1)  as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -313,7 +313,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select timestampadd(second,now(),1)  as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -326,7 +326,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select get_format(time,'usa') as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -339,7 +339,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             String sql = "select DATE(gmt_create)  as da from " + normaltblTableName + " where pk=1";
 
             rs = mysqlQueryData(sql, null);
-            rc = andorQueryData(sql, null);
+            rc = tddlQueryData(sql, null);
 
             String[] columnParam1 = { "da" };
             assertContentSame(rs, rc, columnParam1);
@@ -376,42 +376,42 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
     public void nowTest() throws Exception {
         String sql = "select id,now() as dd from " + normaltblTableName + " where pk=1";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
 
         String[] columnParam1 = { "dd", "id" };
         assertContentSame(rs, rc, columnParam1);
 
         sql = "select * from " + normaltblTableName + " where gmt_create = now()";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         String[] columnParam2 = { "gmt_create", "id" };
         assertContentSame(rs, rc, columnParam2);
 
         sql = "select * from " + normaltblTableName + " where now()>gmt_create";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         assertContentSame(rs, rc, columnParam2);
 
         sql = "select * from " + normaltblTableName + " where gmt_timestamp = now()";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         String[] columnParamTimestamp = { "gmt_timestamp", "id" };
         assertContentSame(rs, rc, columnParamTimestamp);
 
         sql = "select * from " + normaltblTableName + " where now()<=gmt_timestamp";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         assertContentSame(rs, rc, columnParamTimestamp);
 
         sql = "select * from " + normaltblTableName + " where gmt_datetime = now()";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         String[] columnParamDatetime = { "gmt_datetime", "id" };
         assertContentSame(rs, rc, columnParamDatetime);
 
         sql = "select * from " + normaltblTableName + " where now()>=gmt_datetime";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         assertContentSame(rs, rc, columnParamDatetime);
 
         if (!normaltblTableName.startsWith("ob")) {
@@ -419,7 +419,7 @@ public class SelectDateFunctionTest extends BaseMatrixTestCase {
             List<Object> param = new ArrayList<Object>();
             param.add(12);
             rs = mysqlQueryData(sql, param);
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             assertContentSame(rs, rc, columnParamDatetime);
         }
     }

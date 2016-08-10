@@ -1,6 +1,6 @@
 package com.taobao.tddl.common.exception;
 
-import org.apache.commons.lang.exception.NestableRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 /**
  * Tddl nestabled {@link RuntimeException}
@@ -8,28 +8,25 @@ import org.apache.commons.lang.exception.NestableRuntimeException;
  * @author jianghang 2013-10-24 下午2:55:22
  * @since 5.0.0
  */
-public class TddlRuntimeException extends NestableRuntimeException {
+public class TddlRuntimeException extends TddlNestableRuntimeException {
 
     private static final long serialVersionUID = -654893533794556357L;
 
-    public TddlRuntimeException(String errorCode){
-        super(errorCode);
+    private int               vendorCode;
+
+    public TddlRuntimeException(ErrorCode errorCode, String... params){
+        super(errorCode.getMessage(params));
+        this.vendorCode = errorCode.getCode();
     }
 
-    public TddlRuntimeException(String errorCode, Throwable cause){
-        super(errorCode, cause);
+    public TddlRuntimeException(ErrorCode errorCode, Throwable cause, String... params){
+        super(errorCode.getMessage(params), cause);
+        this.vendorCode = errorCode.getCode();
     }
 
-    public TddlRuntimeException(String errorCode, String errorDesc){
-        super(errorCode + ":" + errorDesc);
-    }
-
-    public TddlRuntimeException(String errorCode, String errorDesc, Throwable cause){
-        super(errorCode + ":" + errorDesc, cause);
-    }
-
-    public TddlRuntimeException(Throwable cause){
-        super(cause);
+    public String toString() {
+        String message = super.getLocalizedMessage();
+        return "vendorCode : " + vendorCode + ", " + message;
     }
 
 }

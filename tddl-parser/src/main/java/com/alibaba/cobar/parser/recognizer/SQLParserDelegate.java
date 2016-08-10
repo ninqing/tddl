@@ -32,6 +32,7 @@ import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDDLParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLCallParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLDeleteParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLInsertParser;
+import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLLoadParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLReplaceParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLSelectParser;
 import com.alibaba.cobar.parser.recognizer.mysql.syntax.MySQLDMLUpdateParser;
@@ -63,8 +64,7 @@ public final class SQLParserDelegate {
     }
 
     private static String buildErrorMsg(Exception e, MySQLLexer lexer, String sql) {
-        StringBuilder sb = new StringBuilder(
-                                             "You have an error in your SQL syntax; Error occurs around this fragment: ");
+        StringBuilder sb = new StringBuilder("You have an error in your SQL syntax; Error occurs around this fragment: ");
         final int ch = lexer.getCurrentIndex();
         int from = ch - 16;
         if (from < 0) from = 0;
@@ -109,6 +109,9 @@ public final class SQLParserDelegate {
                     break stmtSwitch;
                 case KW_SHOW:
                     stmt = new MySQLDALParser(lexer, exprParser).show();
+                    break stmtSwitch;
+                case KW_LOAD:
+                    stmt = new MySQLDMLLoadParser(lexer, exprParser).load();
                     break stmtSwitch;
                 case KW_ALTER:
                 case KW_CREATE:

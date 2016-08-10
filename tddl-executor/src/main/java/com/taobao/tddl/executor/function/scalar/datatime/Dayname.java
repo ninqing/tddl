@@ -3,10 +3,10 @@ package com.taobao.tddl.executor.function.scalar.datatime;
 import java.util.Calendar;
 
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.FunctionException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Returns the name of the weekday for date. As of MySQL 5.1.12, the language

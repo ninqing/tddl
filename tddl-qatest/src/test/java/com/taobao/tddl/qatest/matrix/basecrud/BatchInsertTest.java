@@ -1,5 +1,6 @@
 package com.taobao.tddl.qatest.matrix.basecrud;
 
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,9 +73,7 @@ public class BatchInsertTest extends BaseMatrixTestCase {
             return;
         }
         String sql = "insert ignore into " + normaltblTableName + " values(?,?,?,?,?,?,?)";
-
         List<List<Object>> params = new ArrayList();
-
         for (int i = 0; i < 100; i++) {
             List<Object> param = new ArrayList<Object>();
             param.add(1);
@@ -148,4 +147,58 @@ public class BatchInsertTest extends BaseMatrixTestCase {
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
 
+    @Test
+    public void insertAllFieldTestWithSomeFieldCostantsAndSeq() throws Exception {
+        if (normaltblTableName.startsWith("ob_")) {
+            return;
+        }
+        String tddlSql = "insert into " + normaltblTableName
+                         + "(pk,id,gmt_create,gmt_timestamp,gmt_datetime,name,floatCol) values(" + normaltblTableName
+                         + ".nextval,?,?,?,?,'123',?)";
+
+        String mysqlSql = "insert into " + normaltblTableName
+                          + "(pk,id,gmt_create,gmt_timestamp,gmt_datetime,name,floatCol) values(?,?,?,?,?,'123',?)";
+
+        List<List<Object>> tddlParams = new ArrayList();
+        List<List<Object>> mysqlParams = new ArrayList();
+
+        long base = Long.valueOf(RandomStringUtils.randomNumeric(8));
+        for (int i = 0; i < 50; i++) {
+            List<Object> param = new ArrayList<Object>();
+            param.add(base + i);
+            param.add(gmtDay);
+            param.add(gmt);
+            param.add(gmt);
+            // param.add(name);
+            param.add(fl);
+            tddlParams.add(param);
+        }
+
+        for (int i = 0; i < 50; i++) {
+            List<Object> param = new ArrayList<Object>();
+            param.add(base + i);
+            param.add(base + i);
+            param.add(gmtDay);
+            param.add(gmt);
+            param.add(gmt);
+            // param.add(name);
+            param.add(fl);
+            mysqlParams.add(param);
+        }
+
+        mysqlUpdateDataBatch(mysqlSql, mysqlParams);
+        tddlUpdateDataBatch(tddlSql, tddlParams);
+
+        String sql = "select * from " + normaltblTableName;
+        // 不检查pk，mysql和tddl自增id生成机制不一样
+        String[] columnParam = { "ID", "GMT_CREATE", "NAME", "FLOATCOL", "GMT_TIMESTAMP", "GMT_DATETIME" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select last_insert_id() a";
+        columnParam = new String[] { "a" };
+        ResultSet rc = tddlQueryData(sql, null);
+        while (rc.next()) {
+            System.out.println("last_insert_id : " + rc.getLong("a"));
+        }
+    }
 }

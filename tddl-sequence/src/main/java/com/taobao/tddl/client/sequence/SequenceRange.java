@@ -22,6 +22,16 @@ public class SequenceRange {
         this.value = new AtomicLong(min);
     }
 
+    public long getBatch(int size) {
+        long currentValue = value.getAndAdd(size) + size - 1;
+        if (currentValue > max) {
+            over = true;
+            return -1;
+        }
+
+        return currentValue;
+    }
+
     public long getAndIncrement() {
         long currentValue = value.getAndIncrement();
         if (currentValue > max) {
@@ -52,4 +62,5 @@ public class SequenceRange {
 
         return sb.toString();
     }
+
 }

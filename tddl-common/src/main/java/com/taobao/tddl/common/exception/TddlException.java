@@ -1,6 +1,8 @@
 package com.taobao.tddl.common.exception;
 
-import org.apache.commons.lang.exception.NestableException;
+import java.sql.SQLException;
+
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 /**
  * Tddl nestabled {@link Exception}
@@ -8,35 +10,23 @@ import org.apache.commons.lang.exception.NestableException;
  * @author jianghang 2013-10-24 下午2:55:38
  * @since 5.0.0
  */
-public class TddlException extends NestableException {
+public class TddlException extends SQLException {
 
     private static final long serialVersionUID = 1540164086674285095L;
 
-    public TddlException(String errorCode){
-        super(errorCode);
+    public TddlException(ErrorCode errorCode, String... params){
+        super(errorCode.getMessage(params), "ERROR", errorCode.getCode());
     }
 
-    public TddlException(String errorCode, Throwable cause){
-        super(errorCode, cause);
-    }
-
-    public TddlException(String errorCode, String errorDesc){
-        super(errorCode + ":" + errorDesc);
-    }
-
-    public TddlException(String errorCode, String errorDesc, Throwable cause){
-        super(errorCode + ":" + errorDesc, cause);
+    public TddlException(ErrorCode errorCode, Throwable cause, String... params){
+        super(errorCode.getMessage(params), "ERROR", errorCode.getCode(), cause);
     }
 
     public TddlException(Throwable cause){
         super(cause);
     }
 
-    public TddlException(int errorCode, String errorDesc){
-        this(String.valueOf(errorCode), errorDesc);
-    }
-
-    public TddlException(int errorCode, Throwable cause){
-        this(String.valueOf(errorCode), cause);
+    public String toString() {
+        return getLocalizedMessage();
     }
 }

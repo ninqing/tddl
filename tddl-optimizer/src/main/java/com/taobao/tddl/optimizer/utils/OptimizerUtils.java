@@ -39,7 +39,7 @@ import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlExprVisitor;
 
 /**

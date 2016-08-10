@@ -14,7 +14,7 @@ import net.sf.cglib.proxy.MethodProxy;
 
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 获取{@linkplain ASTNode}的代理对象

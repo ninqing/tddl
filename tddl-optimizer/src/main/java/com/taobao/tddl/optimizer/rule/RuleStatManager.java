@@ -7,6 +7,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Matrix;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
@@ -15,7 +16,7 @@ import com.taobao.tddl.optimizer.costbased.esitimater.stat.LocalStatManager;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.RepoStatManager;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.StatManager;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.TableStat;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.rule.model.TargetDB;
 
 /**
@@ -73,7 +74,7 @@ public class RuleStatManager extends AbstractLifecycle implements StatManager {
             Group group = matrix.getGroup(targetDB.getDbIndex()); // 先找到group
 
             if (group == null) {
-                throw new TddlRuntimeException("not found groupName : " + targetDB.getDbIndex());
+                throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "not found groupName : " + targetDB.getDbIndex());
             }
             try {
                 return repos.get(group).getKVIndex(targetDB.getTableNames().iterator().next());

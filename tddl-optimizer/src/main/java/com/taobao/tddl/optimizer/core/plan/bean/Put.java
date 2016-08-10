@@ -34,7 +34,7 @@ public abstract class Put<RT extends IPut> extends DataNodeExecutor<RT> implemen
 
     protected List<List<Object>> multiValues;
     protected boolean            isMultiValues;
-    private List<Integer>        batchIndexs  = new ArrayList(0);
+    protected List<Integer>      batchIndexs  = new ArrayList(0);
 
     public Put(){
         putType = PUT_TYPE.REPLACE;

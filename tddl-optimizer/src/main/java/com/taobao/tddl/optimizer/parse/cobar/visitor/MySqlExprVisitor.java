@@ -1,6 +1,7 @@
 package com.taobao.tddl.optimizer.parse.cobar.visitor;
 
 import java.lang.reflect.Method;
+import java.sql.SQLSyntaxErrorException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -88,6 +89,8 @@ import com.alibaba.cobar.parser.visitor.EmptySQLASTVisitor;
 import com.alibaba.cobar.parser.visitor.MySQLOutputASTVisitor;
 import com.google.common.collect.Maps;
 import com.taobao.tddl.common.exception.NotSupportException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.optimizer.config.table.SchemaManager;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
@@ -100,9 +103,10 @@ import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
+import com.taobao.tddl.optimizer.core.expression.ISequenceVal;
 import com.taobao.tddl.optimizer.core.expression.bean.LobVal;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 解析mysql表达式
@@ -122,7 +126,7 @@ public class MySqlExprVisitor extends EmptySQLASTVisitor {
 
     private static Map     emptyMap   = Maps.newHashMap();
     private QueryTreeNode  parent;
-    private Comparable     columnOrValue;
+    private Object         columnOrValue;
     private QueryTreeNode  tableNode  = null;
     private String         valueForLike;
     private IFilter        filter;
@@ -419,12 +423,21 @@ public class MySqlExprVisitor extends EmptySQLASTVisitor {
 
     @Override
     public void visit(Identifier node) {
-        IColumn column = ASTNodeFactory.getInstance().createColumn();
-        if (node.getParent() != null) { // table.column
-            column.setTableName(node.getParent().getIdTextUpUnescape());
+        String name = node.getIdTextUpUnescape();
+        if (ISequenceVal.SEQ_NEXTVAL.equals(name)) {
+            if (node.getParent() == null) {
+                throw new TddlNestableRuntimeException(new SQLSyntaxErrorException("SEQUENCE NAME IS NOT EMPTY."));
+            }
+            name = node.getParent().getIdTextUpUnescape();
+            this.columnOrValue = ASTNodeFactory.getInstance().createSequenceValue(name);
+        } else {
+            IColumn column = ASTNodeFactory.getInstance().createColumn();
+            if (node.getParent() != null) { // table.column
+                column.setTableName(node.getParent().getIdTextUpUnescape());
+            }
+            column.setColumnName(node.getIdTextUpUnescape());
+            this.columnOrValue = column;
         }
-        column.setColumnName(node.getIdTextUpUnescape());
-        this.columnOrValue = column;
     }
 
     @Override
@@ -573,7 +586,7 @@ public class MySqlExprVisitor extends EmptySQLASTVisitor {
 
     @Override
     public void visit(LiteralNumber node) {
-        this.columnOrValue = (Comparable) node.getNumber();
+        this.columnOrValue = node.getNumber();
     }
 
     @Override
@@ -801,7 +814,7 @@ public class MySqlExprVisitor extends EmptySQLASTVisitor {
 
     @Override
     public void visit(Dual dual) {
-        throw new NotSupportException("Dual");
+        tableNode = new TableNode(SchemaManager.DUAL);
     }
 
     @Override
@@ -890,7 +903,7 @@ public class MySqlExprVisitor extends EmptySQLASTVisitor {
         Object value = expr.evaluation(emptyMap);
         if (value != null && value != Expression.UNEVALUATABLE) {
             this.nodeSql = getSqlExprStr(expr);
-            this.columnOrValue = (Comparable) value;
+            this.columnOrValue = value;
             return true;
         }
 

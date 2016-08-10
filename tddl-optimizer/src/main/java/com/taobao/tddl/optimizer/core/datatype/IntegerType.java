@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 /**
  * int/Integer类型
@@ -127,12 +126,8 @@ public class IntegerType extends CommonType<Integer> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Integer v = DataDecoder.decodeIntegerObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Integer v = DataDecoder.decodeIntegerObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -160,4 +155,8 @@ public class IntegerType extends CommonType<Integer> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.INTEGER;
+    }
 }

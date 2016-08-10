@@ -6,6 +6,7 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
+import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.mbean.TddlMBeanServer;
 
 /**
@@ -13,11 +14,9 @@ import com.taobao.tddl.common.utils.mbean.TddlMBeanServer;
  * 
  * @author qihao
  */
-public abstract class AbstractTAtomDataSource implements TAtomDsStandard {
+public abstract class AbstractTAtomDataSource extends AbstractLifecycle implements TAtomDsStandard {
 
     protected abstract DataSource getDataSource() throws SQLException;
-
-    public abstract void init() throws Exception;
 
     public abstract void flushDataSource();
 
@@ -65,8 +64,4 @@ public abstract class AbstractTAtomDataSource implements TAtomDsStandard {
         return AbstractTAtomDataSource.class.isAssignableFrom(iface);
     }
 
-    public static void main(String[] args) throws SQLException {
-        StaticTAtomDataSource s = new StaticTAtomDataSource();
-        System.out.println(s.isWrapperFor(StaticTAtomDataSource.class));
-    }
 }

@@ -9,7 +9,6 @@ import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IExtraFunction;
 import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * 聚合函数
@@ -83,10 +82,9 @@ public abstract class AggregateFunction extends ExtraFunction implements IExtraF
      * 
      * </pre>
      * 
-     * @param args
-     * @throws FunctionException
+     * @param args @
      */
-    public abstract void serverMap(Object[] args, ExecutionContext ec) throws FunctionException;
+    public abstract void serverMap(Object[] args, ExecutionContext ec);
 
     /**
      * 外部执行器传递ResultSet中的row记录，进行function的reduce计算
@@ -130,10 +128,9 @@ public abstract class AggregateFunction extends ExtraFunction implements IExtraF
      * 
      * </pre>
      * 
-     * @param args
-     * @throws FunctionException
+     * @param args @
      */
-    public abstract void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException;
+    public abstract void serverReduce(Object[] args, ExecutionContext ec);
 
     public void setResult(Object result) {
         this.result = result;

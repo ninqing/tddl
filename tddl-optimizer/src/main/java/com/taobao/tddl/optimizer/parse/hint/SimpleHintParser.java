@@ -11,11 +11,11 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.ParameterMethod;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.TStringUtil;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 import com.taobao.tddl.rule.model.sqljep.ComparativeAND;
 import com.taobao.tddl.rule.model.sqljep.ComparativeBaseList;
@@ -127,7 +127,7 @@ public class SimpleHintParser {
     private static void decodeVtab(RouteCondition rc, JSONObject jsonObject) throws JSONException {
         String virtualTableName = containsKvNotBlank(jsonObject, VTAB);
         if (virtualTableName == null) {
-            throw new TddlRuntimeException("hint contains no property 'vtab'.");
+            throw new SqlParserException("hint contains no property 'vtab'.");
         }
 
         rc.setVirtualTableName(virtualTableName);
@@ -174,7 +174,7 @@ public class SimpleHintParser {
                         } else if (relation != null && OR.equals(relation)) {
                             comList = new ComparativeOR();
                         } else {
-                            throw new TddlRuntimeException("multi param but no relation,the hint is:" + sc.toString());
+                            throw new SqlParserException("multi param but no relation,the hint is:" + sc.toString());
                         }
 
                         String key = null;
@@ -187,8 +187,8 @@ public class SimpleHintParser {
                             if (null == key) {
                                 key = temp;
                             } else if (!temp.equals(key)) {
-                                throw new TddlRuntimeException("decodeCondition not support one relation with multi key,the relation is:["
-                                                               + relation + "],expr list is:[" + exprs.toString());
+                                throw new SqlParserException("decodeCondition not support one relation with multi key,the relation is:["
+                                                             + relation + "],expr list is:[" + exprs.toString());
                             }
                         }
                         sc.put(key, comList);
@@ -199,7 +199,7 @@ public class SimpleHintParser {
                                 paramtype);
                             sc.put(key, comparative);
                         } else {
-                            throw new TddlRuntimeException("relation neither 'and' nor 'or',but expr size is not 1");
+                            throw new SqlParserException("relation neither 'and' nor 'or',but expr size is not 1");
                         }
                     }
                 }
@@ -214,7 +214,7 @@ public class SimpleHintParser {
         String max = containsKvNotBlank(jsonObject, "max");
         String orderby = containsKvNotBlank(jsonObject, "orderby");
         if (skip != null || max != null || orderby != null) {
-            throw new TddlRuntimeException("不支持的tddl3.3.x的hint特殊参数");
+            throw new SqlParserException("不支持的tddl3.3.x的hint特殊参数");
         }
     }
 
@@ -238,14 +238,14 @@ public class SimpleHintParser {
             if (tddlHint.charAt(i) == '?') {
                 // TDDLHINT只能设置简单值
                 if (parameterSettings == null) {
-                    throw new TddlRuntimeException("hint中使用了'?'占位符,却没有设置setParameter()");
+                    throw new SqlParserException("hint中使用了'?'占位符,却没有设置setParameter()");
                 }
 
                 ParameterContext param = parameterSettings.get(parameters);
                 if (param == null) {
-                    throw new TddlRuntimeException("Parameter index out of range (" + parameters
-                                                   + " > number of parameters, which is " + parameterSettings.size()
-                                                   + ").");
+                    throw new SqlParserException("Parameter index out of range (" + parameters
+                                                 + " > number of parameters, which is " + parameterSettings.size()
+                                                 + ").");
                 }
 
                 Object arg = param.getArgs()[1];

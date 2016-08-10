@@ -60,7 +60,8 @@ public abstract class QueryHandlerCommon extends HandlerCommon {
     public ISchematicCursor handle(IDataNodeExecutor executor, ExecutionContext executionContext) throws TddlException {
         // 先做查询
         ISchematicCursor cursor = doQuery(null, executor, executionContext);
-        if (executor.getSql() == null) {
+
+        if (executor.getSql() == null || (executor instanceof IQuery && ((IQuery) executor).getIndexName() != null)) {
             IQueryTree IQueryTree = (IQueryTree) executor;
 
             cursor = processValueFilter(cursor, executionContext, IQueryTree);

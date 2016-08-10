@@ -12,6 +12,7 @@ import javax.sql.DataSource;
 import com.taobao.tddl.client.sequence.SequenceDao;
 import com.taobao.tddl.client.sequence.SequenceRange;
 import com.taobao.tddl.client.sequence.exception.SequenceException;
+import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
@@ -21,7 +22,7 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  * 
  * @author nianbing
  */
-public class DefaultSequenceDao implements SequenceDao {
+public class DefaultSequenceDao extends AbstractLifecycle implements SequenceDao {
 
     private static final Logger logger                           = LoggerFactory.getLogger(DefaultSequenceDao.class);
     private static final int    MIN_STEP                         = 1;

@@ -489,7 +489,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
         List<Object> param = new ArrayList<Object>();
         param.add(name);
         try {
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             Assert.assertEquals(1, resultsSize(rc));
         } finally {
             if (rc != null) {
@@ -506,7 +506,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
         List<Object> param = new ArrayList<Object>();
         param.add(name);
         try {
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             Assert.assertEquals(1, resultsSize(rc));
         } finally {
             rc.close();
@@ -690,7 +690,7 @@ public class SelectWithConditionTest extends BaseMatrixTestCase {
         param.add(limit);
         String sql = "SELECT * FROM " + normaltblTableName + " LIMIT ";
         try {
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             Assert.fail();
         } catch (Exception e) {
             Assert.assertNotNull(e.getMessage());

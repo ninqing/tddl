@@ -4,10 +4,14 @@ import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.ExecutorException;
+import com.taobao.tddl.executor.exception.FunctionException;
 import com.taobao.tddl.executor.rowset.IRowSet;
+import com.taobao.tddl.optimizer.core.datatype.DataType;
+import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.expression.IExtraFunction;
 import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
+import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * map是分发过程，reduce是合并过程。<br/>
@@ -29,14 +33,14 @@ public abstract class ScalarFunction extends ExtraFunction implements IExtraFunc
         return function.getColumnName();
     }
 
-    protected abstract Object compute(Object[] args, ExecutionContext ec) throws FunctionException;
+    protected abstract Object compute(Object[] args, ExecutionContext ec);
 
     /**
      * @param kvPair
      * @param ec
      * @throws TddlRuntimeException
      */
-    public Object scalarCalucate(IRowSet kvPair, ExecutionContext ec) throws TddlRuntimeException {
+    public Object scalarCalucate(IRowSet kvPair, ExecutionContext ec) {
         // 当前function需要的args 有些可能是函数，也有些是其他的一些数据
         List<Object> argsArr = getMapArgs(function);
         // 函数的input参数
@@ -55,13 +59,34 @@ public abstract class ScalarFunction extends ExtraFunction implements IExtraFunc
                                             + this.function.getFunctionName() + "'");
             }
         } else {
-            throw new TddlRuntimeException("聚合函数不会调到这里");
+            throw new ExecutorException("impossible");
         }
     }
 
     @Override
     public void clear() {
 
+    }
+
+    /**
+     * 返回第一个类型的DataType
+     */
+    protected DataType getFirstArgType() {
+        return getArgType(function.getArgs().get(0));
+    }
+
+    /**
+     * 返回对应类型的DataType
+     */
+    protected DataType getArgType(Object arg) {
+        DataType type = null;
+        if (arg instanceof ISelectable) {
+            type = ((ISelectable) arg).getDataType();
+        }
+        if (type == null) {
+            type = DataTypeUtil.getTypeOfObject(arg);
+        }
+        return type;
     }
 
 }

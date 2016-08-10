@@ -5,7 +5,7 @@ import org.junit.Test;
 
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 
 public class FilterPreProcessorTest extends BaseOptimizerTest {

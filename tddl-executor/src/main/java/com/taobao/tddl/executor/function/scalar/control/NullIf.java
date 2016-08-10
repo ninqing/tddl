@@ -4,8 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * Returns NULL if expr1 = expr2 is true, otherwise returns expr1. This is the
@@ -46,14 +44,7 @@ public class NullIf extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(1) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(1)).getDataType();
-        }
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(1));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

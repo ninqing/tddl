@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.costbased;
 
-import org.codehaus.groovy.syntax.ParserException;
 import org.junit.Test;
 
 import com.taobao.tddl.optimizer.BaseOptimizerTest;
@@ -10,14 +9,13 @@ import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
 import com.taobao.tddl.optimizer.costbased.after.MergeJoinMergeOptimizer;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 public class MergeJoinMergeOptimizerTest extends BaseOptimizerTest {
 
     private MergeJoinMergeOptimizer o = new MergeJoinMergeOptimizer();
 
     @Test
-    public void testExpandLeft() throws ParserException, QueryException {
+    public void testExpandLeft() {
         System.out.println("==========testExpandLeft==============");
         IJoin j = this.getMergeJoinMerge();
         System.out.println(j);
@@ -42,7 +40,7 @@ public class MergeJoinMergeOptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testExpandRight() throws ParserException, QueryException {
+    public void testExpandRight() {
         System.out.println("==========testExpandRight==============");
         IJoin j = this.getMergeJoinMerge();
         System.out.println(j);
@@ -67,7 +65,7 @@ public class MergeJoinMergeOptimizerTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testCartesianProduct() throws ParserException, QueryException {
+    public void testCartesianProduct() {
         System.out.println("==========testCartesianProduct==============");
         IJoin j = this.getMergeJoinMerge();
         System.out.println(j);

@@ -11,6 +11,8 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import javax.sql.DataSource;
 
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.jdbc.SQLPreParser;
 import com.taobao.tddl.common.jdbc.sorter.ExceptionSorter;
 import com.taobao.tddl.common.jdbc.sorter.MySQLExceptionSorter;
@@ -19,8 +21,7 @@ import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.utils.TStringUtil;
 import com.taobao.tddl.group.config.GroupExtraConfig;
 import com.taobao.tddl.group.config.GroupIndex;
-import com.taobao.tddl.group.exception.NoMoreDataSourceException;
-import com.taobao.tddl.group.exception.SqlForbidException;
+import com.taobao.tddl.group.exception.GroupNotAvaliableException;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 
 import com.taobao.tddl.common.utils.logger.Logger;
@@ -127,8 +128,8 @@ public abstract class AbstractDBSelector implements DBSelector {
                         dsHolder.lock.unlock();
                     }
                 } else {
-                    exceptions.add(new NoMoreDataSourceException("dsKey:" + dsHolder.dsw.getDataSourceKey()
-                                                                 + " not Available,toTry:" + toTry));
+                    exceptions.add(new GroupNotAvaliableException("dsKey:" + dsHolder.dsw.getDataSourceKey()
+                                                                  + " not Available,toTry:" + toTry));
                     return tryer.onSQLException(exceptions, exceptionSorter, args);
                 }
             } else {
@@ -186,8 +187,8 @@ public abstract class AbstractDBSelector implements DBSelector {
                     // FIXME:这里需要看下，如果在事务中，是否应该重试。
                     return tryExecuteInternal(failedDataSources, tryer, times, args);
                 } else {
-                    exceptions.add(new NoMoreDataSourceException("dsKey:" + dsHolder.dsw.getDataSourceKey()
-                                                                 + " not Available,toTry:" + toTry));
+                    exceptions.add(new GroupNotAvaliableException("dsKey:" + dsHolder.dsw.getDataSourceKey()
+                                                                  + " not Available,toTry:" + toTry));
                     return tryer.onSQLException(exceptions, exceptionSorter, args);
                 }
             } else {
@@ -246,9 +247,9 @@ public abstract class AbstractDBSelector implements DBSelector {
                         }
                     }
                     if (isForbidden) {
-                        String message = "sql : '" + sql + "' is in forbidden set.";
+                        String message = "sql : '" + sql;
                         logger.error(message);
-                        throw new SqlForbidException(message);
+                        throw new TddlException(ErrorCode.ERR_SQLFORBID, message);
                     }
                 }
 

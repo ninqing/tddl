@@ -103,7 +103,7 @@ public class SelectWithLike extends BaseMatrixTestCase {
     public void LikeBinaryTest() throws Exception {
         String sql = "select * from " + normaltblTableName + " having name like binary 'zhuoxue'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
 
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
     }
@@ -131,27 +131,27 @@ public class SelectWithLike extends BaseMatrixTestCase {
     public void NotLikeTest() throws Exception {
         String sql = "select * from " + normaltblTableName + " having name not like 'zhuo%'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
         sql = "select * from " + normaltblTableName + " having name not like 'uo%'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
         sql = "select * from " + normaltblTableName + " having name not like 'zhuoxu_'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
         sql = "select * from " + normaltblTableName + " having name not like 'uoxu_'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
 
         sql = "select * from " + normaltblTableName + " having name not like 'ZHuoXUE'";
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         Assert.assertEquals(resultsSize(rs), resultsSize(rc));
     }
 

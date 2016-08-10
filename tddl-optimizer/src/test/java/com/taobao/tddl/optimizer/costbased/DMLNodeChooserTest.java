@@ -14,7 +14,6 @@ import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.dml.IInsert;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * @author Dreamond
@@ -22,7 +21,7 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
 public class DMLNodeChooserTest extends BaseOptimizerTest {
 
     @Test
-    public void testUpdate() throws QueryException {
+    public void testUpdate() {
         TableNode table = new TableNode("TABLE1");
         String values[] = { "NAME" };
         UpdateNode update = ((TableNode) table.query("ID>=5 AND ID<=100")).update("NAME", values);
@@ -36,7 +35,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
         Assert.assertEquals(8, ((IMerge) plan).getSubNodes().size());
     }
 
-    public void testUpdate_范围更新生成merge() throws QueryException {
+    public void testUpdate_范围更新生成merge() {
         TableNode table = new TableNode("TABLE1");
         String values[] = { "NAME" };
         UpdateNode update = ((TableNode) table.query("ID>=5")).update("NAME", values);
@@ -51,7 +50,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPut() throws QueryException {
+    public void testPut() {
         TableNode table = new TableNode("TABLE1");
         Comparable values[] = { 2 };
         PutNode update = ((TableNode) table).put("ID", values);
@@ -64,7 +63,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPut_全字段() throws QueryException {
+    public void testPut_全字段() {
         TableNode table = new TableNode("TABLE1");
         Comparable values[] = { 2, "sysu", "sun" };
         PutNode put = table.put("ID SCHOOL NAME", values);
@@ -77,7 +76,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete() throws QueryException {
+    public void testDelete() {
         TableNode table = new TableNode("TABLE1");
         table.query("ID>=5 AND ID<=100");
         ASTNode delete = ((TableNode) table).delete();// .delete();
@@ -93,7 +92,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete_范围删除会生成merge() throws QueryException {
+    public void testDelete_范围删除会生成merge() {
         TableNode table = new TableNode("TABLE1");
         DeleteNode delete = ((TableNode) table.query("ID>=5")).delete();
         IDataNodeExecutor plan = optimizer.optimizeAndAssignment(delete, null, null);
@@ -107,7 +106,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert() throws QueryException {
+    public void testInsert() {
         TableNode table = new TableNode("TABLE1");
         Comparable values[] = { 2 };
         InsertNode insert = table.insert("ID", values);
@@ -120,7 +119,7 @@ public class DMLNodeChooserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_全字段() throws QueryException {
+    public void testInsert_全字段() {
         TableNode table = new TableNode("TABLE1");
         Comparable values[] = { 2, "sysu", "sun" };
         InsertNode insert = table.insert("ID SCHOOL NAME", values);

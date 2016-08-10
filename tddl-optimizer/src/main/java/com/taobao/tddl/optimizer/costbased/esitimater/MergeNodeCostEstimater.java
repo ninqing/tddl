@@ -4,7 +4,6 @@ import com.taobao.tddl.optimizer.core.ast.ASTNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.MergeNode;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
-import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 
 /**
  * @author Dreamond
@@ -12,7 +11,7 @@ import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 public class MergeNodeCostEstimater implements QueryTreeCostEstimater {
 
     @Override
-    public Cost estimate(QueryTreeNode query) throws StatisticsUnavailableException {
+    public Cost estimate(QueryTreeNode query) {
         MergeNode merge = (MergeNode) query;
         Cost cost = new Cost();
 

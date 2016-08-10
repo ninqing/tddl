@@ -141,7 +141,7 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
      * 是否为存在聚合信息，比如出现limit/group by/count/max等，此节点就会被标记为true，不允许进行join merge
      * join的展开优化
      */
-    protected boolean           isExistAggregate   = false;
+    protected boolean           existAggregate     = false;
 
     /**
      * 针对where id = (subquery), 给subquery设定一个唯一id，展开为merge后，可以避免执行器cache
@@ -741,11 +741,11 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
     }
 
     public boolean isExistAggregate() {
-        return isExistAggregate;
+        return existAggregate;
     }
 
     public QueryTreeNode setExistAggregate(boolean isExistAggregate) {
-        this.isExistAggregate = isExistAggregate;
+        this.existAggregate = isExistAggregate;
         return this;
     }
 
@@ -879,10 +879,11 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         to.setLimitTo(this.limitTo);
         to.setNeedBuild(this.needBuild);
         to.setSql(this.getSql());
+        to.executeOn(this.getDataNode());
         to.setSubQuery(subQuery);
-        to.setExistAggregate(isExistAggregate);
+        to.setExistAggregate(existAggregate);
+        to.setExistSequenceVal(existSequenceVal);
         to.setLockMode(this.lockMode);
-        to.setParent(this.parent);
         to.setCorrelatedSubquery(this.correlatedSubquery);
         to.setSubqueryOnFilterId(this.subqueryOnFilterId);
         to.setNeedBuild(false);
@@ -920,11 +921,12 @@ public abstract class QueryTreeNode extends ASTNode<QueryTreeNode> {
         }
 
         to.setSql(this.getSql());
+        to.executeOn(this.getDataNode());
         to.setSubQuery(this.isSubQuery());
         to.setNeedBuild(this.isNeedBuild());
-        to.setExistAggregate(isExistAggregate);
+        to.setExistAggregate(existAggregate);
+        to.setExistSequenceVal(existSequenceVal);
         to.setLockMode(this.lockMode);
-        to.setParent(this.parent); // parent只是build的时候需要，只读，不会做修改
         to.setCorrelatedSubquery(this.correlatedSubquery);
         to.setSubqueryOnFilterId(this.subqueryOnFilterId);
         to.setNeedBuild(false);

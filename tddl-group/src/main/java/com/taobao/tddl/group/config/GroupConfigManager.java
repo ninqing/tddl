@@ -18,11 +18,14 @@ import com.alibaba.fastjson.JSONObject;
 import com.taobao.tddl.atom.TAtomDataSource;
 import com.taobao.tddl.atom.TAtomDbStatusEnum;
 import com.taobao.tddl.atom.TAtomDsStandard;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.model.DataSourceType;
+import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
+import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.common.utils.TStringUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.config.ConfigDataHandler;
 import com.taobao.tddl.config.ConfigDataHandlerFactory;
 import com.taobao.tddl.config.ConfigDataListener;
@@ -33,13 +36,14 @@ import com.taobao.tddl.group.dbselector.EquityDbManager;
 import com.taobao.tddl.group.dbselector.OneDBSelector;
 import com.taobao.tddl.group.dbselector.PriorityDbGroupSelector;
 import com.taobao.tddl.group.dbselector.RuntimeWritableAtomDBSelector;
-import com.taobao.tddl.group.exception.ConfigException;
-import com.taobao.tddl.group.exception.TAtomDataSourceException;
 import com.taobao.tddl.group.jdbc.DataSourceFetcher;
 import com.taobao.tddl.group.jdbc.DataSourceWrapper;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.group.listener.DataSourceChangeListener;
 import com.taobao.tddl.monitor.logger.LoggerInit;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * 一个ConfigManager对应一个TGroupDataSource，
@@ -57,7 +61,7 @@ import com.taobao.tddl.monitor.logger.LoggerInit;
  * @author yangzhu
  * @author linxuan refactor
  */
-public class GroupConfigManager {
+public class GroupConfigManager extends AbstractLifecycle implements Lifecycle {
 
     private static final Logger                                                    logger                = LoggerFactory.getLogger(GroupConfigManager.class);
 
@@ -90,7 +94,7 @@ public class GroupConfigManager {
      * 从Diamond配置中心提取信息，构造TAtomDataSource、构造有优先级信息的读写DBSelector ---add by
      * mazhidan.pt
      */
-    public void init() {
+    public void doInit() throws TddlException {
         // 警告: 不要在构造DefaultDiamondManager时就注册ManagerListener(比如:configReceiver)
         // 也就是说，不要这样用: new DefaultDiamondManager(dbGroupKey, configReceiver)，
         // 而是要设成null，等第一次取得信息并解析完成后再注册，这样可以不用同步，避免任何与并发相关的问题，
@@ -125,13 +129,14 @@ public class GroupConfigManager {
     /**
      * 根据普通的DataSource构造读写DBSelector
      */
-    public void init(List<DataSourceWrapper> dataSourceWrappers) {
+    public void init(List<DataSourceWrapper> dataSourceWrappers) throws TddlException {
         if ((dataSourceWrappers == null) || dataSourceWrappers.size() < 1) {
-            throw new ConfigException("dataSourceWrappers不能为null且长度要大于0");
+            throw new TddlException(ErrorCode.ERR_CONFIG, "dataSourceWrappers is empty");
         }
         createTAtomDataSource = false;
         // update(createDBSelectors2(dataSourceWrappers));
         resetByDataSourceWrapper(dataSourceWrappers);
+        isInited = true;
     }
 
     private TAtomDsStandard initAtomDataSource(String appName, String dsKey, String unitName) {
@@ -147,7 +152,7 @@ public class GroupConfigManager {
                                                    + tGroupDataSource.getDataSourceType());
             }
         } catch (Exception e) {
-            throw new TAtomDataSourceException("TAtomDataSource无法初始化: dsKey=" + dsKey, e);
+            throw new TddlNestableRuntimeException("TAtomDataSource init failed: dsKey=" + dsKey, e);
         }
     }
 
@@ -181,7 +186,7 @@ public class GroupConfigManager {
     };
 
     // configInfo样例: db1:rw, db2:r, db3:r
-    private synchronized void parse(String dsWeightCommaStr) {
+    private synchronized void parse(String dsWeightCommaStr) throws TddlException {
         List<DataSourceWrapper> dswList = parse2DataSourceWrapperList(dsWeightCommaStr);
         resetByDataSourceWrapper(dswList);
     }
@@ -192,10 +197,10 @@ public class GroupConfigManager {
      * example: {sqlDsIndex: { 0:[sql1,sql2,sql3], 1:[sql0], 2:[sql4] },
      * tabDsIndex: { 0:[table1,table2] 1:[table3,table4] }, defaultMain:true}
      * 
-     * @throws JSONException
+     * @throws TddlException
      **/
     @SuppressWarnings("rawtypes")
-    private synchronized void parseExtraConfig(String extraConfig) {
+    private synchronized void parseExtraConfig(String extraConfig) throws TddlException {
         if (extraConfig == null) {
             this.groupExtraConfig.getSqlForbidSet().clear();
             this.groupExtraConfig.getSqlDsIndexMap().clear();
@@ -234,7 +239,8 @@ public class GroupConfigManager {
                             tempSqlDsIndexMap.put(nomalSql, index);
                         } else {
                             // have a nice log
-                            throw new ConfigException("sql can not be route to different dataSourceIndex:" + sql);
+                            throw new TddlException(ErrorCode.ERR_CONFIG,
+                                "sql can not be route to different dataSourceIndex:" + sql);
                         }
                     }
                 }
@@ -258,7 +264,8 @@ public class GroupConfigManager {
                             tempTabDsIndexMap.put(nomalTable, index);
                         } else {
                             // have a nice log
-                            throw new ConfigException("table can not be route to different dataSourceIndex:" + table);
+                            throw new TddlException(ErrorCode.ERR_CONFIG,
+                                "table can not be route to different dataSourceIndex:" + table);
                         }
                     }
                 }
@@ -274,7 +281,7 @@ public class GroupConfigManager {
             }
 
         } catch (JSONException e) {
-            throw new ConfigException("group extraConfig is not json valid string:" + extraConfig, e);
+            throw new TddlNestableRuntimeException("group extraConfig is not json valid string:" + extraConfig, e);
         }
     }
 
@@ -283,11 +290,11 @@ public class GroupConfigManager {
      * 逗号的个数+1，用0、1、2...编号，比如"db1,,db3"，实际上有3个数据库，
      * 业务层通过传一个ThreadLocal进来，ThreadLocal中就是这种索引编号。
      */
-    private List<DataSourceWrapper> parse2DataSourceWrapperList(String dsWeightCommaStr) {
+    private List<DataSourceWrapper> parse2DataSourceWrapperList(String dsWeightCommaStr) throws TddlException {
         logger.warn("[parse2DataSourceWrapperList]dsWeightCommaStr=" + dsWeightCommaStr);
         this.tGroupDataSource.setDsKeyAndWeightCommaArray(dsWeightCommaStr);
         if ((dsWeightCommaStr == null) || (dsWeightCommaStr = dsWeightCommaStr.trim()).length() == 0) {
-            throw new ConfigException("与dbGroupKey:'" + tGroupDataSource.getFullDbGroupKey() + "'对应的配置信息不能为null且长度要大于0");
+            throw new TddlException(ErrorCode.ERR_CONFIG_MISS_GROUPKEY, tGroupDataSource.getFullDbGroupKey());
         }
         return buildDataSourceWrapperSequential(dsWeightCommaStr, new MyDataSourceFetcher());
     }
@@ -621,7 +628,11 @@ public class GroupConfigManager {
         @Override
         public void onDataRecieved(String dataId, String data) {
             LoggerInit.TDDL_DYNAMIC_CONFIG.info("receive group extra data:" + data);
-            parseExtraConfig(data);
+            try {
+                parseExtraConfig(data);
+            } catch (TddlException e) {
+                throw new TddlNestableRuntimeException(e);
+            }
         }
     }
 
@@ -640,7 +651,8 @@ public class GroupConfigManager {
 
     }
 
-    public void destroyDataSource() throws Exception {
+    @Override
+    protected void doDestroy() throws TddlException {
         // 关闭下层DataSource
         if (dataSourceWrapperMap != null) {
             for (DataSourceWrapper dsw : dataSourceWrapperMap.values()) {
@@ -673,5 +685,9 @@ public class GroupConfigManager {
         } catch (Exception e) {
             logger.error("we got exception when close datasource .", e);
         }
+    }
+
+    public void destroyDataSource() throws TddlException {
+        destroy();
     }
 }

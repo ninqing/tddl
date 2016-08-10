@@ -9,15 +9,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.model.DBType;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
 import com.taobao.tddl.rule.utils.RuleUtils;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
-
 
 /**
  * 一组{@linkplain TableRule}的集合
@@ -65,16 +64,31 @@ public class VirtualTableRoot extends AbstractLifecycle implements Lifecycle, Ap
      */
     public TableRule getVirtualTable(String virtualTableName) {
         RuleUtils.notNull(virtualTableName, "virtual table name is null");
-        TableRule tablRule = virtualTableMap.get(virtualTableName.toUpperCase());
-        if (tablRule != null && lazyInit && !tablRule.isInited()) {
+        TableRule tableRule = virtualTableMap.get(virtualTableName.toUpperCase());
+        if (tableRule != null && lazyInit && !tableRule.isInited()) {
             try {
-                initTableRule(virtualTableName, tablRule);
+                initTableRule(virtualTableName, tableRule);
             } catch (TddlException e) {
-                throw new TddlRuleException(e);
+                throw new TddlNestableRuntimeException(e);
             }
         }
 
-        return tablRule;
+        return tableRule;
+    }
+
+    public Map<String, TableRule> getTableRules() {
+        for (Map.Entry<String, TableRule> entry : virtualTableMap.entrySet()) {
+            TableRule tableRule = entry.getValue();
+            if (tableRule != null && lazyInit && !tableRule.isInited()) {
+                try {
+                    initTableRule(entry.getKey(), tableRule);
+                } catch (TddlException e) {
+                    throw new TddlNestableRuntimeException(e);
+                }
+            }
+        }
+
+        return virtualTableMap;
     }
 
     public void setTableRules(Map<String, TableRule> virtualTableMap) {

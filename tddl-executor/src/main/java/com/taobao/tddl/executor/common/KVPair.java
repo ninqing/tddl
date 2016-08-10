@@ -6,8 +6,6 @@ package com.taobao.tddl.executor.common;
 
 import com.taobao.tddl.executor.record.CloneableRecord;
 
-
-
 /**
  * @author jianxing <jianxing.qx@taobao.com>
  */

@@ -8,8 +8,9 @@ import org.apache.commons.lang.StringUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.utils.extension.ExtensionLoader;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.PackageUtils;
 import com.taobao.tddl.optimizer.utils.PackageUtils.ClassFilter;
 
@@ -63,12 +64,12 @@ public class ExtraFunctionManager {
             try {
                 result = (IExtraFunction) clazz.newInstance();
             } catch (Exception e) {
-                throw new FunctionException("init function failed", e);
+                throw new TddlNestableRuntimeException(e);
             }
         }
 
         if (result == null) {
-            throw new FunctionException("not found Function : " + functionName);
+            throw new OptimizerException("not found Function : " + functionName);
         }
 
         return result;
@@ -86,7 +87,7 @@ public class ExtraFunctionManager {
                 }
             }
         } catch (Exception e) {
-            throw new FunctionException("init function failed", e);
+            throw new TddlNestableRuntimeException(e);
         }
 
     }

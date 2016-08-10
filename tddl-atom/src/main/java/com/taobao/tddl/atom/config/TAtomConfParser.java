@@ -195,7 +195,7 @@ public class TAtomConfParser {
                     String key = TStringUtil.substringBefore(keyValue, "=");
                     String value = TStringUtil.substringAfter(keyValue, "=");
                     if (TStringUtil.isNotBlank(key) && TStringUtil.isNotBlank(value)) {
-                        connectionProperties.put(key, value);
+                        connectionProperties.put(key.trim(), value.trim());
                     }
                 }
             }

@@ -50,7 +50,7 @@ public class ExecuteTableName {
                     // case[9]
                     { "tdhs_normaltbl_mutilGroup" }, };
             return object;
-        } else if (db.equals("mysql")) {
+        } else if (db.equals("mysql") || db.equals("tddl-server")) {
             String[][] object = {
                     // case[0]
                     { "mysql_normaltbl_oneGroup_oneAtom" },
@@ -84,7 +84,7 @@ public class ExecuteTableName {
                     // case[9]
                     { "student_mutilGroup" } };
             return object;
-        } else if (db.equals("mysql")) {
+        } else if (db.equals("mysql") || db.equals("tddl-server")) {
             String[][] object = {
                     // case[0]
                     { "mysql_student_oneGroup_oneAtom" },
@@ -124,7 +124,7 @@ public class ExecuteTableName {
                     // case[9]
                     { "normaltbl_mutilGroup", "student_mutilGroup" }, };
             return object;
-        } else if (db.equals("mysql")) {
+        } else if (db.equals("mysql") || db.equals("tddl-server")) {
             String[][] object = {
                     // case[0]
                     { "mysql_normaltbl_oneGroup_oneAtom", "mysql_student_oneGroup_oneAtom" },
@@ -169,7 +169,7 @@ public class ExecuteTableName {
         if (db.equals("bdb")) {
             String[][] object = {};
             return object;
-        } else if (db.equals("mysql")) {
+        } else if (db.equals("mysql") || db.equals("tddl-server")) {
             String[][] object = {
                     // case[0]
                     { "mysql_host_info_oneGroup_oneAtom", "mysql_hostgroup_info_oneGroup_oneAtom" },
@@ -220,7 +220,7 @@ public class ExecuteTableName {
                     { "host_info_oneGroup_mutilAtom", "hostgroup_info_mutilGroup", "student_mutilGroup",
                             "module_info_mutilGroup", "module_host_oneGroup_mutilAtom" } };
             return object;
-        } else if (db.equals("mysql")) {
+        } else if (db.equals("mysql") || db.equals("tddl-server")) {
             String[][] object = {
                     // case[0]
                     { "mysql_host_info_oneGroup_oneAtom", "mysql_hostgroup_info_oneGroup_oneAtom",

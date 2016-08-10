@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
+import com.taobao.tddl.optimizer.core.ast.DMLNode;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.ast.query.TableNode;
@@ -16,7 +17,8 @@ import com.taobao.tddl.optimizer.core.expression.IFunction.FunctionType;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.core.expression.ISequenceVal;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.UniqIdGen;
 
 /**
@@ -265,6 +267,8 @@ public abstract class QueryTreeNodeBuilder {
             }
         } else if (column instanceof ISelectable) {
             filter.setColumn(this.buildSelectable((ISelectable) column, findInSelectList));
+        } else if (column instanceof ISequenceVal) {
+            setExistSequenceVal();
         }
 
         // subQuery，比如WHERE ID = (SELECT ID FROM A)
@@ -277,6 +281,8 @@ public abstract class QueryTreeNodeBuilder {
             }
         } else if (value instanceof ISelectable) {
             filter.setValue(this.buildSelectable((ISelectable) value, findInSelectList));
+        } else if (value instanceof ISequenceVal) {
+            setExistSequenceVal();
         }
 
         if (value != null && value instanceof IFunction && ((IFunction) value).getArgs().size() > 0) {
@@ -447,6 +453,8 @@ public abstract class QueryTreeNodeBuilder {
         for (int i = 0; i < args.size(); i++) {
             if (args.get(i) instanceof ISelectable) {
                 args.set(i, this.buildSelectable((ISelectable) args.get(i), findInSelectList));
+            } else if (args.get(i) instanceof ISequenceVal) {
+                setExistSequenceVal();
             }
         }
     }
@@ -474,6 +482,23 @@ public abstract class QueryTreeNodeBuilder {
             if (sub instanceof QueryTreeNode) {
                 if (((QueryTreeNode) sub).isExistAggregate()) {
                     setExistAggregate();
+                    return;
+                }
+            }
+        }
+    }
+
+    protected void buildExistSequenceVal() {
+        // 如果子节点中有一个是聚合查询，则传递到父节点
+        for (ASTNode sub : this.getNode().getChildren()) {
+            if (sub instanceof QueryTreeNode) {
+                if (((QueryTreeNode) sub).isExistSequenceVal()) {
+                    setExistSequenceVal();
+                    return;
+                }
+            } else if (sub instanceof DMLNode) {
+                if (((DMLNode) sub).isExistSequenceVal()) {
+                    setExistSequenceVal();
                     return;
                 }
             }
@@ -550,6 +575,10 @@ public abstract class QueryTreeNodeBuilder {
 
     protected void setExistAggregate() {
         this.node.setExistAggregate(true);
+    }
+
+    protected void setExistSequenceVal() {
+        this.node.setExistSequenceVal(true);
     }
 
     protected void buildSubqueryOnFilter(IFunction func) {

@@ -1,5 +1,6 @@
 package com.taobao.tddl.optimizer.config.table;
 
+import java.util.ArrayList;
 import java.util.Collection;
 
 import com.taobao.tddl.common.exception.NotSupportException;
@@ -70,6 +71,10 @@ public class RepoSchemaManager extends AbstractLifecycle implements SchemaManage
 
     public final TableMeta getTable(String logicalTableName, String actualTableName) {
         TableMeta meta = null;
+        if (logicalTableName.equals(DUAL)) {
+            return buildDualTable();
+        }
+
         if (local != null) {// 本地如果开启了，先找本地
             meta = local.getTable(logicalTableName);
         }
@@ -118,6 +123,18 @@ public class RepoSchemaManager extends AbstractLifecycle implements SchemaManage
         if (!isDelegate) {
             delegate.destroy();
         }
+    }
+
+    protected TableMeta buildDualTable() {
+        IndexMeta index = new IndexMeta(SchemaManager.DUAL,
+            new ArrayList<ColumnMeta>(),
+            new ArrayList<ColumnMeta>(),
+            IndexType.NONE,
+            Relationship.NONE,
+            false,
+            true);
+
+        return new TableMeta(DUAL, new ArrayList<ColumnMeta>(), index, new ArrayList<IndexMeta>());
     }
 
     public void setGroup(Group group) {

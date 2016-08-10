@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -33,7 +33,6 @@ public class UpdateHandler extends PutHandlerCommon {
     @Override
     protected int executePut(ExecutionContext executionContext, IPut put, ITable table, IndexMeta meta)
                                                                                                        throws TddlException {
-
         ITransaction transaction = executionContext.getTransaction();
         int affect_rows = 0;
         IPut update = put;
@@ -63,7 +62,7 @@ public class UpdateHandler extends PutHandlerCommon {
                             Object v = update.getUpdateValues().get(i);
                             if (v instanceof IFunction) {
                                 if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
-                                    throw new TddlRuntimeException("update 中不允许出现聚合函数");
+                                    throw new ExecutorException("update is not support aggregate function");
                                 }
                                 IFunction func = ((IFunction) v);
 

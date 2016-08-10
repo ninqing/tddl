@@ -5,7 +5,9 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
-public interface TAtomDsStandard extends DataSource {
+import com.taobao.tddl.common.model.lifecycle.Lifecycle;
+
+public interface TAtomDsStandard extends DataSource, Lifecycle {
 
     /**
      * @param appName

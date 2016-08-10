@@ -207,4 +207,11 @@ public class ConnectionParams {
     public static void addSupportedParam(ConfigParam param) {
         SUPPORTED_PARAMS.put(param.getName(), param);
     }
+
+    /**
+     * Sequence表名
+     */
+    public static final StringConfigParam SEQUENCE_TABLE_NAME = new StringConfigParam(ConnectionProperties.SEQUENCE_TABLE_NAME,
+                                                                  "sequence",
+                                                                  false);
 }

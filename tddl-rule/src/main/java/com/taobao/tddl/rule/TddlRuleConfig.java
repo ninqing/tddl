@@ -20,6 +20,9 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 import com.taobao.tddl.common.utils.TStringUtil;
@@ -29,7 +32,7 @@ import com.taobao.tddl.config.ConfigDataListener;
 import com.taobao.tddl.config.impl.UnitConfigDataHandlerFactory;
 import com.taobao.tddl.monitor.logger.LoggerInit;
 import com.taobao.tddl.rule.config.RuleChangeListener;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
+import com.taobao.tddl.rule.exception.TddlRuleException;
 import com.taobao.tddl.rule.utils.StringXmlApplicationContext;
 
 import com.taobao.tddl.common.utils.logger.Logger;
@@ -194,8 +197,7 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
             // and will not change the vtr!
             ctx = buildRuleByStr(version, data);
         } catch (Exception e) {
-            logger.error("init rule error,rule str is:" + data, e);
-            return false;
+            throw new TddlNestableRuntimeException(e);
         }
 
         VirtualTableRoot tempvtr = (VirtualTableRoot) ctx.getBean(ROOT_BEAN_NAME);
@@ -228,14 +230,15 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
         try {
             String data = ruleHandler.getData(TIMEOUT, ConfigDataHandler.FIRST_CACHE_THEN_SERVER_STRATEGY);
             if (data == null) {
-                logger.error("use diamond rule config,but recieve no config at all!");
-                return false;
+                throw new TddlRuntimeException(ErrorCode.ERR_CONFIG_MISS_RULE, dataId);
             }
 
             if (initVersionRule(data, version)) {
                 this.ruleHandlers.put(version, ruleHandler);
                 return true;
             }
+
+            return false;
         } catch (Exception e) {
             try {
                 ruleHandler.destroy();
@@ -243,10 +246,8 @@ public class TddlRuleConfig extends AbstractLifecycle implements Lifecycle {
                 logger.error("destory failed!", e);
             }
 
-            logger.error("get diamond data error!", e);
+            throw new TddlNestableRuntimeException(e);
         }
-
-        return false;
     }
 
     /**

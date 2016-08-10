@@ -1,10 +1,17 @@
 package com.taobao.tddl.common.exception.code;
 
 import java.text.MessageFormat;
+import java.util.HashSet;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
+
+import com.taobao.tddl.common.exception.TddlRuntimeException;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * <pre>
@@ -28,8 +35,19 @@ import org.apache.commons.lang.StringUtils;
  */
 public class ResourceBundleUtil {
 
-    private static ResourceBundleUtil instance = new ResourceBundleUtil("res/ErrorCode");
-    private ResourceBundle            bundle;                                            // 资源
+    private static final Logger             logger                          = LoggerFactory.getLogger(ResourceBundleUtil.class);
+    private static final ResourceBundleUtil instance                        = new ResourceBundleUtil("res/ErrorCode");
+    public static final String              DEFAULT_PLACEHOLDER_PREFIX      = "${";
+    public static final String              DEFAULT_PLACEHOLDER_SUFFIX      = "}";
+    public static final int                 SYSTEM_PROPERTIES_MODE_NEVER    = 0;
+    public static final int                 SYSTEM_PROPERTIES_MODE_FALLBACK = 1;
+    public static final int                 SYSTEM_PROPERTIES_MODE_OVERRIDE = 2;
+
+    private String                          placeholderPrefix               = DEFAULT_PLACEHOLDER_PREFIX;
+    private String                          placeholderSuffix               = DEFAULT_PLACEHOLDER_SUFFIX;
+    private int                             systemPropertiesMode            = 1;
+    private boolean                         ignoreUnresolvablePlaceholders  = false;
+    private ResourceBundle                  bundle;                                                                             // 资源
 
     public static ResourceBundleUtil getInstance() {
         return instance;
@@ -58,13 +76,16 @@ public class ResourceBundleUtil {
      * @param params 占位符对应的内容
      * @return 详细描述信息
      */
-    public String getMessage(String key, String... params) {
+    public String getMessage(String key, int code, String type, String... params) {
         // 参数校验
         if (key == null) {
             return null;
         }
         // 得到message内容
         String msg = bundle.getString(key);
+        msg = parseStringValue(msg, bundle, new HashSet<String>());
+        msg = StringUtils.replace(msg, "{code}", String.valueOf(code));
+        msg = StringUtils.replace(msg, "{type}", String.valueOf(type));
         // 如果不存在动态内容,则直接返回msg
         if (params == null || params.length == 0) {
             return msg;
@@ -75,6 +96,108 @@ public class ResourceBundleUtil {
             return msg;
         }
         return MessageFormat.format(msg, (Object[]) params);
+    }
+
+    protected String parseStringValue(String strVal, ResourceBundle bundle, Set<String> visitedPlaceholders) {
+        StringBuffer buf = new StringBuffer(strVal);
+        int startIndex = strVal.indexOf(placeholderPrefix);
+        while (startIndex != -1) {
+            int endIndex = findPlaceholderEndIndex(buf, startIndex);
+            if (endIndex != -1) {
+                String placeholder = buf.substring(startIndex + placeholderPrefix.length(), endIndex);
+                if (!visitedPlaceholders.add(placeholder)) {
+                    throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "Circular placeholder reference '"
+                                                                         + placeholder + "' in bundle definitions");
+                }
+
+                placeholder = parseStringValue(placeholder, bundle, visitedPlaceholders);
+                // Now obtain the value for the fully resolved key...
+                String propVal = resolvePlaceholder(placeholder, bundle, this.systemPropertiesMode);
+                if (propVal != null) {
+                    propVal = parseStringValue(propVal, bundle, visitedPlaceholders);
+                    buf.replace(startIndex, endIndex + this.placeholderSuffix.length(), propVal);
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("Resolved placeholder '" + placeholder + "'");
+                    }
+                    startIndex = buf.indexOf(this.placeholderPrefix, startIndex + propVal.length());
+                } else if (this.ignoreUnresolvablePlaceholders) {
+                    // Proceed with unprocessed value.
+                    startIndex = buf.indexOf(this.placeholderPrefix, endIndex + this.placeholderSuffix.length());
+                } else {
+                    throw new TddlRuntimeException(ErrorCode.ERR_CONFIG, "Could not resolve placeholder '"
+                                                                         + placeholder + "'");
+                }
+                visitedPlaceholders.remove(placeholder);
+            } else {
+                startIndex = -1;
+            }
+        }
+
+        return buf.toString();
+    }
+
+    private int findPlaceholderEndIndex(CharSequence buf, int startIndex) {
+        int index = startIndex + placeholderPrefix.length();
+        int withinNestedPlaceholder = 0;
+        while (index < buf.length()) {
+            if (substringMatch(buf, index, placeholderSuffix)) {
+                if (withinNestedPlaceholder > 0) {
+                    withinNestedPlaceholder--;
+                    index = index + placeholderSuffix.length();
+                } else {
+                    return index;
+                }
+            } else if (substringMatch(buf, index, placeholderPrefix)) {
+                withinNestedPlaceholder++;
+                index = index + placeholderPrefix.length();
+            } else {
+                index++;
+            }
+        }
+        return -1;
+    }
+
+    private boolean substringMatch(CharSequence str, int index, CharSequence substring) {
+        for (int j = 0; j < substring.length(); j++) {
+            int i = index + j;
+            if (i >= str.length() || str.charAt(i) != substring.charAt(j)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String resolvePlaceholder(String placeholder, ResourceBundle bundle, int systemPropertiesMode) {
+        String propVal = null;
+        if (systemPropertiesMode == SYSTEM_PROPERTIES_MODE_OVERRIDE) {
+            propVal = resolveSystemProperty(placeholder);
+        }
+        if (propVal == null) {
+            propVal = resolvePlaceholder(placeholder, bundle);
+        }
+        if (propVal == null && systemPropertiesMode == SYSTEM_PROPERTIES_MODE_FALLBACK) {
+            propVal = resolveSystemProperty(placeholder);
+        }
+        return propVal;
+    }
+
+    protected String resolvePlaceholder(String placeholder, ResourceBundle bundle) {
+        return bundle.getString(placeholder);
+    }
+
+    private String resolveSystemProperty(String key) {
+        try {
+            String value = System.getProperty(key);
+            if (value == null) {
+                value = System.getenv(key);
+            }
+            return value;
+        } catch (Throwable ex) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Could not access system property '" + key + "': " + ex);
+            }
+            return null;
+        }
     }
 
 }

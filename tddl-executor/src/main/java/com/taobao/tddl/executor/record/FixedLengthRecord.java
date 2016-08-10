@@ -10,7 +10,7 @@ import java.util.Map.Entry;
 import com.taobao.tddl.executor.common.IRecord;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
+import com.taobao.tddl.rule.exception.TddlRuleException;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;

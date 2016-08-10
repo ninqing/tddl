@@ -9,9 +9,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.google.common.collect.Lists;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
@@ -24,12 +26,13 @@ import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.expression.bean.NullValue;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 import com.taobao.tddl.rule.TableRule;
 import com.taobao.tddl.rule.TddlRule;
 import com.taobao.tddl.rule.VirtualTableRoot;
-import com.taobao.tddl.rule.exceptions.RouteCompareDiffException;
+import com.taobao.tddl.rule.exception.RouteCompareDiffException;
+import com.taobao.tddl.rule.exception.TddlRuleException;
 import com.taobao.tddl.rule.model.MatcherResult;
 import com.taobao.tddl.rule.model.TargetDB;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
@@ -58,6 +61,10 @@ public class OptimizerRule extends AbstractLifecycle {
         }
     }
 
+    public List<TableRule> getTableRules() {
+        return tddlRule.getTables();
+    }
+
     @Override
     protected void doInit() throws TddlException {
         if (tddlRule != null && !tddlRule.isInited()) {
@@ -80,7 +87,7 @@ public class OptimizerRule extends AbstractLifecycle {
             try {
                 result = tddlRule.routeMverAndCompare(!isWrite, logicTable, choicer, Lists.newArrayList());
             } catch (RouteCompareDiffException e) {
-                throw new TddlRuntimeException(e);
+                throw new TddlNestableRuntimeException(e);
             }
 
             List<TargetDB> targetDbs = result.getCalculationResult();
@@ -119,7 +126,7 @@ public class OptimizerRule extends AbstractLifecycle {
                     }
                 }, Lists.newArrayList());
             } catch (RouteCompareDiffException e) {
-                throw new TddlRuntimeException(e);
+                throw new TddlNestableRuntimeException(e);
             }
 
             List<TargetDB> targetDbs = result.getCalculationResult();
@@ -181,7 +188,7 @@ public class OptimizerRule extends AbstractLifecycle {
             } else {
                 String defaultDb = root.getDefaultDbIndex();
                 if (defaultDb == null) {
-                    throw new OptimizerException("规则中defaultDbIndex未配置");
+                    throw new TddlRuleException("defaultDbIndex is null");
                 }
 
                 return defaultDb;
@@ -211,6 +218,55 @@ public class OptimizerRule extends AbstractLifecycle {
             TableRule table = tddlRule.getTable(logicTable);
             return table;
         }
+    }
+
+    /**
+     * 将defaultDb上的表和规则中的表做一次合并
+     */
+    public List<String> mergeTableRule(List<String> defaultDbTables) {
+        if (singleDbIndex != null) {
+            return defaultDbTables;
+        }
+
+        List<String> result = new ArrayList<String>();
+        List<TableRule> tableRules = tddlRule.getTables();
+        Map<String, String> dbIndexMap = tddlRule.getDbIndexMap();
+        String defaultDb = tddlRule.getCurrentRule().getDefaultDbIndex();
+        // // 添加下分库分表数据
+        for (TableRule tableRule : tableRules) {
+            String table = tableRule.getVirtualTbName();
+            // 针对二级索引的表名，不加入到tables中
+            if (!StringUtils.contains(table, "._")) {
+                result.add(table);
+            }
+        }
+        for (Map.Entry<String, String> entry : dbIndexMap.entrySet()) {
+            if (!entry.getValue().equals(defaultDb)) {
+                // 针对二级索引的表名，不加入到tables中
+                if (!StringUtils.contains(entry.getKey(), "._")) {
+                    result.add(entry.getKey());
+                }
+            }
+        }
+        // 过滤掉分库分表
+        for (String table : defaultDbTables) {
+            boolean found = false;
+            for (TableRule tableRule : tableRules) {
+                if (tableRule.isActualTable(table)) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (dbIndexMap.containsKey(table)) {
+                found = true;
+            }
+
+            if (!found) {
+                result.add(table);
+            }
+        }
+        return result;
     }
 
     private List<TargetDB> buildSingleDb(String tableName) {
@@ -357,8 +413,8 @@ public class OptimizerRule extends AbstractLifecycle {
 
                 if (colName.equalsIgnoreCase(column.getColumnName()) && operationComp != DEFAULT_OPERATION_COMP) {
                     if (!(value instanceof Comparable)) {
-                        throw new TddlRuntimeException("type: " + value.getClass().getSimpleName()
-                                                       + " is not comparable, cannot be used in partition column");
+                        throw new OptimizerException("type: " + value.getClass().getSimpleName()
+                                                     + " is not comparable, cannot be used in partition column");
                     }
                     comp = new Comparative(operationComp, (Comparable) value);
                 }

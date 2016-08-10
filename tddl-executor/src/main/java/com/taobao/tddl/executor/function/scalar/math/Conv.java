@@ -4,7 +4,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Converts numbers between different number bases. Returns a string
@@ -32,7 +31,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Conv extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         for (Object arg : args) {
             if (ExecUtils.isNull(arg)) {
                 return null;

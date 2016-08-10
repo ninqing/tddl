@@ -19,7 +19,6 @@ import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree.LOCK_MODE;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * @author Dreamond 对于一个单个逻辑表的query，处理node.
@@ -103,7 +102,7 @@ public class QueryNode extends QueryTreeNode {
         return this.getAlias();
     }
 
-    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor(int shareIndex) {
         subquerytoDataNodeExecutor(shareIndex);
         IQuery query = ASTNodeFactory.getInstance().createQuery();
         query.setAlias(this.getAlias());
@@ -124,6 +123,7 @@ public class QueryNode extends QueryTreeNode {
         query.executeOn(this.getDataNode(shareIndex));
         query.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
         query.setSubqueryFilter(this.getSubqueryFilter());
+        query.setExistSequenceVal(this.isExistSequenceVal());
         return query;
     }
 

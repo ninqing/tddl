@@ -7,7 +7,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * http://dev.mysql.com/doc/refman/5.6/en/string-functions.html#function_char
@@ -28,7 +27,7 @@ public class Char extends ScalarFunction {
     }
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         List<Character> chs = new ArrayList<Character>();
         for (Object obj : args) {
             if (ExecUtils.isNull(obj)) {

@@ -20,7 +20,9 @@ import org.w3c.dom.Element;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.Group;
 import com.taobao.tddl.common.model.Group.GroupType;
@@ -81,20 +83,18 @@ public class TopologyHandler extends AbstractLifecycle {
 
     @Override
     protected void doInit() {
-
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("TopologyHandler start init");
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("appName is: " + appName);
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("unitName is: " + unitName);
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("topologyFile is: " + this.topologyFilePath);
         LoggerInit.TDDL_DYNAMIC_CONFIG.info("subApps is: " + this.subApps);
-
         try {
             this.matrix = initMatrix(appName, topologyFilePath);
         } catch (Exception ex) {
             logger.error("matrix topology init error,file is: " + this.getTopologyFilePath() + ", appname is: "
                          + this.getAppName(),
                 ex);
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         }
 
     }
@@ -119,7 +119,7 @@ public class TopologyHandler extends AbstractLifecycle {
                     }
                 });
             } catch (ExecutionException e) {
-                throw new TddlRuntimeException(e);
+                throw new TddlNestableRuntimeException(e);
             }
 
             data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
@@ -139,7 +139,7 @@ public class TopologyHandler extends AbstractLifecycle {
                         }
                     });
                 } catch (ExecutionException e) {
-                    throw new TddlRuntimeException(e);
+                    throw new TddlNestableRuntimeException(e);
                 }
 
                 data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT, ConfigDataHandler.FIRST_SERVER_STRATEGY);
@@ -153,15 +153,20 @@ public class TopologyHandler extends AbstractLifecycle {
 
         if (data == null) {
             String dataId = TOPOLOGY.format(new Object[] { appName });
-            throw new TddlRuntimeException(topologyNullError.format(new String[] { appName, unitName, topologyFilePath,
-                    dataId }));
+            throw new TddlRuntimeException(ErrorCode.ERR_CONFIG_MISS_TOPOLOGY, dataId);
         }
 
         Matrix matrix = MatrixParser.parse(data);
 
+        Group dualGroup = new Group();
+        dualGroup.setAppName(appName);
+        dualGroup.setUnitName(this.unitName);
+        dualGroup.setName("DUAL_GROUP");
+        dualGroup.setType(GroupType.DEMO);
+        matrix.getGroups().add(dualGroup);
+
         if (subApps != null) {
             for (App subApp : subApps) {
-
                 try {
                     TopologyHandler subTopologyHandler = new TopologyHandler(subApp.getAppName(),
                         this.unitName,
@@ -306,7 +311,7 @@ public class TopologyHandler extends AbstractLifecycle {
             String xml = baos.toString();
             return StringUtils.replace(xml, "<matrix>", xmlHead);
         } catch (Exception e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
     }
 

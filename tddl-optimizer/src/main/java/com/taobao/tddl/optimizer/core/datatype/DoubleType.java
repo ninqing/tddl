@@ -1,6 +1,5 @@
 package com.taobao.tddl.optimizer.core.datatype;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 
 /**
  * {@link Double}类型
@@ -129,12 +128,8 @@ public class DoubleType extends CommonType<Double> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Double v = DataDecoder.decodeDoubleObj(bytes, offset);
-            return new DecodeResult(v, getLength(v));
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
-        }
+        Double v = DataDecoder.decodeDoubleObj(bytes, offset);
+        return new DecodeResult(v, getLength(v));
     }
 
     @Override
@@ -160,6 +155,11 @@ public class DoubleType extends CommonType<Double> {
     @Override
     public Calculator getCalculator() {
         return calculator;
+    }
+
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.DOUBLE;
     }
 
 }

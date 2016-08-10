@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import java.util.Calendar;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.BaseRowSet;
 import com.taobao.tddl.common.utils.convertor.Convertor;
 
@@ -153,16 +152,12 @@ public class DateType extends AbstractDataType<java.sql.Date> {
 
     @Override
     public DecodeResult decodeFromBytes(byte[] bytes, int offset) {
-        try {
-            Long v = DataDecoder.decodeLongObj(bytes, offset);
-            if (v == null) {
-                return new DecodeResult(null, getLength(v));
-            } else {
-                Date date = (Date) longToDate.convert(v, getDataClass());
-                return new DecodeResult(date, getLength(v));
-            }
-        } catch (CorruptEncodingException e) {
-            throw new TddlRuntimeException(e);
+        Long v = DataDecoder.decodeLongObj(bytes, offset);
+        if (v == null) {
+            return new DecodeResult(null, getLength(v));
+        } else {
+            Date date = (Date) longToDate.convert(v, getDataClass());
+            return new DecodeResult(date, getLength(v));
         }
     }
 
@@ -210,4 +205,8 @@ public class DateType extends AbstractDataType<java.sql.Date> {
         return calculator;
     }
 
+    @Override
+    public int getSqlType() {
+        return java.sql.Types.DATE;
+    }
 }

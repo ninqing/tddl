@@ -5,7 +5,6 @@ import com.taobao.tddl.executor.function.AggregateFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * @since 5.0.0
@@ -16,12 +15,12 @@ public class Max extends AggregateFunction {
     }
 
     @Override
-    public void serverMap(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverMap(Object[] args, ExecutionContext ec) {
         doMax(args);
     }
 
     @Override
-    public void serverReduce(Object[] args, ExecutionContext ec) throws FunctionException {
+    public void serverReduce(Object[] args, ExecutionContext ec) {
         doMax(args);
     }
 

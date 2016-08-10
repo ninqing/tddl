@@ -8,7 +8,6 @@ import java.util.Properties;
 import java.util.Random;
 
 import org.apache.commons.lang.RandomStringUtils;
-import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -16,6 +15,9 @@ import org.junit.Ignore;
 import com.taobao.diamond.mockserver.MockServer;
 import com.taobao.tddl.qatest.util.DateUtil;
 import com.taobao.tddl.qatest.util.Validator;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * 基本测试类，提供创建AndorServer和AndorClient方法
@@ -28,6 +30,7 @@ public class BaseTestCase extends Validator {
 
     // --------------公用变量
     protected static final long       RANDOM_ID     = Long.valueOf(RandomStringUtils.randomNumeric(8));
+    protected static final Logger     logger        = LoggerFactory.getLogger(BaseTestCase.class);
     protected final int               MAX_DATA_SIZE = 20;
     protected final int               RANDOM_INT    = Integer.valueOf(RandomStringUtils.randomNumeric(8));
     protected final float             fl            = 0.01f;
@@ -58,7 +61,6 @@ public class BaseTestCase extends Validator {
 
     protected final NumberFormat      nf            = new DecimalFormat("#.#");
     protected String                  timeString    = DateUtil.formatDate(new Date(0), DateUtil.DATE_FULLHYPHEN);
-    protected static final Logger     logger        = Logger.getLogger(BaseTestCase.class);
     protected static final Properties properties    = new Properties();
 
     @BeforeClass

@@ -3,6 +3,7 @@ package com.taobao.tddl.executor.common;
 import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.executor.repo.RepositoryHolder;
 import com.taobao.tddl.executor.spi.ITopologyExecutor;
+import com.taobao.tddl.optimizer.sequence.ISequenceManager;
 
 /**
  * @author mengshi.sunmengshi 2013-12-4 下午6:16:32
@@ -16,6 +17,7 @@ public class ExecutorContext {
 
     private TopologyHandler     topologyHandler      = null;
     private ITopologyExecutor   topologyExecutor     = null;
+    private ISequenceManager    seqManager           = null;
 
     public static ExecutorContext getContext() {
         return (ExecutorContext) ThreadLocalMap.get(EXECUTOR_CONTEXT_KEY);
@@ -47,6 +49,14 @@ public class ExecutorContext {
 
     public void setTopologyHandler(TopologyHandler topologyHandler) {
         this.topologyHandler = topologyHandler;
+    }
+
+    public ISequenceManager getSeqeunceManager() {
+        return this.seqManager;
+    }
+
+    public void setSeqManager(ISequenceManager seqManager) {
+        this.seqManager = seqManager;
     }
 
 }

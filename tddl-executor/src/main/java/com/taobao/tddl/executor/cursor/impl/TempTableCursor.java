@@ -11,8 +11,6 @@ import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.common.properties.ConnectionParams;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.common.utils.TStringUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
@@ -21,6 +19,7 @@ import com.taobao.tddl.executor.common.TransactionConfig.Isolation;
 import com.taobao.tddl.executor.cursor.ICursorMeta;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.ITempTableSortCursor;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
 import com.taobao.tddl.executor.rowset.RowSetWrapper;
@@ -37,6 +36,9 @@ import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * 用于临时表排序，需要依赖bdb
@@ -189,8 +191,7 @@ public class TempTableCursor extends SortCursor implements ITempTableSortCursor 
             IndexType.BTREE,
             Relationship.ONE_TO_ONE,
             true,
-            true,
-            null);
+            true);
 
         TableMeta tmpSchema = new TableMeta(tableName, new ArrayList(), tempTableIndexMeta, null);
 
@@ -265,8 +266,7 @@ public class TempTableCursor extends SortCursor implements ITempTableSortCursor 
         }
 
         if (protection && !cutRows) {
-
-            throw new TddlException("temp table size protection , check your sql or enlarge the limination size . ");
+            throw new ExecutorException("temp table size protection , check your sql or enlarge the limination size . ");
         }
 
         List<ColumnMeta> retColumns = new ArrayList<ColumnMeta>();

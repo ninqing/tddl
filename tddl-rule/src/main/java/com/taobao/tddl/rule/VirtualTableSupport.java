@@ -24,7 +24,6 @@ import com.taobao.tddl.rule.virtualnode.TableSlotMap;
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
-
 /**
  * 对原类做一些重构，避免污染主类的可阅读性<br/>
  * 1. 抽取showTopology <br/>
@@ -330,4 +329,22 @@ public abstract class VirtualTableSupport extends AbstractLifecycle implements L
         this.actualTopology = actualTopology;
     }
 
+    /**
+     * 判断是否为物理拓扑中的表
+     */
+    public boolean isActualTable(String actualTable) {
+        if (actualTable == null) {
+            return false;
+        }
+
+        for (Set<String> tables : this.actualTopology.values()) {
+            for (String table : tables) {
+                if (table.equalsIgnoreCase(actualTable)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

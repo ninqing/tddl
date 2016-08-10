@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 
 import org.slf4j.impl.Log4jLoggerAdapter;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 
@@ -28,7 +28,7 @@ public class DynamicLog4jAdapterLogger extends DynamicLog4jLogger {
                 }
             }
         } catch (Exception e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
     }
 
@@ -38,7 +38,7 @@ public class DynamicLog4jAdapterLogger extends DynamicLog4jLogger {
         try {
             return (org.apache.log4j.Logger) log4jField.get(adapter);
         } catch (Exception e) {
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         }
     }
 }

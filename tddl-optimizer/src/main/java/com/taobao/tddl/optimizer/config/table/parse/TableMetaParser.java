@@ -71,7 +71,6 @@ public class TableMetaParser {
         }
 
         String[] primaryKeys = new String[0];
-        String[] partitionColumns = new String[0];
         List<ColumnMeta> columns = Lists.newArrayList();
         List<IndexMeta> indexs = Lists.newArrayList();
         boolean strongConsistent = true;
@@ -94,8 +93,6 @@ public class TableMetaParser {
                 }
             } else if ("primaryKey".equals(cnode.getNodeName())) {
                 primaryKeys = StringUtils.split(cnode.getFirstChild().getNodeValue(), ',');
-            } else if ("partitionColumns".equals(cnode.getNodeName())) {
-                partitionColumns = StringUtils.split(cnode.getFirstChild().getNodeValue(), ',');
             } else if ("strongConsistent".equals(cnode.getNodeName())) {
                 strongConsistent = BooleanUtils.toBoolean(cnode.getFirstChild().getNodeValue());
             } else if ("secondaryIndexes".equals(cnode.getNodeName())) {
@@ -130,8 +127,7 @@ public class TableMetaParser {
             IndexType.BTREE,
             Relationship.NONE,
             strongConsistent,
-            true,
-            toColumnMeta(partitionColumns, columnMetas, tableName));
+            true);
 
         return newTableMeta(tableName, columns, primaryIndex, indexs);
     }
@@ -192,7 +188,6 @@ public class TableMetaParser {
 
         String[] keys = new String[0];
         String[] values = new String[0];
-        String[] partitionColumns = new String[0];
         NodeList childs = node.getChildNodes();
         for (int i = 0; i < childs.getLength(); i++) {
             Node cnode = childs.item(i);
@@ -200,19 +195,12 @@ public class TableMetaParser {
                 keys = StringUtils.split(cnode.getFirstChild().getNodeValue(), ',');
             } else if ("values".equals(cnode.getNodeName())) {
                 values = StringUtils.split(cnode.getFirstChild().getNodeValue(), ',');
-            } else if ("partitionColumns".equals(cnode.getNodeName())) {
-                partitionColumns = StringUtils.split(cnode.getFirstChild().getNodeValue(), ',');
             }
         }
 
-        return new IndexMeta(tableName,
-            toColumnMeta(keys, columnMetas, tableName),
-            toColumnMeta(values, columnMetas, tableName),
-            getIndexType(type),
-            getRelationship(rel),
-            strongConsistent,
-            false,
-            toColumnMeta(partitionColumns, columnMetas, tableName));
+        return new IndexMeta(tableName, toColumnMeta(keys, columnMetas, tableName), toColumnMeta(values,
+            columnMetas,
+            tableName), getIndexType(type), getRelationship(rel), strongConsistent, false);
     }
 
     private List<ColumnMeta> toColumnMeta(String[] columns, Map<String, ColumnMeta> columnMetas, String tableName) {

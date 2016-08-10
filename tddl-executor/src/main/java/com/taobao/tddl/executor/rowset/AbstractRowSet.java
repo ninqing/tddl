@@ -108,7 +108,16 @@ public abstract class AbstractRowSet implements IRowSet {
     @Override
     public byte[] getBytes(int index) {
         ColumnMeta cm = iCursorMeta.getColumnMeta(index);
-        return DataType.BytesType.convertFrom(cm.getDataType().getResultGetter().get(this, index));
+
+        Object o = this.getObject(index);
+
+        if (o == null) {
+            return null;
+        }
+
+        String str = DataType.StringType.convertFrom(o);
+
+        return str.getBytes();
     }
 
     @Override

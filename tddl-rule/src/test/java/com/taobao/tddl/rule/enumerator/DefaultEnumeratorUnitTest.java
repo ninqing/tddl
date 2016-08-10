@@ -14,7 +14,7 @@ import java.util.Set;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.taobao.tddl.rule.exceptions.TddlRuleException;
+import com.taobao.tddl.rule.exception.TddlRuleException;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 
 /**

@@ -29,6 +29,7 @@ import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_DESC;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_DISTINCT;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_FROM;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_IN;
+import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_INT;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_INTEGER;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_LIKE;
 import static com.alibaba.cobar.parser.recognizer.mysql.MySQLToken.KW_NOT;
@@ -91,10 +92,10 @@ import com.alibaba.cobar.parser.ast.expression.primary.DefaultValue;
 import com.alibaba.cobar.parser.ast.expression.primary.ExistsPrimary;
 import com.alibaba.cobar.parser.ast.expression.primary.Identifier;
 import com.alibaba.cobar.parser.ast.expression.primary.MatchExpression;
+import com.alibaba.cobar.parser.ast.expression.primary.MatchExpression.Modifier;
 import com.alibaba.cobar.parser.ast.expression.primary.RowExpression;
 import com.alibaba.cobar.parser.ast.expression.primary.UsrDefVarPrimary;
 import com.alibaba.cobar.parser.ast.expression.primary.Wildcard;
-import com.alibaba.cobar.parser.ast.expression.primary.MatchExpression.Modifier;
 import com.alibaba.cobar.parser.ast.expression.primary.function.FunctionExpression;
 import com.alibaba.cobar.parser.ast.expression.primary.function.cast.Cast;
 import com.alibaba.cobar.parser.ast.expression.primary.function.cast.Convert;
@@ -276,7 +277,8 @@ public class MySQLExprParser extends MySQLParser {
     }
 
     /**
-     * <code>BETWEEN ... AND</code> has lower precedence than other comparison operator
+     * <code>BETWEEN ... AND</code> has lower precedence than other comparison
+     * operator
      */
     private Expression comparisionExpression() throws SQLSyntaxErrorException {
         Expression temp;
@@ -479,7 +481,8 @@ public class MySQLExprParser extends MySQLParser {
     }
 
     /**
-     * @param consumed not null means that a token that has been pre-consumed stands for next token
+     * @param consumed not null means that a token that has been pre-consumed
+     * stands for next token
      */
     private Expression bitOrExpression(String consumed, String consumedUp) throws SQLSyntaxErrorException {
         for (Expression expr = bitAndExpression(consumed, consumedUp);;) {
@@ -658,14 +661,15 @@ public class MySQLExprParser extends MySQLParser {
         Expression first = primaryExpression(consumed, consumedUp);
         if (lexer.token() == USR_VAR) {
             if (first instanceof LiteralString) {
-                StringBuilder str = new StringBuilder().append('\'').append(((LiteralString) first).getString()).append(
-                                                                                                                        '\'').append(
-                                                                                                                                     lexer.stringValue());
+                StringBuilder str = new StringBuilder().append('\'')
+                    .append(((LiteralString) first).getString())
+                    .append('\'')
+                    .append(lexer.stringValue());
                 lexer.nextToken();
                 return new UserExpression(str.toString()).setCacheEvalRst(cacheEvalRst);
             } else if (first instanceof Identifier) {
-                StringBuilder str = new StringBuilder().append(((Identifier) first).getIdText()).append(
-                                                                                                        lexer.stringValue());
+                StringBuilder str = new StringBuilder().append(((Identifier) first).getIdText())
+                    .append(lexer.stringValue());
                 lexer.nextToken();
                 return new UserExpression(str.toString()).setCacheEvalRst(cacheEvalRst);
             }
@@ -695,8 +699,11 @@ public class MySQLExprParser extends MySQLParser {
                 lexer.nextToken();
                 return new LiteralBitField(null, tempStr).setCacheEvalRst(cacheEvalRst);
             case LITERAL_HEX:
-                LiteralHexadecimal hex = new LiteralHexadecimal(null, lexer.getSQL(), lexer.getOffsetCache(),
-                                                                lexer.getSizeCache(), charset);
+                LiteralHexadecimal hex = new LiteralHexadecimal(null,
+                    lexer.getSQL(),
+                    lexer.getOffsetCache(),
+                    lexer.getSizeCache(),
+                    charset);
                 lexer.nextToken();
                 return hex.setCacheEvalRst(cacheEvalRst);
             case LITERAL_BOOL_FALSE:
@@ -978,7 +985,8 @@ public class MySQLExprParser extends MySQLParser {
     }
 
     /**
-     * last token consumed is {@link MySQLToken#IDENTIFIER}, MUST NOT be <code>null</code>
+     * last token consumed is {@link MySQLToken#IDENTIFIER}, MUST NOT be
+     * <code>null</code>
      */
     private Expression startedFromIdentifier(final String consumed, String consumedUp) throws SQLSyntaxErrorException {
         Expression tempExpr;
@@ -992,8 +1000,9 @@ public class MySQLExprParser extends MySQLParser {
                 for (tempExpr = new Identifier(null, consumed, consumedUp).setCacheEvalRst(cacheEvalRst); lexer.token() == PUNC_DOT;) {
                     switch (lexer.nextToken()) {
                         case IDENTIFIER:
-                            tempExpr = new Identifier((Identifier) tempExpr, lexer.stringValue(),
-                                                      lexer.stringValueUppercase()).setCacheEvalRst(cacheEvalRst);
+                            tempExpr = new Identifier((Identifier) tempExpr,
+                                lexer.stringValue(),
+                                lexer.stringValueUppercase()).setCacheEvalRst(cacheEvalRst);
                             lexer.nextToken();
                             break;
                         case OP_ASTERISK:
@@ -1015,8 +1024,11 @@ public class MySQLExprParser extends MySQLParser {
                 if (consumed.charAt(0) != '_') {
                     return new Identifier(null, consumed, consumedUp).setCacheEvalRst(cacheEvalRst);
                 }
-                LiteralHexadecimal hex = new LiteralHexadecimal(consumed, lexer.getSQL(), lexer.getOffsetCache(),
-                                                                lexer.getSizeCache(), charset);
+                LiteralHexadecimal hex = new LiteralHexadecimal(consumed,
+                    lexer.getSQL(),
+                    lexer.getOffsetCache(),
+                    lexer.getSizeCache(),
+                    charset);
                 lexer.nextToken();
                 return hex.setCacheEvalRst(cacheEvalRst);
             case LITERAL_CHARS:
@@ -1032,7 +1044,8 @@ public class MySQLExprParser extends MySQLParser {
                 consumedUp = Identifier.unescapeName(consumedUp);
                 switch (functionManager.getParsingStrategy(consumedUp)) {
                     case GET_FORMAT:
-                        //GET_FORMAT({DATE|TIME|DATETIME}, {'EUR'|'USA'|'JIS'|'ISO'|'INTERNAL'})
+                        // GET_FORMAT({DATE|TIME|DATETIME},
+                        // {'EUR'|'USA'|'JIS'|'ISO'|'INTERNAL'})
                         lexer.nextToken();
                         int gfi = matchIdentifier("DATE", "TIME", "DATETIME", "TIMESTAMP");
                         match(PUNC_COMMA);
@@ -1194,8 +1207,8 @@ public class MySQLExprParser extends MySQLParser {
                         }
                         boolean isDesc = false;
                         List<Expression> appendedColumnNames = null;
-                        tempExpr = null; //order by
-                        tempStr = null; //literalChars
+                        tempExpr = null; // order by
+                        tempStr = null; // literalChars
                         switch (lexer.token()) {
                             case KW_ORDER:
                                 lexer.nextToken();
@@ -1223,8 +1236,12 @@ public class MySQLExprParser extends MySQLParser {
                                 break;
                         }
                         match(PUNC_RIGHT_PAREN);
-                        return new GroupConcat(tempGroupDistinct, tempExprList, tempExpr, isDesc, appendedColumnNames,
-                                               tempStr).setCacheEvalRst(cacheEvalRst);
+                        return new GroupConcat(tempGroupDistinct,
+                            tempExprList,
+                            tempExpr,
+                            isDesc,
+                            appendedColumnNames,
+                            tempStr).setCacheEvalRst(cacheEvalRst);
                     case CHAR:
                         lexer.nextToken();
                         return functionChar();
@@ -1258,10 +1275,10 @@ public class MySQLExprParser extends MySQLParser {
     private Pair<String, Pair<Expression, Expression>> type4specialFunc() throws SQLSyntaxErrorException {
         Expression exp1 = null;
         Expression exp2 = null;
-        //               DATE
-        //               DATETIME
-        //               SIGNED [INTEGER]
-        //               TIME
+        // DATE
+        // DATETIME
+        // SIGNED [INTEGER]
+        // TIME
         String typeName;
         switch (lexer.token()) {
             case KW_BINARY:
@@ -1287,7 +1304,8 @@ public class MySQLExprParser extends MySQLParser {
                 return constructTypePair(typeName, exp1, exp2);
             case KW_UNSIGNED:
                 typeName = MySQLToken.keyWordToString(lexer.token());
-                if (lexer.nextToken() == KW_INTEGER) {
+                lexer.nextToken();
+                if (lexer.token() == KW_INTEGER || lexer.token() == KW_INT) {
                     lexer.nextToken();
                 }
                 return constructTypePair(typeName, null, null);
@@ -1295,7 +1313,7 @@ public class MySQLExprParser extends MySQLParser {
                 typeName = lexer.stringValueUppercase();
                 lexer.nextToken();
                 if ("SIGNED".equals(typeName)) {
-                    if (lexer.token() == KW_INTEGER) {
+                    if (lexer.token() == KW_INTEGER || lexer.token() == KW_INT) {
                         lexer.nextToken();
                     }
                 } else if (!"DATE".equals(typeName) && !"DATETIME".equals(typeName) && !"TIME".equals(typeName)) {
@@ -1313,7 +1331,8 @@ public class MySQLExprParser extends MySQLParser {
     }
 
     /**
-     * id has been consumed. id must be a function name. current token must be {@link MySQLToken#PUNC_LEFT_PAREN}
+     * id has been consumed. id must be a function name. current token must be
+     * {@link MySQLToken#PUNC_LEFT_PAREN}
      * 
      * @param idUpper must be name of a function
      * @return never null
@@ -1489,7 +1508,8 @@ public class MySQLExprParser extends MySQLParser {
     }
 
     /**
-     * first <code>'('</code> has been consumed. At least one element. Consume last ')' after invocation <br/>
+     * first <code>'('</code> has been consumed. At least one element. Consume
+     * last ')' after invocation <br/>
      * <code>'(' expr (',' expr)* ')'</code>
      */
     private List<Expression> expressionList(List<Expression> exprList) throws SQLSyntaxErrorException {

@@ -12,18 +12,19 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import javax.sql.DataSource;
+
 import org.junit.Assert;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.matrix.jdbc.TDataSource;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 
 public class Validator {
 
-    public static TDataSource tddlDatasource;
-    public static Connection  mysqlConnection;
-    public static Connection  tddlConnection;
-    public PreparedStatement  mysqlPreparedStatement;
-    public PreparedStatement  tddlPreparedStatement;
+    public static DataSource tddlDatasource;
+    public static Connection mysqlConnection;
+    public static Connection tddlConnection;
+    public PreparedStatement mysqlPreparedStatement;
+    public PreparedStatement tddlPreparedStatement;
 
     /**
      * mysql查询数据
@@ -62,7 +63,7 @@ public class Validator {
      * @return
      * @throws Exception
      */
-    public ResultSet andorQueryData(String sql, List<Object> param) throws Exception {
+    public ResultSet tddlQueryData(String sql, List<Object> param) throws Exception {
         ResultSet rs = null;
         try {
             tddlPreparedStatement = tddlConnection.prepareStatement(sql);
@@ -102,7 +103,7 @@ public class Validator {
     }
 
     /**
-     * 验证andor和mysql数据的结果集包含的内容相同，不保证顺序
+     * 验证tddl和mysql数据的结果集包含的内容相同，不保证顺序
      * 
      * @param rs
      * @param ret
@@ -152,7 +153,7 @@ public class Validator {
     }
 
     /**
-     * 验证andor和mysql数据的结果集包含的内容相同，不保证顺序
+     * 验证tddl和mysql数据的结果集包含的内容相同，不保证顺序
      * 
      * @param rs
      * @param ret
@@ -196,7 +197,7 @@ public class Validator {
     }
 
     /**
-     * 验证andor和mysql数据的结果集包含的内容相同，保证顺序
+     * 验证tddl和mysql数据的结果集包含的内容相同，保证顺序
      * 
      * @param rs
      * @param ret
@@ -225,7 +226,7 @@ public class Validator {
     }
 
     /**
-     * 验证andor和mysql 中orderBy中的字段不是主键，验证对应的字段保持一致
+     * 验证tddl和mysql 中orderBy中的字段不是主键，验证对应的字段保持一致
      * 
      * @param rs
      * @param ret
@@ -291,7 +292,7 @@ public class Validator {
     }
 
     /**
-     * 验证andor和mysql数据的结果集包含的内容相同，保证顺序(事物特殊处理，最后不关闭数据库连接)
+     * 验证tddl和mysql数据的结果集包含的内容相同，保证顺序(事物特殊处理，最后不关闭数据库连接)
      * 
      * @param rs
      * @param ret
@@ -420,14 +421,14 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
 
         }
     }
 
     /**
-     * Andor更新数据
+     * tddl更新数据
      * 
      * @param sql
      * @param param
@@ -458,7 +459,7 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
         }
     }
@@ -478,7 +479,6 @@ public class Validator {
             if (param == null) {
                 rs = mysqlPreparedStatement.executeUpdate();
             } else {
-
                 for (int i = 0; i < param.size(); i++) {
                     mysqlPreparedStatement.setObject(i + 1, param.get(i));
                 }
@@ -486,7 +486,7 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
 
         }
@@ -520,7 +520,7 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
         }
         return rs;
@@ -553,14 +553,14 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
         }
         return rs;
     }
 
     /**
-     * Andor事物更新数据
+     * tddl事物更新数据
      * 
      * @param sql
      * @param param
@@ -581,27 +581,27 @@ public class Validator {
             }
 
         } catch (Exception ex) {
-            throw new TddlRuntimeException(ex);
+            throw new TddlNestableRuntimeException(ex);
         } finally {
         }
         return rs;
     }
 
     /**
-     * 通过msyql和andor操作数据，验证最终数据影响条数一致
+     * 通过msyql和tddl操作数据，验证最终数据影响条数一致
      * 
      * @param sql
      * @param param
      * @throws Exception
      */
     public void executeCountAssert(String sql, List<Object> param) throws Exception {
-        int andorAffectRow = tddlUpdateData(sql, param);
+        int tddlAffectRow = tddlUpdateData(sql, param);
         int mysqlAffectRow = mysqlUpdateData(sql, param);
-        Assert.assertEquals(mysqlAffectRow, andorAffectRow);
+        Assert.assertEquals(mysqlAffectRow, tddlAffectRow);
     }
 
     /**
-     * msyql和andor同时操作数据
+     * msyql和tddl同时操作数据
      * 
      * @param sql
      * @param param
@@ -613,7 +613,7 @@ public class Validator {
     }
 
     /**
-     * msyql和andor同时操作数据
+     * msyql和tddl同时操作数据
      * 
      * @param sql
      * @param param
@@ -625,7 +625,7 @@ public class Validator {
     }
 
     /**
-     * msyql和andor同时查询数据，验证andor的最终结果和msyql的最终结果顺序一致
+     * msyql和tddl同时查询数据，验证tddl的最终结果和msyql的最终结果顺序一致
      * 
      * @param sql
      * @param columnParam
@@ -634,12 +634,12 @@ public class Validator {
      */
     public void selectOrderAssert(String sql, String[] columnParam, List<Object> param) throws Exception {
         ResultSet rs = mysqlQueryData(sql, param);
-        ResultSet rc = andorQueryData(sql, param);
+        ResultSet rc = tddlQueryData(sql, param);
         assertOrder(rs, rc, columnParam);
     }
 
     /**
-     * mysql和andor同时查询数据，orderBy中的字段不是主键，验证对应的字段保持一致
+     * mysql和tddl同时查询数据，orderBy中的字段不是主键，验证对应的字段保持一致
      * 
      * @param sql
      * @param columnParam
@@ -649,13 +649,13 @@ public class Validator {
     public void selectOrderAssertNotKeyCloumn(String sql, String[] columnParam, List<Object> param, String notKeyCloumn)
                                                                                                                         throws Exception {
         ResultSet rs = mysqlQueryData(sql, param);
-        ResultSet rc = andorQueryData(sql, param);
+        ResultSet rc = tddlQueryData(sql, param);
         assertOrderNotKeyCloumn(rs, rc, columnParam, notKeyCloumn);
 
     }
 
     /**
-     * msyql和andor同时查询数据，验证andor的最终结果和msyql的最终结果顺序一致
+     * msyql和tddl同时查询数据，验证tddl的最终结果和msyql的最终结果顺序一致
      * 
      * @param sql
      * @param columnParam
@@ -664,12 +664,12 @@ public class Validator {
      */
     public void selectOrderAssertTranscation(String sql, String[] columnParam, List<Object> param) throws Exception {
         ResultSet rs = mysqlQueryData(sql, param);
-        ResultSet rc = andorQueryData(sql, param);
+        ResultSet rc = tddlQueryData(sql, param);
         assertOrderTransaction(rs, rc, columnParam);
     }
 
     /**
-     * msyql和andor同时查询数据，验证andor的最终结果和msyql的最终结果集是一致的，不用保证顺序
+     * msyql和tddl同时查询数据，验证tddl的最终结果和msyql的最终结果集是一致的，不用保证顺序
      * 
      * @param sql
      * @param columnParam
@@ -681,7 +681,7 @@ public class Validator {
         ResultSet rc = null;
         try {
             rs = mysqlQueryData(sql, param);
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             assertContentSame(rs, rc, columnParam);
         } finally {
             rsRcClose(rs, rc);
@@ -689,7 +689,7 @@ public class Validator {
     }
 
     /**
-     * msyql和andor同时查询数据，验证andor的最终结果和msyql的最终结果集是一致的，不用保证顺序
+     * msyql和tddl同时查询数据，验证tddl的最终结果和msyql的最终结果集是一致的，不用保证顺序
      * 
      * @param sql
      * @param columnParam
@@ -701,7 +701,7 @@ public class Validator {
         ResultSet rc = null;
         try {
             rs = mysqlQueryData(sql, param);
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             assertContentSameByIndex(rs, rc, columnParam);
         } finally {
             rsRcClose(rs, rc);
@@ -728,7 +728,7 @@ public class Validator {
     }
 
     /**
-     * msyql和andor同时查询数据，验证取出的数据条数一致（一般用于limit验证中）
+     * msyql和tddl同时查询数据，验证取出的数据条数一致（一般用于limit验证中）
      * 
      * @param sql
      * @param param
@@ -739,7 +739,7 @@ public class Validator {
         ResultSet rs = null;
         ResultSet rc = null;
         try {
-            rc = andorQueryData(sql, param);
+            rc = tddlQueryData(sql, param);
             rs = mysqlQueryData(sql, param);
             Assert.assertEquals(resultsSize(rs), resultsSize(rc));
         } finally {
@@ -758,7 +758,7 @@ public class Validator {
      * @throws Exception
      */
     public void assertAlias(String sql, String[] columnParam, String tabelName, List<Object> param) throws Exception {
-        ResultSet rc = andorQueryData(sql, param);
+        ResultSet rc = tddlQueryData(sql, param);
         ResultSet rs = mysqlQueryData(sql, param);
         try {
             while (rs.next() == true) {
@@ -854,6 +854,25 @@ public class Validator {
             String url = "jdbc:mysql://10.232.24.104:3306/andor_qatest";
             String user = "diamond";
             String passWord = "diamond";
+            conn = DriverManager.getConnection(url, user, passWord);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return conn;
+    }
+
+    /**
+     * 建立mysql连接
+     * 
+     * @return
+     */
+    public static Connection getTddlServerConnection() {
+        Connection conn = null;
+        try {
+            Class.forName("com.mysql.jdbc.Driver");
+            String url = "jdbc:mysql://127.0.0.1:8507/andor_mysql_qatest";
+            String user = "andor_mysql_qatest";
+            String passWord = "123456";
             conn = DriverManager.getConnection(url, user, passWord);
         } catch (Exception e) {
             e.printStackTrace();

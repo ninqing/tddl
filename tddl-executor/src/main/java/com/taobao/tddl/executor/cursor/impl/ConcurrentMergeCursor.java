@@ -9,10 +9,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.executor.common.DuplicateKVPair;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
@@ -32,9 +29,7 @@ import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
  */
 public class ConcurrentMergeCursor extends SchematicCursor implements IMergeCursor {
 
-    private final Logger             logger       = LoggerFactory.getLogger(ConcurrentMergeCursor.class);
-    protected List<ISchematicCursor> cursors      = new ArrayList();                                      ;
-
+    protected List<ISchematicCursor> cursors      = new ArrayList(); ;
     protected final ExecutionContext executionContext;
     protected int                    currentIndex = 0;
     private List<IDataNodeExecutor>  subNodes;
@@ -128,11 +123,7 @@ public class ConcurrentMergeCursor extends SchematicCursor implements IMergeCurs
 
     @Override
     public List<IOrderBy> getOrderBy() throws TddlException {
-        try {
-            init();
-        } catch (TddlException e) {
-            throw new TddlRuntimeException(e);
-        }
+        init();
         return this.cursors.get(0).getOrderBy();
     }
 

@@ -10,11 +10,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.FunctionException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
 import com.taobao.tddl.optimizer.core.datatype.IntervalType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * mysql interval函数
@@ -138,7 +138,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.SECOND_MICROSECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String sec = match.group(1);
@@ -153,7 +153,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.MINUTE_MICROSECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String min = match.group(1);
@@ -172,7 +172,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.MINUTE_SECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String min = match.group(1);
@@ -187,7 +187,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.HOUR_MICROSECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String hour = match.group(1);
@@ -210,7 +210,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.HOUR_SECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String hour = match.group(1);
@@ -229,7 +229,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.HOUR_MINUTE.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String hour = match.group(1);
@@ -244,7 +244,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.DAY_MICROSECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String day = match.group(1);
@@ -271,7 +271,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.DAY_SECOND.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String day = match.group(1);
@@ -294,7 +294,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.DAY_MINUTE.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String day = match.group(1);
@@ -313,7 +313,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.DAY_HOUR.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String day = match.group(1);
@@ -328,7 +328,7 @@ public class Interval extends ScalarFunction {
                 String str = DataType.StringType.convertFrom(value);
                 Matcher match = patterns.get(Interval_Unit.YEAR_MONTH.pattern).matcher(str);
                 if (!match.matches()) {
-                    throw new FunctionException("不合法的格式");
+                    throw new FunctionException("interval parser error");
                 }
 
                 String year = match.group(1);

@@ -18,9 +18,10 @@ import com.alibaba.cobar.parser.ast.stmt.SQLStatement;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.taobao.tddl.common.TddlConstants;
+import com.taobao.tddl.common.client.util.ThreadLocalMap;
 import com.taobao.tddl.common.exception.NotSupportException;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.jdbc.SqlTypeParser;
@@ -30,8 +31,6 @@ import com.taobao.tddl.common.model.SqlType;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.monitor.Monitor;
 import com.taobao.tddl.optimizer.Optimizer;
 import com.taobao.tddl.optimizer.OptimizerContext;
@@ -55,6 +54,7 @@ import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IQueryTree;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
 import com.taobao.tddl.optimizer.costbased.after.ChooseTreadOptimizer;
+import com.taobao.tddl.optimizer.costbased.after.FillLastSequenceValOptimizer;
 import com.taobao.tddl.optimizer.costbased.after.FillRequestIDAndSubRequestID;
 import com.taobao.tddl.optimizer.costbased.after.FuckAvgOptimizer;
 import com.taobao.tddl.optimizer.costbased.after.MergeConcurrentOptimizer;
@@ -65,8 +65,8 @@ import com.taobao.tddl.optimizer.costbased.chooser.IndexChooser;
 import com.taobao.tddl.optimizer.costbased.chooser.JoinChooser;
 import com.taobao.tddl.optimizer.costbased.pusher.FilterPusher;
 import com.taobao.tddl.optimizer.costbased.pusher.OrderByPusher;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 import com.taobao.tddl.optimizer.parse.SqlParseManager;
 import com.taobao.tddl.optimizer.parse.cobar.CobarSqlAnalysisResult;
@@ -79,6 +79,9 @@ import com.taobao.tddl.optimizer.parse.hint.SimpleHintParser;
 import com.taobao.tddl.optimizer.rule.OptimizerRule;
 import com.taobao.tddl.rule.TableRule;
 import com.taobao.tddl.rule.model.TargetDB;
+
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * <pre>
@@ -129,6 +132,7 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
         // afterOptimizers.add(new MergeJoinMergeOptimizer());
         afterOptimizers.add(new MergeConcurrentOptimizer());
         afterOptimizers.add(new StreamingOptimizer());
+        afterOptimizers.add(new FillLastSequenceValOptimizer());
 
         if (this.sqlParseManager == null) {
             CobarSqlParseManager sqlParseManager = new CobarSqlParseManager();
@@ -156,9 +160,9 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
 
     private class OptimizeResult {
 
-        public ASTNode                optimized = null;
-        public DirectlyRouteCondition hint      = null; // 执行计划
-        public QueryException         ex        = null;
+        public ASTNode                      optimized = null;
+        public DirectlyRouteCondition       hint      = null; // 执行计划
+        public TddlNestableRuntimeException ex        = null;
     }
 
     @Override
@@ -228,29 +232,28 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
     @Override
     public IDataNodeExecutor optimizePlan(ASTNode node, Parameters parameterSettings, Map<String, Object> extraCmd)
                                                                                                                    throws OptimizerException {
-        // 分库，选择执行节点
         try {
-            node = DataNodeChooser.shard(node, parameterSettings, extraCmd);
-        } catch (Exception e) {
-            if (e instanceof QueryException) {
-                throw (QueryException) e;
-            } else {
-                throw new QueryException(e);
+            // 处理batch下的sequence问题
+            if (parameterSettings != null && parameterSettings.isBatch()) {
+                SequencePreProcessor.opitmize(node, parameterSettings, extraCmd);
             }
-        }
+            // 分库，选择执行节点
+            node = DataNodeChooser.shard(node, parameterSettings, extraCmd);
+            node = this.createMergeForJoin(node, extraCmd);
+            if (node instanceof QueryTreeNode) {
+                OrderByPusher.optimize((QueryTreeNode) node);
+            }
 
-        node = this.createMergeForJoin(node, extraCmd);
-        if (node instanceof QueryTreeNode) {
-            OrderByPusher.optimize((QueryTreeNode) node);
+            IDataNodeExecutor plan = node.toDataNodeExecutor();
+            // 进行一些自定义的额外处理
+            for (QueryPlanOptimizer after : afterOptimizers) {
+                plan = after.optimize(plan, parameterSettings, extraCmd);
+            }
+            return plan;
+        } finally {
+            // 清理last_sequence_id，避免干扰
+            ThreadLocalMap.remove(IDataNodeExecutor.LAST_SEQUENCE_VAL);
         }
-
-        IDataNodeExecutor plan = node.toDataNodeExecutor();
-        // 进行一些自定义的额外处理
-        for (QueryPlanOptimizer after : afterOptimizers) {
-            plan = after.optimize(plan, parameterSettings, extraCmd);
-        }
-
-        return plan;
     }
 
     public IDataNodeExecutor optimizeAndAssignment(ASTNode node, Parameters parameterSettings,
@@ -403,8 +406,7 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
     }
 
     private Object optimizeAstOrHint(final ASTNode node, final Parameters parameterSettings,
-                                     final Map<String, Object> extraCmd, final String sql, final boolean cached)
-                                                                                                                throws QueryException {
+                                     final Map<String, Object> extraCmd, final String sql, final boolean cached) {
         long time = System.currentTimeMillis();
         ASTNode optimized = null;
         if (cached && sql != null && !sql.isEmpty()) {
@@ -426,17 +428,17 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
                                 or.optimized = optimize(result.getAstNode(), parameterSettings, extraCmd);
                             }
                         } catch (Exception e) {
-                            if (e instanceof QueryException) {
-                                or.ex = (QueryException) e;
+                            if (e instanceof TddlNestableRuntimeException) {
+                                or.ex = (TddlNestableRuntimeException) e;
                             } else {
-                                or.ex = new QueryException(e);
+                                or.ex = new TddlNestableRuntimeException(e);
                             }
                         }
                         return or;
                     }
                 });
             } catch (ExecutionException e1) {
-                throw new QueryException("Optimizer future task interrupted,the sql is:" + sql, e1);
+                throw new OptimizerException("optimizer is interrupt");
             }
 
             if (or.ex != null) {
@@ -483,11 +485,25 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
             // 1. select 1+1
             // 2. select now() from dual
             // 3. show create table xxxx;
-            if (sqlResult.getSqlType() == SqlType.SELECT_LAST_INSERT_ID) {
-                return new DirectlyRouteCondition(IDataNodeExecutor.USE_LAST_DATA_NODE);
-            } else {
-                return new DirectlyRouteCondition(optimizerRule.getDefaultDbIndex(null));
-            }
+            return new DirectlyRouteCondition(optimizerRule.getDefaultDbIndex(null));
+        }
+
+        ASTNode astNode = sqlResult.getAstNode();
+        astNode.build();
+        if (sqlResult.getSqlType() == SqlType.SELECT_LAST_INSERT_ID) {
+            astNode.setSql(sqlResult.getSql());
+            astNode.executeOn(IDataNodeExecutor.USE_LAST_DATA_NODE);
+            return null;
+        } else if (sqlResult.getSqlType() == SqlType.SHOW_TABLES) {
+            astNode.executeOn(optimizerRule.getDefaultDbIndex(null));
+            return null;
+        } else if (sqlResult.getSqlType() == SqlType.SHOW_TOPOLOGY || sqlResult.getSqlType() == SqlType.SHOW_PARTITIONS) {
+            astNode.executeOn(IDataNodeExecutor.DUAL_GROUP);
+            return null;
+        }
+
+        if (astNode.isExistSequenceVal()) { // 如果有seq计算，则不能做hint下推
+            return null;
         }
 
         String lastDbIndex = null;
@@ -553,35 +569,40 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
         return null;
     }
 
-    private ASTNode optimize(ASTNode node, Parameters parameterSettings, Map<String, Object> extraCmd)
-                                                                                                      throws QueryException {
+    private ASTNode optimize(ASTNode node, Parameters parameterSettings, Map<String, Object> extraCmd) {
         // 先调用一次build，完成select字段信息的推导
         node.build();
-        ASTNode optimized = null;
-        if (node instanceof QueryTreeNode) {
-            optimized = this.optimizeQuery((QueryTreeNode) node, extraCmd);
-        }
+        ASTNode optimized = node;
+        try {
+            if (node instanceof QueryTreeNode) {
+                optimized = this.optimizeQuery((QueryTreeNode) node, extraCmd);
+            }
 
-        if (node instanceof InsertNode) {
-            optimized = this.optimizeInsert((InsertNode) node, extraCmd);
-        }
+            if (node instanceof InsertNode) {
+                optimized = this.optimizeInsert((InsertNode) node, extraCmd);
+            }
 
-        else if (node instanceof DeleteNode) {
-            optimized = this.optimizeDelete((DeleteNode) node, extraCmd);
-        }
+            else if (node instanceof DeleteNode) {
+                optimized = this.optimizeDelete((DeleteNode) node, extraCmd);
+            }
 
-        else if (node instanceof UpdateNode) {
-            optimized = this.optimizeUpdate((UpdateNode) node, extraCmd);
-        }
+            else if (node instanceof UpdateNode) {
+                optimized = this.optimizeUpdate((UpdateNode) node, extraCmd);
+            }
 
-        else if (node instanceof PutNode) {
-            optimized = this.optimizePut((PutNode) node, extraCmd);
+            else if (node instanceof PutNode) {
+                optimized = this.optimizePut((PutNode) node, extraCmd);
+            }
+
+        } catch (EmptyResultFilterException e) {
+            e.setAstNode(optimized); // 设置上下文
+            throw e;
         }
 
         return optimized;
     }
 
-    private QueryTreeNode optimizeQuery(QueryTreeNode qn, Map<String, Object> extraCmd) throws QueryException {
+    private QueryTreeNode optimizeQuery(QueryTreeNode qn, Map<String, Object> extraCmd) {
         // 如果有待计算的子查询，先做子查询优化后，直接返回
         // filter中存在子查询，提前处理
         List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qn, true);
@@ -619,7 +640,7 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
         return qn;
     }
 
-    private ASTNode optimizeUpdate(UpdateNode update, Map<String, Object> extraCmd) throws QueryException {
+    private ASTNode optimizeUpdate(UpdateNode update, Map<String, Object> extraCmd) {
         update.build();
         if (extraCmd == null) {
             extraCmd = new HashMap();
@@ -633,18 +654,18 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
 
     }
 
-    private ASTNode optimizeInsert(InsertNode insert, Map<String, Object> extraCmd) throws QueryException {
+    private ASTNode optimizeInsert(InsertNode insert, Map<String, Object> extraCmd) {
         insert.setNode((TableNode) insert.getNode().convertToJoinIfNeed());
         return insert;
     }
 
-    private ASTNode optimizeDelete(DeleteNode delete, Map<String, Object> extraCmd) throws QueryException {
+    private ASTNode optimizeDelete(DeleteNode delete, Map<String, Object> extraCmd) {
         QueryTreeNode queryCommon = this.optimizeQuery(delete.getNode(), extraCmd);
         delete.setNode((TableNode) queryCommon);
         return delete;
     }
 
-    private ASTNode optimizePut(PutNode put, Map<String, Object> extraCmd) throws QueryException {
+    private ASTNode optimizePut(PutNode put, Map<String, Object> extraCmd) {
         put.setNode((TableNode) put.getNode().convertToJoinIfNeed());
         return put;
     }
@@ -670,7 +691,7 @@ public class CostBasedOptimizer extends AbstractLifecycle implements Optimizer {
             for (String realTable : tables) {
                 String[] rtabs = StringUtils.split(realTable, ',');
                 if (rtabs.length != vtabs.length) {
-                    throw new TddlRuntimeException("hint中逻辑表和真实表数量不匹配");
+                    throw new OptimizerException("hint中逻辑表和真实表数量不匹配");
                 }
                 int i = 0;
                 for (String v : vtabs) {

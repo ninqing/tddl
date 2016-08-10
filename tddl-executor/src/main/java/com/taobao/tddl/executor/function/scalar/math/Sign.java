@@ -1,11 +1,8 @@
 package com.taobao.tddl.executor.function.scalar.math;
 
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * Returns the sign of the argument as -1, 0, or 1, depending on whether X is
@@ -30,11 +27,7 @@ public class Sign extends ScalarFunction {
         Object arg = type.convertFrom(args[0]);
         Object zero = type.convertFrom(0);
 
-        if (arg instanceof Comparable) {
-            return type.convertFrom((((Comparable) arg).compareTo(zero)));
-        } else {
-            throw new TddlRuntimeException("不支持abs的类型计算:" + type);
-        }
+        return type.convertFrom(type.compare(arg, zero));
     }
 
     @Override
@@ -44,15 +37,7 @@ public class Sign extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

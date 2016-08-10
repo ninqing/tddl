@@ -18,8 +18,7 @@ import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -48,12 +47,12 @@ public class FilterPreProcessor {
     /**
      * 处理逻辑见类描述 {@linkplain FilterPreProcessor}
      */
-    public static QueryTreeNode optimize(QueryTreeNode qtn, boolean typeConvert) throws QueryException {
+    public static QueryTreeNode optimize(QueryTreeNode qtn, boolean typeConvert) {
         qtn = preProcess(qtn, typeConvert);
         return qtn;
     }
 
-    private static QueryTreeNode preProcess(QueryTreeNode qtn, boolean typeConvert) throws QueryException {
+    private static QueryTreeNode preProcess(QueryTreeNode qtn, boolean typeConvert) {
         qtn.setOtherJoinOnFilter(processFilter(qtn.getOtherJoinOnFilter(), typeConvert));
         qtn.having(processFilter(qtn.getHavingFilter(), typeConvert));
         qtn.query(processFilter(qtn.getWhereFilter(), typeConvert));
@@ -180,7 +179,7 @@ public class FilterPreProcessor {
         }
 
         if (newDNFfilter.isEmpty()) {
-            throw new EmptyResultFilterException("空结果");
+            throw new EmptyResultFilterException();
         }
 
         return FilterUtils.DNFToOrLogicTree(newDNFfilter);

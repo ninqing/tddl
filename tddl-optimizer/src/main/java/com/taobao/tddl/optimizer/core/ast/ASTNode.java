@@ -9,7 +9,6 @@ import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.optimizer.core.ast.delegate.ShareDelegate;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 /**
  * 可优化的语法树
@@ -18,10 +17,11 @@ import com.taobao.tddl.optimizer.exceptions.QueryException;
  */
 public abstract class ASTNode<RT extends ASTNode> implements Comparable {
 
-    private List<String> dataNodes = new ArrayList<String>(); // 数据处理节点,比如groupName
-    private List<Object> extras    = new ArrayList<Object>(); // 比如唯一标识，joinMergeJoin中使用
-    protected boolean    broadcast = false;                  // 是否为广播表
+    private List<String> dataNodes        = new ArrayList<String>(); // 数据处理节点,比如groupName
+    private List<Object> extras           = new ArrayList<Object>(); // 比如唯一标识，joinMergeJoin中使用
+    protected boolean    broadcast        = false;                  // 是否为广播表
     protected String     sql;
+    protected boolean    existSequenceVal = false;                  // 是否存在sequence
 
     public ASTNode(){
 
@@ -39,14 +39,14 @@ public abstract class ASTNode<RT extends ASTNode> implements Comparable {
      * 需要预先执行build.构造执行计划
      */
     @ShareDelegate
-    public IDataNodeExecutor toDataNodeExecutor() throws QueryException {
+    public IDataNodeExecutor toDataNodeExecutor() {
         return toDataNodeExecutor(0);
     }
 
     /**
      * 需要预先执行build.构造执行计划
      */
-    public abstract IDataNodeExecutor toDataNodeExecutor(int shareIndex) throws QueryException;
+    public abstract IDataNodeExecutor toDataNodeExecutor(int shareIndex);
 
     /**
      * 处理bind val
@@ -143,6 +143,14 @@ public abstract class ASTNode<RT extends ASTNode> implements Comparable {
         while (collection.size() <= minCapacity) {
             collection.add(null);
         }
+    }
+
+    public boolean isExistSequenceVal() {
+        return existSequenceVal;
+    }
+
+    public void setExistSequenceVal(boolean existSequenceVal) {
+        this.existSequenceVal = existSequenceVal;
     }
 
     /**

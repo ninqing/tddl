@@ -103,6 +103,7 @@ public class KVIndexNode extends TableNode {
         query.setTableName(tableName);
         query.setSubqueryOnFilterId(this.getSubqueryOnFilterId());
         query.setCorrelatedSubquery(this.isCorrelatedSubquery());
+        query.setExistSequenceVal(this.isExistSequenceVal());
         return query;
     }
 

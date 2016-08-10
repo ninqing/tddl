@@ -779,4 +779,55 @@ public class FunctionTest extends BaseMatrixTestCase {
         sql = "select EXTRACT(YEAR_MONTH FROM '2009-07-02 01:02:03') as a from " + normaltblTableName;
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
     }
+
+    @Test
+    public void intervalTest() throws Exception {
+        String sql = "SELECT INTERVAL(23, 1, 15, 17, 30, 44, 200) as a from " + normaltblTableName;
+        String[] columnParam = { "a" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select INTERVAL(10, 1, 10, 100, 1000) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select INTERVAL(22, 23, 30, 44, 200) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select INTERVAL(202, 23, 30, 44, 200) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void greatestTest() throws Exception {
+        String sql = "SELECT LEAST(2,0) as a from " + normaltblTableName;
+        String[] columnParam = { "a" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select LEAST(34.0,3.0,5.0,767.0) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select LEAST('B','A','C') as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select GREATEST(2,0) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select GREATEST(34.0,3.0,5.0,767.0) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select GREATEST('B','A','C') as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void CoalesceTest() throws Exception {
+        String sql = "SELECT COALESCE(NULL,'a') as a from " + normaltblTableName;
+        String[] columnParam = { "a" };
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select COALESCE(NULL,1,'1') as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+
+        sql = "select COALESCE(NULL,NULL,NULL) as a from " + normaltblTableName;
+        selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
 }

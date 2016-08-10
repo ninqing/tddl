@@ -1,14 +1,14 @@
 package com.taobao.tddl.client.sequence;
 
 import com.taobao.tddl.client.sequence.exception.SequenceException;
-
+import com.taobao.tddl.common.model.lifecycle.Lifecycle;
 
 /**
  * 序列DAO接口
  * 
  * @author nianbing
  */
-public interface SequenceDao {
+public interface SequenceDao extends Lifecycle {
 
     /**
      * 取得下一个可用的序列区间

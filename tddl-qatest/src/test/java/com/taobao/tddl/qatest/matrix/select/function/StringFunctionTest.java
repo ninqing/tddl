@@ -28,7 +28,7 @@ public class StringFunctionTest extends BaseMatrixTestCase {
 
     @Test
     public void concatTest() throws Exception {
-        String sql = "select concat('aa', 'bb', 'cc') as a from _tddl_";
+        String sql = " select cast(11 as unsigned int) as a from _tddl_";
         String[] columnParam = { "a" };
         selectContentSameAssert(sql, columnParam, Collections.EMPTY_LIST);
 

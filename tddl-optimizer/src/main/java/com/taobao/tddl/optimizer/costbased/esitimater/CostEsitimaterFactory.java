@@ -12,7 +12,6 @@ import com.taobao.tddl.optimizer.core.expression.IColumn;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.costbased.esitimater.stat.KVIndexStat;
-import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 
 /**
  * 计算结构树的cost
@@ -27,7 +26,7 @@ public class CostEsitimaterFactory {
 
     public static Cost                   zeroCost               = new Cost();
 
-    public static Cost estimate(QueryTreeNode query) throws StatisticsUnavailableException {
+    public static Cost estimate(QueryTreeNode query) {
 
         return zeroCost;
 

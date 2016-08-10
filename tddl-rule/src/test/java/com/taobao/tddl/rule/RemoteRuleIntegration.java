@@ -14,7 +14,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import com.google.common.collect.Lists;
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.rule.exceptions.RouteCompareDiffException;
+import com.taobao.tddl.rule.exception.RouteCompareDiffException;
 import com.taobao.tddl.rule.model.MatcherResult;
 import com.taobao.tddl.rule.model.TargetDB;
 import com.taobao.tddl.rule.utils.ComparativeStringAnalyser;

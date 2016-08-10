@@ -46,7 +46,8 @@ public enum SqlType {
     /** 获取上一个insert id */
     SELECT_LAST_INSERT_ID(19),
     /** */
-    SELECT_WITHOUT_TABLE(20);
+    SELECT_WITHOUT_TABLE(20), CREATE_SEQUENCE(21), SHOW_SEQUENCES(22), SHOW_TOPOLOGY(23), SHOW_TABLES(24),
+    SHOW_PARTITIONS(25), SHOW_BROADCASTS(26), TDDL_SHOW(27);
 
     private int i;
 

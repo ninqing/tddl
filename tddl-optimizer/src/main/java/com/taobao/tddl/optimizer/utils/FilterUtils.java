@@ -19,7 +19,8 @@ import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.core.expression.ISequenceVal;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
 import com.taobao.tddl.optimizer.parse.cobar.visitor.MySqlExprVisitor;
 import com.taobao.tddl.optimizer.utils.range.AndRangeProcessor;
 import com.taobao.tddl.optimizer.utils.range.OrRangeProcessor;
@@ -355,6 +356,7 @@ public class FilterUtils {
         for (List<IFilter> DNFNode : dNFNodes) {
             for (IFilter filter : DNFNode) {
                 if (((IBooleanFilter) filter).getValue() instanceof IBindVal
+                    || ((IBooleanFilter) filter).getValue() instanceof ISequenceVal
                     || ((IBooleanFilter) filter).getValue() instanceof IFunction) {
                     return false;
                 }
@@ -387,7 +389,7 @@ public class FilterUtils {
                 AndRangeProcessor ri = new AndRangeProcessor(c);
                 for (IFilter node : columnRestrictions.get(c)) {
                     if (!ri.process(node)) {
-                        throw new EmptyResultFilterException("空结果");
+                        throw new EmptyResultFilterException();
                     }
                 }
                 List<IFilter> boolNodesOfCurrentColumn = ri.toFilterList();

@@ -6,12 +6,11 @@ import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.plan.query.IQuery;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 
 public class KVIndexNodeTest extends BaseOptimizerTest {
 
     @Test
-    public void testNormal() throws QueryException {
+    public void testNormal() {
 
         KVIndexNode studentID = new KVIndexNode("TABLE1");
         studentID.select("ID,NAME,SCHOOL");
@@ -24,7 +23,7 @@ public class KVIndexNodeTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testJoin() throws QueryException {
+    public void testJoin() {
         KVIndexNode studentID = new KVIndexNode("TABLE1");
         studentID.alias("TABLE1");
         studentID.select("ID,NAME,SCHOOL");

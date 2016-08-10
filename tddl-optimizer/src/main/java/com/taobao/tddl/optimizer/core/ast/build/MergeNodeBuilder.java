@@ -40,6 +40,7 @@ public class MergeNodeBuilder extends QueryTreeNodeBuilder {
             sub.build();
         }
 
+        this.buildExistSequenceVal();
         if (!(this.getNode().getChild() instanceof QueryTreeNode)) {
             return;
         }

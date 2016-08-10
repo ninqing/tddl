@@ -13,14 +13,13 @@ import com.taobao.tddl.optimizer.BaseOptimizerTest;
 import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 
 public class SubQueryPreProcessorTest extends BaseOptimizerTest {
 
     @Test
-    public void testQuery_子查询_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -36,7 +35,7 @@ public class SubQueryPreProcessorTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_correlate_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_correlate_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -46,7 +45,7 @@ public class SubQueryPreProcessorTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_多级查询() throws SqlParserException, QueryException {
+    public void testQuery_子查询_多级查询() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE NAME = (SELECT NAME FROM TABLE3))";
         sql += " AND NAME = (SELECT NAME FROM TABLE4) AND SCHOOL > ALL (SELECT SCHOOL FROM TABLE5)";
         QueryTreeNode qn = query(sql);
@@ -80,7 +79,7 @@ public class SubQueryPreProcessorTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_各种位置子查询() throws SqlParserException, QueryException {
+    public void testQuery_子查询_各种位置子查询() throws SqlParserException {
         String sql = "SELECT (SELECT MAX(ID) FROM TABLE1)+1 FROM TABLE1 WHERE NOT EXISTS(SELECT MAX(ID) FROM TABLE2 LIMIT 1) AND (SELECT MAX(ID) FROM TABLE3) + 1 > (SELECT ID FROM TABLE4 WHERE NAME = (SELECT NAME FROM TABLE5))";
         sql += " GROUP BY ID + (SELECT MAX(ID) FROM TABLE6) HAVING ID + (SELECT MAX(ID) FROM TABLE7) > 10 ORDER BY ID + (SELECT MAX(ID) FROM TABLE8) LIMIT 10,10";
         QueryTreeNode qn = query(sql);
@@ -105,7 +104,7 @@ public class SubQueryPreProcessorTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_correlate替换() throws SqlParserException, QueryException {
+    public void testQuery_子查询_correlate替换() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();

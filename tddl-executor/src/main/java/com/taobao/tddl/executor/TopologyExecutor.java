@@ -7,12 +7,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.common.ExecutorContext;
 import com.taobao.tddl.executor.cursor.ISchematicCursor;
 import com.taobao.tddl.executor.cursor.ResultCursor;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.spi.ITopologyExecutor;
 import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
@@ -30,7 +30,7 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
         final OptimizerContext optimizerContext = OptimizerContext.getContext();
         ExecutorService concurrentExecutors = executionContext.getExecutorService();
         if (concurrentExecutors == null) {
-            throw new TddlRuntimeException("concurrentExecutors is null, cannot query parallelly");
+            throw new ExecutorException("concurrentExecutors is null, cannot query parallelly");
         }
 
         Future<ISchematicCursor> task = concurrentExecutors.submit(new Callable<ISchematicCursor>() {
@@ -53,7 +53,7 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
 
     private IExecutor getGroupExecutor(IDataNodeExecutor qc, ExecutionContext executionContext) {
         if (executionContext == null) {
-            throw new TddlRuntimeException("execution context is null");
+            throw new ExecutorException("execution context is null");
         }
 
         String group = qc.getDataNode();
@@ -67,30 +67,17 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
     private IExecutor getGroupExecutor(String group, ExecutionContext executionContext) {
         if (IDataNodeExecutor.USE_LAST_DATA_NODE.equals(group)) {
             group = executionContext.getConnectionHolder().getRecentAccessGroup();
-
             if (group == null) {
-                throw new TddlRuntimeException("recent access group is null, you cannot execute this sql");
+                throw new ExecutorException("recent access group is null, you cannot execute this sql");
             }
         }
 
         IExecutor executor = null;
         executor = ExecutorContext.getContext().getTopologyHandler().get(group);
         if (executor == null) {
-            throw new RuntimeException("cannot find executor for group:" + group + "\ngroups:\n"
-                                       + ExecutorContext.getContext().getTopologyHandler());
+            throw new ExecutorException("cannot find executor for group:" + group + "\ngroups:\n"
+                                        + ExecutorContext.getContext().getTopologyHandler());
         }
-
-        // if (!executionContext.isAutoCommit()) {
-        // // sql不在同一个节点上，是跨机事务，报错。
-        // if (executionContext.getTransactionGroup() != null &&
-        // !executionContext.getTransactionGroup().equals(group)) {
-        // throw new
-        // TddlRuntimeException("transaction across group is not supported, aim group is:"
-        // + group
-        // + ", current transaction group is:"
-        // + executionContext.getTransactionGroup());
-        // }
-        // }
 
         return executor;
     }
@@ -122,9 +109,8 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
         final OptimizerContext optimizerContext = OptimizerContext.getContext();
 
         ExecutorService concurrentExecutors = executionContext.getExecutorService();
-
         if (concurrentExecutors == null) {
-            throw new TddlRuntimeException("concurrentExecutors is null, cannot query parallelly");
+            throw new ExecutorException("concurrentExecutors is null, cannot query parallelly");
         }
 
         Future<ResultCursor> task = concurrentExecutors.submit(new Callable<ResultCursor>() {
@@ -145,9 +131,8 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
         final OptimizerContext optimizerContext = OptimizerContext.getContext();
 
         ExecutorService concurrentExecutors = executionContext.getExecutorService();
-
         if (concurrentExecutors == null) {
-            throw new TddlRuntimeException("concurrentExecutors is null, cannot query parallelly");
+            throw new ExecutorException("concurrentExecutors is null, cannot query parallelly");
         }
 
         Future<ResultCursor> task = concurrentExecutors.submit(new Callable<ResultCursor>() {
@@ -179,7 +164,7 @@ public class TopologyExecutor extends AbstractLifecycle implements ITopologyExec
         final OptimizerContext optimizerContext = OptimizerContext.getContext();
         ExecutorService concurrentExecutors = executionContext.getExecutorService();
         if (concurrentExecutors == null) {
-            throw new TddlRuntimeException("concurrentExecutors is null, cannot query parallelly");
+            throw new ExecutorException("concurrentExecutors is null, cannot query parallelly");
         }
 
         Future<List<ISchematicCursor>> task = concurrentExecutors.submit(new Callable<List<ISchematicCursor>>() {

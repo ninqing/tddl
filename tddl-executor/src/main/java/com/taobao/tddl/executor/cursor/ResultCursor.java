@@ -4,7 +4,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
 import com.taobao.tddl.common.utils.GeneralUtil;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -17,18 +16,9 @@ public class ResultCursor extends SchematicCursor {
 
     public static class EmptyResultCursor extends ResultCursor {
 
-        public EmptyResultCursor(ExecutionContext executionContext){
+        public EmptyResultCursor(ExecutionContext executionContext, List columns){
             super(executionContext);
-        }
-
-        @Override
-        public List<Object> getOriginalSelectColumns() {
-            return null;
-        }
-
-        @Override
-        public void setOriginalSelectColumns(List<Object> originalSelectColumns) {
-
+            this.setOriginalSelectColumns(columns);
         }
 
         @Override
@@ -158,11 +148,6 @@ public class ResultCursor extends SchematicCursor {
         this.executionContext = executionContext;
     }
 
-    //
-    // public List<IRowSet> getResults() {
-    // return results;
-    // }
-
     public String getException() {
         return exception;
     }
@@ -272,7 +257,7 @@ public class ResultCursor extends SchematicCursor {
 
     public String getException(Exception e, ResultCursor cursor) {
         if (e instanceof TddlException) {
-            // 已知异常，UstoreException是有状态码的，定义过处理逻辑。
+            // 已知异常，是有状态码的，定义过处理逻辑。
             return e.getMessage();
         }
         String targetException = "";
@@ -280,9 +265,11 @@ public class ResultCursor extends SchematicCursor {
             targetException = cursor.getException();
         }
         // log.warn(ExceptionErrorCodeUtils.UNKNOWN_EXCEPTION + "", e);
-        String exception = ExceptionErrorCodeUtils.appendErrorCode(ExceptionErrorCodeUtils.UNKNOWN_EXCEPTION, e)
-                           + "\n------\n acturalException : " + targetException;
-        return exception;
+        // String exception =
+        // ExceptionErrorCodeUtils.appendErrorCode(ExceptionErrorCodeUtils.UNKNOWN_EXCEPTION,
+        // e)
+        // + "\n------\n acturalException : " + targetException;
+        return targetException;
     }
 
     @Override

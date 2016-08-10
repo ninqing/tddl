@@ -7,7 +7,6 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.exceptions.FunctionException;
 
 /**
  * Computes a cyclic redundancy check value and returns a 32-bit unsigned value.
@@ -27,7 +26,7 @@ import com.taobao.tddl.optimizer.exceptions.FunctionException;
 public class Crc32 extends ScalarFunction {
 
     @Override
-    public Object compute(Object[] args, ExecutionContext ec) throws FunctionException {
+    public Object compute(Object[] args, ExecutionContext ec) {
         DataType type = getReturnType();
         if (ExecUtils.isNull(args[0])) {
             return null;

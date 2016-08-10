@@ -13,7 +13,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
 import com.taobao.tddl.common.model.App;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.common.utils.TddlToStringStyle;
@@ -63,6 +63,20 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
         this.subApps = subApps;
     }
 
+    void loadDualTable() throws TddlException {
+        ConfigDataHandler cdh = ConfigDataHandlerCity.getFileFactory(appName).getConfigDataHandler("DUAL_TABLE.xml",
+            null);
+        String data = cdh.getData(ConfigDataHandler.GET_DATA_TIMEOUT,
+            ConfigDataHandler.FIRST_CACHE_THEN_SERVER_STRATEGY);
+
+        cdh.destroy();
+        TableMetaParser parser = new TableMetaParser();
+
+        TableMeta dualTable = parser.parse(data).get(0);
+
+        this.putTable(dualTable.getTableName(), dualTable);
+    }
+
     @Override
     protected void doInit() throws TddlException {
 
@@ -74,6 +88,8 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
         super.doInit();
         ss = new ConcurrentHashMap<String, TableMeta>();
+
+        loadDualTable();
 
         if (this.appName == null) {
             logger.warn("schema appname is not assigned");
@@ -147,16 +163,18 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
             logger.warn("table fetched:");
             logger.warn(this.ss.keySet().toString());
+
+            loadDualTable();
         } catch (Exception e) {
             logger.error("table parser error, schema file is:\n" + data, e);
-            throw new TddlRuntimeException(e);
+            throw new TddlNestableRuntimeException(e);
         } finally {
             IOUtils.closeQuietly(sis);
         }
 
     }
 
-    public static class SchemaConfigDataListener implements ConfigDataListener {
+    public class SchemaConfigDataListener implements ConfigDataListener {
 
         private StaticSchemaManager schemaManager;
 
@@ -175,7 +193,6 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
             try {
                 sis = new ByteArrayInputStream(data.getBytes());
                 List<TableMeta> schemaList = parser.parse(sis);
-
                 schemaManager.ss.clear();
                 for (TableMeta table : schemaList) {
                     schemaManager.putTable(table.getTableName(), table);
@@ -183,9 +200,10 @@ public class StaticSchemaManager extends AbstractLifecycle implements SchemaMana
 
                 logger.warn("table fetched:");
                 logger.warn(schemaManager.ss.keySet().toString());
+                loadDualTable();
             } catch (Exception e) {
                 logger.error("table parser error, schema file is:" + data, e);
-                throw new TddlRuntimeException(e);
+                throw new TddlNestableRuntimeException(e);
             } finally {
                 IOUtils.closeQuietly(sis);
             }

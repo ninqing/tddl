@@ -3,7 +3,6 @@ package com.taobao.tddl.executor.function.scalar.filter;
 import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 public abstract class Filter extends ScalarFunction {
@@ -14,7 +13,6 @@ public abstract class Filter extends ScalarFunction {
 
     @Override
     public Object compute(Object[] args, ExecutionContext ec) {
-
         for (Object arg : args) {
 
             // 有一个没计算的，就直接返回
@@ -26,14 +24,7 @@ public abstract class Filter extends ScalarFunction {
     }
 
     public DataType getArgType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-        return type;
+        return getFirstArgType();
     }
 
     @Override

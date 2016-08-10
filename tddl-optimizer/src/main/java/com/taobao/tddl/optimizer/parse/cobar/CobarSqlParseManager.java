@@ -1,6 +1,8 @@
 package com.taobao.tddl.optimizer.parse.cobar;
 
+import java.sql.SQLSyntaxErrorException;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import com.alibaba.cobar.parser.ast.stmt.SQLStatement;
@@ -10,7 +12,8 @@ import com.google.common.cache.CacheBuilder;
 import com.taobao.tddl.common.TddlConstants;
 import com.taobao.tddl.common.model.lifecycle.AbstractLifecycle;
 import com.taobao.tddl.monitor.Monitor;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 import com.taobao.tddl.optimizer.parse.SqlAnalysisResult;
 import com.taobao.tddl.optimizer.parse.SqlParseManager;
 
@@ -55,12 +58,10 @@ public class CobarSqlParseManager extends AbstractLifecycle implements SqlParseM
             } else {
                 statement = SQLParserDelegate.parse(sql);
             }
-        } catch (Exception e) {
-            if (e.getCause() instanceof RuntimeException) {
-                throw (RuntimeException) e.getCause();
-            } else {
-                throw new SqlParserException("You have an error in your SQL syntax,the sql is:" + sql, e);
-            }
+        } catch (SQLSyntaxErrorException e) {
+            throw new SqlParserException(e, e.getMessage());
+        } catch (ExecutionException e) {
+            throw new OptimizerException(e);
         }
 
         // AstNode visitor结果不能做缓存

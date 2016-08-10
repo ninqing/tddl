@@ -1,5 +1,6 @@
 package com.taobao.tddl.qatest.matrix.basecrud;
 
+import java.sql.ResultSet;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -104,7 +105,6 @@ public class InsertTest extends BaseMatrixTestCase {
         //
         // String[] columnParam = new String[] { "a" };
         // selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
-
     }
 
     @Test
@@ -270,6 +270,25 @@ public class InsertTest extends BaseMatrixTestCase {
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
         sql = "select * from " + normaltblTableName + " where pk=" + RANDOM_ID + 1;
         selectOrderAssert(sql, columnParam, Collections.EMPTY_LIST);
+    }
+
+    @Test
+    public void insertWithMutil_sequenceTest() throws Exception {
+        if (normaltblTableName.startsWith("ob_")) {
+            return;
+        }
+
+        String sql = "insert into " + normaltblTableName + "(pk,id) values(" + normaltblTableName + ".nextval,?),("
+                     + normaltblTableName + ".nextval,?)";
+        List<Object> param = new ArrayList<Object>();
+        param.add(RANDOM_INT);
+        param.add(RANDOM_INT);
+        tddlUpdateData(sql, param);
+
+        sql = "select last_insert_id()";
+        ResultSet rc = tddlQueryData(sql, Collections.EMPTY_LIST);
+        Assert.assertTrue(rc.next());
+        System.out.println(rc.getLong(1));
     }
 
     @Ignore(value = "目前不支持insert中带select的sql语句")
@@ -446,9 +465,23 @@ public class InsertTest extends BaseMatrixTestCase {
 
         sql = "select * from " + normaltblTableName + " where pk=" + 1;
         rs = mysqlQueryData(sql, null);
-        rc = andorQueryData(sql, null);
+        rc = tddlQueryData(sql, null);
         String[] columnParam = { "gmt_timestamp" };
         assertOrder(rs, rc, columnParam);
+    }
+
+    @Test
+    public void insert_SequenceTest() throws Exception {
+        String sql = "insert into " + normaltblTableName + " values(" + normaltblTableName + ".nextval,?,?,?,?,?,?)";
+        List<Object> param = new ArrayList<Object>();
+        param.add(RANDOM_INT);
+        param.add(gmtDay);
+        param.add(gmt);
+        param.add(gmt);
+        param.add(null);
+        param.add(fl);
+        int affect = tddlUpdateData(sql, param);
+        Assert.assertEquals(1, affect);
     }
 
     @Test

@@ -31,8 +31,7 @@ import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.bean.BindVal;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
-import com.taobao.tddl.optimizer.exceptions.SqlParserException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 
 /**
  * @author jianghang 2013-11-15 下午3:55:47
@@ -41,7 +40,7 @@ import com.taobao.tddl.optimizer.exceptions.SqlParserException;
 public class SqlParserTest extends BaseOptimizerTest {
 
     @Test
-    public void testQuery_简单主键查询() throws SqlParserException, QueryException {
+    public void testQuery_简单主键查询() throws SqlParserException {
         String sql = "select * from table1 where id=1 or id = 2";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -52,7 +51,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_字段别名() throws SqlParserException, QueryException {
+    public void testQuery_字段别名() throws SqlParserException {
         String sql = "SELECT ID AS TID,NAME,SCHOOL FROM TABLE1  WHERE ID=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -63,7 +62,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_字段别名_表别名() throws SqlParserException, QueryException {
+    public void testQuery_字段别名_表别名() throws SqlParserException {
         String sql = "SELECT T.ID AS TID,T.NAME,T.SCHOOL FROM TABLE1 T  WHERE ID=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -74,7 +73,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_函数别名() throws SqlParserException, QueryException {
+    public void testQuery_函数别名() throws SqlParserException {
         String sql = "SELECT T.ID , LENGTH(NAME) AS LEN FROM TABLE1 T  WHERE ID=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -91,7 +90,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_普通join() throws SqlParserException, QueryException {
+    public void testQuery_普通join() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -107,7 +106,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_内连接() throws SqlParserException, QueryException {
+    public void testQuery_内连接() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A INNER JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -124,7 +123,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_左连接() throws SqlParserException, QueryException {
+    public void testQuery_左连接() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A LEFT JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -141,7 +140,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_右连接() throws SqlParserException, QueryException {
+    public void testQuery_右连接() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A RIGHT JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -159,7 +158,7 @@ public class SqlParserTest extends BaseOptimizerTest {
 
     @Ignore("mysql parser语法上暂时不支持，需要修改")
     @Test
-    public void testQuery_outter连接() throws SqlParserException, QueryException {
+    public void testQuery_outter连接() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A OUTER JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -176,7 +175,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_普通链接_多个连接条件() throws SqlParserException, QueryException {
+    public void testQuery_普通链接_多个连接条件() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A INNER JOIN TABLE2 B ON A.ID=B.ID AND A.NAME = B.NAME WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -193,7 +192,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_普通链接_字段别名() throws SqlParserException, QueryException {
+    public void testQuery_普通链接_字段别名() throws SqlParserException {
         String sql = "SELECT A.ID AS AID,A.SCHOOL AS ASCHOOL,B.* FROM TABLE1 A INNER JOIN TABLE2 B ON A.ID=B.ID AND A.NAME = B.NAME WHERE A.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -211,7 +210,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_普通链接_order_group_having() throws SqlParserException, QueryException {
+    public void testQuery_普通链接_order_group_having() throws SqlParserException {
         String sql = "SELECT A.ID AS AID,A.SCHOOL AS ASCHOOL,B.* FROM TABLE1 A INNER JOIN TABLE2 B ON A.ID=B.ID AND A.NAME = B.NAME WHERE A.NAME=1";
         sql += " GROUP BY AID HAVING AID > 0 ORDER BY A.ID ASC ";
         QueryTreeNode qn = query(sql);
@@ -233,7 +232,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_普通链接_函数() throws SqlParserException, QueryException {
+    public void testQuery_普通链接_函数() throws SqlParserException {
         String sql = "SELECT A.ID as AID,A.ID,COUNT(A.ID),COUNT(*) FROM TABLE1 A INNER JOIN TABLE2 B ON A.ID=B.ID AND A.NAME = B.NAME WHERE A.NAME=1";
         sql += " GROUP BY AID HAVING AID > 0 ORDER BY A.ID ASC ";
         QueryTreeNode qn = query(sql);
@@ -361,7 +360,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_OrExpression() throws SqlParserException, QueryException {
+    public void testQuery_OrExpression() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE NAME = 2323 OR ID=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -373,7 +372,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_复杂条件() throws SqlParserException, QueryException {
+    public void testQuery_复杂条件() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE (SCHOOL=1 OR NAME=2) AND (ID=1)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -385,7 +384,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testJoin_多表主键关联() throws SqlParserException, QueryException {
+    public void testJoin_多表主键关联() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1,TABLE2 WHERE TABLE1.NAME=1 AND TABLE1.ID=TABLE2.ID";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -397,7 +396,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testJoin_多表主键关联_表别名() throws SqlParserException, QueryException {
+    public void testJoin_多表主键关联_表别名() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1,TABLE2 WHERE T1.NAME=1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -410,7 +409,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_and表达式() throws SqlParserException, QueryException {
+    public void testQuery_and表达式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1 WHERE ID<=10 AND ID>=5";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -422,7 +421,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_and表达式_别名() throws SqlParserException, QueryException {
+    public void testQuery_and表达式_别名() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1 WHERE T1.ID=4 AND T1.ID>=2";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -435,7 +434,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_and表达式_字符串() throws SqlParserException, QueryException {
+    public void testQuery_and表达式_字符串() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1 WHERE NAME='4' AND ID<=2";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -447,7 +446,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_or表达式() throws SqlParserException, QueryException {
+    public void testQuery_or表达式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1 WHERE ID<5 OR ID<=6 OR ID=3";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -459,7 +458,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQueryWith_or表达式_别名() throws SqlParserException, QueryException {
+    public void testQueryWith_or表达式_别名() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 T1 WHERE ID<5 OR ID<=6 OR ID=7";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -471,7 +470,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testFunction() throws SqlParserException, QueryException {
+    public void testFunction() throws SqlParserException {
         String sql = "SELECT COUNT(*) FROM TABLE1 T1 WHERE ID = 1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -494,7 +493,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testFunction1() throws SqlParserException, QueryException {
+    public void testFunction1() throws SqlParserException {
         String sql = "SELECT COUNT(ID) FROM TABLE1 T1 WHERE ID = 1";
         QueryTreeNode qn = query(sql);
 
@@ -514,7 +513,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testFunction_double_function() throws SqlParserException, QueryException {
+    public void testFunction_double_function() throws SqlParserException {
         String sql = "SELECT COUNT(ID),AVG(ID) FROM TABLE1 T1 WHERE ID = 1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -629,7 +628,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testFunction_提前计算() throws SqlParserException, QueryException {
+    public void testFunction_提前计算() throws SqlParserException {
         String sql = "SELECT 1+1 FROM TABLE1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -641,7 +640,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testFunction_提前计算_bindVal() throws SqlParserException, QueryException {
+    public void testFunction_提前计算_bindVal() throws SqlParserException {
         String sql = "SELECT 1+? FROM TABLE1";
         QueryTreeNode qn = query(sql, Arrays.asList(Integer.valueOf(1)));
 
@@ -651,7 +650,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testJoin_条件提前计算() throws SqlParserException, QueryException {
+    public void testJoin_条件提前计算() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 A JOIN TABLE2 B ON A.ID=B.ID WHERE A.ID>1+4 AND B.ID<12-1";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -667,7 +666,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testUpdate_正常() throws SqlParserException, QueryException {
+    public void testUpdate_正常() throws SqlParserException {
         String sql = "UPDATE TABLE1 SET NAME=2 WHERE ID>=5 AND ID<=5";
         UpdateNode un = update(sql);
         un.build();
@@ -680,7 +679,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDelete_正常() throws SqlParserException, QueryException {
+    public void testDelete_正常() throws SqlParserException {
         String sql = "DELETE FROM TABLE1 WHERE ID>=5 AND ID<=5";
         DeleteNode dn = delete(sql);
         dn.build();
@@ -694,7 +693,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_无字段() throws SqlParserException, QueryException {
+    public void testInsert_无字段() throws SqlParserException {
         String sql = "INSERT INTO TABLE1(ID) VALUES (2)";
         InsertNode in = insert(sql);
         in.build();
@@ -707,7 +706,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_多字段() throws SqlParserException, QueryException {
+    public void testInsert_多字段() throws SqlParserException {
         String sql = "INSERT INTO TABLE1(ID, NAME, SCHOOL) VALUES (2, 'sun', 'sysu')";
 
         InsertNode in = insert(sql);
@@ -721,7 +720,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testInsert_多字段_多记录() throws SqlParserException, QueryException {
+    public void testInsert_多字段_多记录() throws SqlParserException {
         String sql = "INSERT INTO TABLE1(ID, NAME, SCHOOL) VALUES (1, 'sun', 'sysu'),(2, 'sun', 'sysu'),(3, 'sun', 'sysu')";
 
         InsertNode in = insert(sql);
@@ -737,7 +736,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testReplace_多字段_多记录() throws SqlParserException, QueryException {
+    public void testReplace_多字段_多记录() throws SqlParserException {
         String sql = "REPLACE INTO TABLE1(ID, NAME, SCHOOL) VALUES (1, 'sun', 'sysu'),(2, 'sun', 'sysu'),(3, 'sun', 'sysu')";
 
         PutNode in = put(sql);
@@ -753,7 +752,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testLimit() throws SqlParserException, QueryException {
+    public void testLimit() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 LIMIT 1,10";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -766,7 +765,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testLimit1() throws SqlParserException, QueryException {
+    public void testLimit1() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID = 10 LIMIT 10";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -778,7 +777,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testLimit_bindval1() throws SqlParserException, QueryException {
+    public void testLimit_bindval1() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE TABLE1.ID = 10 LIMIT ?,10";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -790,7 +789,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testLimit_bindval2() throws SqlParserException, QueryException {
+    public void testLimit_bindval2() throws SqlParserException {
         String sql = "select * from table1 where table1.id = 10 limit 1,?";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -801,7 +800,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testLimit_bindval3() throws SqlParserException, QueryException {
+    public void testLimit_bindval3() throws SqlParserException {
         String sql = "select * from table1 where table1.id = 10 limit ?,?";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -815,7 +814,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPreparedInsertSql() throws SqlParserException, QueryException {
+    public void testPreparedInsertSql() throws SqlParserException {
         String sql = "INSERT INTO TABLE1(ID,NAME,SCHOOL) VALUES (?, ?, ?)";
         InsertNode in = insert(sql);
         Map<Integer, ParameterContext> currentParameter = new HashMap<Integer, ParameterContext>();
@@ -837,7 +836,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPreparedUpdateSql() throws SqlParserException, QueryException {
+    public void testPreparedUpdateSql() throws SqlParserException {
         String sql = "UPDATE TABLE1 SET ID=? WHERE ID>=? AND ID<=?";
         UpdateNode un = update(sql);
 
@@ -862,7 +861,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testPreparedDeleteSql() throws SqlParserException, QueryException {
+    public void testPreparedDeleteSql() throws SqlParserException {
         String sql = "DELETE FROM TABLE1 WHERE ID>=? AND ID<=?";
         DeleteNode dn = delete(sql);
 
@@ -884,7 +883,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testDistinct() throws SqlParserException, QueryException {
+    public void testDistinct() throws SqlParserException {
         String sql = "SELECT COUNT(DISTINCT ID) FROM TABLE1";
         QueryTreeNode qn = query(sql);
 
@@ -931,7 +930,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_Like() throws SqlParserException, QueryException {
+    public void testQuery_Like() throws SqlParserException {
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME LIKE '%XASX%'";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -943,7 +942,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testMultiAnd() throws QueryException, SqlParserException {
+    public void testMultiAnd() throws SqlParserException {
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME=? AND (ID>? AND ID<?)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -955,7 +954,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testMultiOr() throws QueryException, SqlParserException {
+    public void testMultiOr() throws SqlParserException {
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME=? OR(ID>? OR ID<?)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -967,7 +966,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testMultiAndOr() throws QueryException, SqlParserException {
+    public void testMultiAndOr() throws SqlParserException {
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME=? AND NAME>? AND (ID=? OR ID<?)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -979,7 +978,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testWhere_字段子查询() throws QueryException, SqlParserException {
+    public void testWhere_字段子查询() throws SqlParserException {
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME=(SELECT NAME FROM TABLE2 B WHERE B.ID=1)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -995,7 +994,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testWhere_字段多级子查询() throws QueryException, SqlParserException {
+    public void testWhere_字段多级子查询() throws SqlParserException {
         String subSql = "SELECT B.* FROM TABLE2 B WHERE B.ID=1 GROUP BY SCHOOL HAVING COUNT(*) > 1 ORDER BY ID DESC LIMIT 1";
         String sql = "SELECT NAME FROM TABLE1 WHERE NAME=(SELECT C.NAME FROM (" + subSql + ") C )";
         QueryTreeNode qn = query(sql);
@@ -1030,7 +1029,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testWhere_表子查询() throws QueryException, SqlParserException {
+    public void testWhere_表子查询() throws SqlParserException {
         String sql = "SELECT NAME FROM (SELECT * FROM TABLE1 A WHERE A.ID=1) B";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1044,7 +1043,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testWhere_字段_表_复杂子查询() throws QueryException, SqlParserException {
+    public void testWhere_字段_表_复杂子查询() throws SqlParserException {
         String subSql = "SELECT B.* FROM TABLE2 B WHERE B.ID=1 GROUP BY SCHOOL HAVING COUNT(*) > 1 ORDER BY ID DESC LIMIT 1";
         String sql = "SELECT NAME FROM (SELECT * FROM TABLE1 A WHERE A.ID=1) A WHERE NAME=(SELECT C.NAME FROM ("
                      + subSql + ") C )";
@@ -1055,7 +1054,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_join子查询_join表() throws SqlParserException, QueryException {
+    public void testQuery_join子查询_join表() throws SqlParserException {
         String sql = "SELECT * FROM (SELECT A.ID,A.NAME FROM TABLE1 A JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1) C JOIN TABLE3 D ON C.ID = D.ID";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1065,7 +1064,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_join子查询() throws SqlParserException, QueryException {
+    public void testQuery_join子查询() throws SqlParserException {
         String sql = "SELECT * FROM (SELECT A.ID,A.NAME FROM TABLE1 A JOIN TABLE2 B ON A.ID=B.ID WHERE A.NAME=1) C WHERE C.ID = 6";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1078,7 +1077,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_join_子查询_多级组合() throws SqlParserException, QueryException {
+    public void testQuery_join_子查询_多级组合() throws SqlParserException {
         String joinSql = "SELECT TABLE1.ID,TABLE1.NAME FROM TABLE1 JOIN TABLE2 ON TABLE1.ID=TABLE1.ID WHERE TABLE1.NAME=1";
         String subsql = "SELECT * FROM (" + joinSql + " ) S WHERE S.NAME = 1";
         String sql = "SELECT * FROM (" + subsql + ") B , (" + subsql + ") C WHERE B.NAME = 6 AND B.ID = C.ID";
@@ -1097,7 +1096,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_多字段in() throws SqlParserException, QueryException {
+    public void testQuery_多字段in() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE (ID,NAME) IN ((1,2),(2,3))";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1105,7 +1104,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1113,7 +1112,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_多字段in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_多字段in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE (ID,NAME) IN (SELECT ID,NAME FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1121,7 +1120,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_not_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_not_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID NOT IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1129,7 +1128,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询correlated_in模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询correlated_in模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE ID IN (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1137,7 +1136,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_exist模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_exist模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE  EXISTS (SELECT ID FROM TABLE2)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1145,7 +1144,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_not_exist模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_not_exist模式() throws SqlParserException {
         String sql = "SELECT * FROM TABLE1 WHERE NOT EXISTS (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
         qn.build();
@@ -1153,7 +1152,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_all模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_all模式() throws SqlParserException {
         // SubqueryAllExpression
         String sql = "SELECT * FROM TABLE1 WHERE ID > ALL (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
@@ -1162,7 +1161,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_子查询_any模式() throws SqlParserException, QueryException {
+    public void testQuery_子查询_any模式() throws SqlParserException {
         // SubqueryAnyExpression
         String sql = "SELECT * FROM TABLE1 WHERE ID <= ANY (SELECT ID FROM TABLE2 WHERE TABLE2.NAME = TABLE1.NAME)";
         QueryTreeNode qn = query(sql);
@@ -1171,24 +1170,40 @@ public class SqlParserTest extends BaseOptimizerTest {
     }
 
     @Test
-    public void testQuery_不带表() throws SqlParserException, QueryException {
+    public void testQuery_不带表() throws SqlParserException {
         String sql = "SELECT last_insert_id()";
         QueryTreeNode qn = query(sql);
-        Assert.assertTrue(qn.getSql() != null);
+        System.out.println(qn);
     }
 
     @Test
-    public void testQuery_subquery_不带表() throws SqlParserException, QueryException {
+    public void testQuery_subquery_不带表() throws SqlParserException {
         String sql = "SELECT (SELECT MAX(ID) FROM TABLE2)";
         QueryTreeNode qn = query(sql);
         Assert.assertTrue(qn.getSql() != null);
     }
 
     @Test
-    public void testQuery_addDate() throws SqlParserException, QueryException {
+    public void testQuery_addDate() throws SqlParserException {
         String sql = "SELECT DATE_ADD('2008-01-02', INTERVAL 1 MONTH ) FROM  TABLE1";
         QueryTreeNode qn = query(sql);
         System.out.println(qn);
+    }
+
+    @Test
+    public void test_sequence() throws SqlParserException {
+        String qsql = "SELECT SEQ_TABLE1.NEXTVAL FROM DUAL";
+        QueryTreeNode qn = query(qsql);
+        System.out.println(qn);
+
+        String sql = "INSERT INTO TABLE1(ID) VALUES (SEQ_TABLE1.NEXTVAL)";
+        InsertNode in = insert(sql);
+        in.build();
+        System.out.println(in);
+
+        sql = "CREATE SEQUENCE SEQ_TABLE2 START WITH 1000";
+        SqlAnalysisResult sm = parser.parse(sql, false);
+        System.out.println(sm.getSql());
     }
 
     // ==================================================
@@ -1196,7 +1211,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     private QueryTreeNode query(String sql) throws SqlParserException {
         SqlAnalysisResult sm = parser.parse(sql, false);
         QueryTreeNode qn = null;
-        if (sm.getSqlType() == SqlType.SELECT) {
+        if (sm.isAstNode()) {
             qn = sm.getQueryTreeNode();
         } else {
             qn = new KVIndexNode(null);
@@ -1208,7 +1223,7 @@ public class SqlParserTest extends BaseOptimizerTest {
     private QueryTreeNode query(String sql, List args) throws SqlParserException {
         SqlAnalysisResult sm = parser.parse(sql, false);
         QueryTreeNode qn = null;
-        if (sm.getSqlType() == SqlType.SELECT) {
+        if (sm.isAstNode()) {
             qn = sm.getQueryTreeNode();
         } else {
             qn = new KVIndexNode(null);

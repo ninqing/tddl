@@ -10,7 +10,7 @@ import com.taobao.tddl.optimizer.core.expression.IBooleanFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.ILogicalFilter;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
 
 /**
  * @author jianghang 2013-11-13 下午4:57:52

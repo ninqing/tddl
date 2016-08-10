@@ -10,6 +10,7 @@ import com.taobao.tddl.executor.spi.ICommandHandlerFactory;
 import com.taobao.tddl.optimizer.core.plan.IDataNodeExecutor;
 import com.taobao.tddl.optimizer.core.plan.IPut;
 import com.taobao.tddl.optimizer.core.plan.IPut.PUT_TYPE;
+import com.taobao.tddl.optimizer.core.plan.bean.ShowTables;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
 import com.taobao.tddl.optimizer.core.plan.query.IMerge;
@@ -32,6 +33,7 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
         NEST_LOOP_JOIN_HANDLER = new NestedLoopJoinHandler();
         SORT_MERGE_JOIN_HANDLER = new SortMergeJoinHandler();
         CONDENSABLE_JOIN_HANDLER = new QueryMyHandler();
+        SHOW_TABLES_HANDLER = new ShowTablesMyHandler();
     }
 
     protected QueryMyHandler  CONDENSABLE_JOIN_HANDLER;
@@ -44,6 +46,7 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
     protected ICommandHandler INDEX_NEST_LOOP_JOIN_HANDLER;
     protected ICommandHandler NEST_LOOP_JOIN_HANDLER;
     protected ICommandHandler SORT_MERGE_JOIN_HANDLER;
+    protected ICommandHandler SHOW_TABLES_HANDLER;
 
     @Override
     public ICommandHandler getCommandHandler(IDataNodeExecutor executor, ExecutionContext executionContext) {
@@ -89,6 +92,8 @@ public class CommandHandlerFactoryMyImp implements ICommandHandlerFactory {
                 default:
                     throw new IllegalArgumentException("should not be here");
             }
+        } else if (executor instanceof ShowTables) {
+            return SHOW_TABLES_HANDLER;
         } else {
             throw new IllegalArgumentException("should not be here");
         }

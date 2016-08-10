@@ -22,11 +22,8 @@ public class GreaterAll extends Filter {
         }
 
         Object left = args[0];
-
         List rights = (List) args[1];
-
         DataType type = this.getArgType();
-
         for (Object right : rights) {
             if (type.compare(left, right) <= 0) {
                 return false;

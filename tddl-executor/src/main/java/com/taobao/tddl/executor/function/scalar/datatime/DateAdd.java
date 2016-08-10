@@ -6,9 +6,7 @@ import com.taobao.tddl.executor.common.ExecutionContext;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.utils.ExecUtils;
 import com.taobao.tddl.optimizer.core.datatype.DataType;
-import com.taobao.tddl.optimizer.core.datatype.DataTypeUtil;
 import com.taobao.tddl.optimizer.core.datatype.IntervalType;
-import com.taobao.tddl.optimizer.core.expression.ISelectable;
 
 /**
  * ADDDATE(date,INTERVAL expr unit), ADDDATE(expr,days) When invoked with the
@@ -61,14 +59,7 @@ public class DateAdd extends ScalarFunction {
 
     @Override
     public DataType getReturnType() {
-        DataType type = null;
-        if (function.getArgs().get(0) instanceof ISelectable) {
-            type = ((ISelectable) function.getArgs().get(0)).getDataType();
-        }
-        if (type == null) {
-            type = DataTypeUtil.getTypeOfObject(function.getArgs().get(0));
-        }
-
+        DataType type = getFirstArgType();
         return type;
     }
 

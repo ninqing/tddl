@@ -11,17 +11,17 @@ import javax.sql.DataSource;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.taobao.tddl.client.sequence.exception.SequenceException;
+import com.taobao.tddl.common.exception.TddlException;
 import com.taobao.tddl.group.jdbc.TGroupDataSource;
 import com.taobao.tddl.monitor.eagleeye.EagleeyeHelper;
 import com.taobao.tddl.monitor.unit.RouterHelper;
 import com.taobao.tddl.monitor.unit.TddlRouterUnitsListener;
-import com.taobao.tddl.client.sequence.exception.SequenceException;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
- * @description
  * @author <a href="junyu@taobao.com">junyu</a>
  * @date 2013-5-7下午02:03:52
  */
@@ -60,10 +60,8 @@ public class UnitGroupSequenceDao extends GroupSequenceDao implements TddlRouter
 
     /**
      * 初试化
-     * 
-     * @throws SequenceException
      */
-    public void init() throws SequenceException {
+    public void doInit() throws TddlException {
         // 如果应用名为空，直接抛出
         if (StringUtils.isEmpty(appName)) {
             SequenceException sequenceException = new SequenceException("appName is Null ");

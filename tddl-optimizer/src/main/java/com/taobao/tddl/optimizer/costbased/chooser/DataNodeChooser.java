@@ -15,13 +15,15 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 
 import com.taobao.tddl.common.exception.NotSupportException;
-import com.taobao.tddl.common.jdbc.ParameterContext;
 import com.taobao.tddl.common.jdbc.Parameters;
 import com.taobao.tddl.common.properties.ConnectionProperties;
 import com.taobao.tddl.common.utils.GeneralUtil;
+import com.taobao.tddl.common.utils.logger.Logger;
+import com.taobao.tddl.common.utils.logger.LoggerFactory;
 import com.taobao.tddl.monitor.Monitor;
 import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.config.table.ColumnMeta;
+import com.taobao.tddl.optimizer.config.table.SchemaManager;
 import com.taobao.tddl.optimizer.config.table.TableMeta;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.ASTNode;
@@ -30,6 +32,7 @@ import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.delegate.NodeDelegate;
 import com.taobao.tddl.optimizer.core.ast.dml.DeleteNode;
 import com.taobao.tddl.optimizer.core.ast.dml.InsertNode;
+import com.taobao.tddl.optimizer.core.ast.dml.LoadDataNode;
 import com.taobao.tddl.optimizer.core.ast.dml.PutNode;
 import com.taobao.tddl.optimizer.core.ast.dml.UpdateNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
@@ -49,16 +52,12 @@ import com.taobao.tddl.optimizer.costbased.FilterPreProcessor;
 import com.taobao.tddl.optimizer.costbased.SubQueryPreProcessor;
 import com.taobao.tddl.optimizer.costbased.esitimater.Cost;
 import com.taobao.tddl.optimizer.costbased.esitimater.CostEsitimaterFactory;
-import com.taobao.tddl.optimizer.exceptions.EmptyResultFilterException;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
+import com.taobao.tddl.optimizer.exception.EmptyResultFilterException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 import com.taobao.tddl.rule.model.Field;
 import com.taobao.tddl.rule.model.TargetDB;
-
-import com.taobao.tddl.common.utils.logger.Logger;
-import com.taobao.tddl.common.utils.logger.LoggerFactory;
 
 /**
  * <pre>
@@ -75,43 +74,49 @@ public class DataNodeChooser {
     private static Pattern      suffixPattern = Pattern.compile("\\d+$");                      // 提取字符串最后的数字
     private static final Logger logger        = LoggerFactory.getLogger(DataNodeChooser.class);
 
-    public static ASTNode shard(ASTNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
-                                                                                                        throws QueryException {
-
-        // 针对非batch，绑定变量后，优化语法树
-        if (parameterSettings != null && !parameterSettings.isBatch()) {
-            dne.assignment(parameterSettings);
-            // 绑定变量后，再做一次
+    public static ASTNode shard(ASTNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
+        try {
+            // 针对非batch，绑定变量后，优化语法树
+            if (parameterSettings == null || parameterSettings != null && !parameterSettings.isBatch()) {
+                dne.assignment(parameterSettings);// null也要做一次，可能存在nextval
+                // 绑定变量后，再做一次
+                if (dne instanceof DMLNode) {
+                    ((DMLNode) dne).setNode((TableNode) FilterPreProcessor.optimize(((DMLNode) dne).getNode(), false));
+                } else if (dne instanceof QueryTreeNode) {
+                    dne = FilterPreProcessor.optimize(((QueryTreeNode) dne), false);
+                }
+            }
+            if (dne instanceof LoadDataNode) {
+                return shardLoad((LoadDataNode) dne, parameterSettings, extraCmd);
+            }
             if (dne instanceof DMLNode) {
-                ((DMLNode) dne).setNode((TableNode) FilterPreProcessor.optimize(((DMLNode) dne).getNode(), false));
-            } else {
-                dne = FilterPreProcessor.optimize(((QueryTreeNode) dne), false);
-            }
-        }
+                if (dne instanceof InsertNode) {
+                    return shardInsert((InsertNode) dne, parameterSettings, extraCmd);
+                }
 
-        if (dne instanceof DMLNode) {
-            if (dne instanceof InsertNode) {
-                return shardInsert((InsertNode) dne, parameterSettings, extraCmd);
+                if (dne instanceof UpdateNode) {
+                    return shardUpdate((UpdateNode) dne, parameterSettings, extraCmd);
+                }
+                if (dne instanceof DeleteNode) {
+                    return shardDelete((DeleteNode) dne, parameterSettings, extraCmd);
+                }
+                if (dne instanceof PutNode) {
+                    return shardPut((PutNode) dne, parameterSettings, extraCmd);
+                }
+            } else if (dne instanceof QueryTreeNode) {
+                return shardQuery((QueryTreeNode) dne, parameterSettings, extraCmd, true);
             }
-            if (dne instanceof UpdateNode) {
-                return shardUpdate((UpdateNode) dne, parameterSettings, extraCmd);
-            }
-            if (dne instanceof DeleteNode) {
-                return shardDelete((DeleteNode) dne, parameterSettings, extraCmd);
-            }
-            if (dne instanceof PutNode) {
-                return shardPut((PutNode) dne, parameterSettings, extraCmd);
-            }
-        }
-        if (dne instanceof QueryTreeNode) {
-            return shardQuery((QueryTreeNode) dne, parameterSettings, extraCmd, true);
+
+        } catch (EmptyResultFilterException e) {
+            e.setAstNode(dne);
+            throw e;
         }
 
         return dne;
     }
 
     private static QueryTreeNode shardQuery(QueryTreeNode qtn, Parameters parameterSettings,
-                                            Map<String, Object> extraCmd, boolean traceIn) throws QueryException {
+                                            Map<String, Object> extraCmd, boolean traceIn) {
         List<IFunction> funcs = SubQueryPreProcessor.findAllSubqueryOnFilter(qtn, false);
         // filter中存在子查询，提前处理
         for (IFunction func : funcs) {
@@ -144,6 +149,9 @@ public class DataNodeChooser {
         } else if (qtn instanceof TableNode) {
             // 此时经过join处理后，已经全部转化为kv结构的查询了
             KVIndexNode query = (KVIndexNode) qtn;
+            if (query.getTableName().equals(SchemaManager.DUAL)) {
+                return query;
+            }
             // 构造filter
             IFilter f = FilterUtils.and(query.getKeyFilter(), query.getResultFilter());
             f = FilterUtils.and(f, query.getOtherJoinOnFilter());
@@ -169,7 +177,7 @@ public class DataNodeChooser {
             // 处理子节点
             left = shardQuery(left, parameterSettings, extraCmd, traceIn);
             right = shardQuery(right, parameterSettings, extraCmd, traceIn);
-            if (isPartitionOnPartition) {
+            if (isPartitionOnPartition || isJoinOnOneGroup(left, right)) {
                 // 尝试构建join merge join，可能会构建失败
                 // 失败原因 :
                 // 1. 人肉强制开启join merge join的选项
@@ -271,11 +279,10 @@ public class DataNodeChooser {
 
         // 处理batch
         if (parameterSettings != null && parameterSettings.isBatch()) {
-            int i = 0;
             Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
-            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+            for (int i = 0; i < parameterSettings.getBatchSize(); i++) {
                 // 做一下绑定变量
-                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                dne.assignment(parameterSettings.cloneByBatchIndex(i));
                 // 根据规则计算
                 IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
                 List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
@@ -296,8 +303,6 @@ public class DataNodeChooser {
                 } else {
                     throw new OptimizerException("insert not support muti tables, parameter is " + parameterSettings);
                 }
-
-                i++;
             }
 
             List<InsertNode> nodes = new ArrayList<InsertNode>();
@@ -315,6 +320,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                merge.build();
                 return merge;
             } else {
                 return nodes.get(0);
@@ -361,6 +367,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(merge.getChild().getDataNode()).setExtra(merge.getChild().getExtra());
+                merge.build();
                 return merge;
             }
         } else {
@@ -381,8 +388,21 @@ public class DataNodeChooser {
         }
     }
 
-    private static ASTNode shardUpdate(UpdateNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
-                                                                                                                  throws QueryException {
+    private static ASTNode shardLoad(LoadDataNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
+        dne = dne.copy();
+        String tableName = dne.getTableName();
+        List<TargetDB> targets = shard(tableName, null, false);
+        TargetDB target = targets.get(0);
+        if (targets.size() == 1 && target.getTableNameMap() != null && target.getTableNameMap().size() == 1) {
+            dne.executeOn(target.getDbIndex());
+        } else {
+            throw new OptimizerException("load data support single group and single table only, sql:" + dne.getSql());
+        }
+
+        return dne;
+    }
+
+    private static ASTNode shardUpdate(UpdateNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
 
         // 处理batch
         // case1 :
@@ -400,12 +420,11 @@ public class DataNodeChooser {
         // 会得到3个表的batch. 2(a) 3(a,b) 4(b)
         // 注意:发送给表的sql均为 id in (?,?) ，这里不会是经过in优化的sql
         if (parameterSettings != null && parameterSettings.isBatch()) {
-            int i = 0;
             Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
             QueryTreeNode whereNode = null;
-            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+            for (int i = 0; i < parameterSettings.getBatchSize(); i++) {
                 // 做一下绑定变量
-                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                dne.assignment(parameterSettings.cloneByBatchIndex(i));
                 // 根据规则计算,不处理in优化
                 QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, false);
                 List<ASTNode> subs = new ArrayList();
@@ -432,7 +451,6 @@ public class DataNodeChooser {
                     ids.add(i);
                 }
 
-                i++;
             }
 
             List<UpdateNode> nodes = new ArrayList<UpdateNode>();
@@ -453,6 +471,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                merge.build();
                 return merge;
             } else {
                 return nodes.get(0);
@@ -472,6 +491,7 @@ public class DataNodeChooser {
                     updateMerge.merge(buildOneQueryUpdate((QueryTreeNode) sub, dne));
                 }
                 updateMerge.executeOn(updateMerge.getChild().getDataNode());
+                updateMerge.build();
                 return updateMerge;
             } else {
                 return buildOneQueryUpdate((QueryTreeNode) subs.get(0), dne);
@@ -480,8 +500,7 @@ public class DataNodeChooser {
         }
     }
 
-    private static ASTNode shardDelete(DeleteNode dne, Parameters parameterSettings, Map<String, Object> extraCmd)
-                                                                                                                  throws QueryException {
+    private static ASTNode shardDelete(DeleteNode dne, Parameters parameterSettings, Map<String, Object> extraCmd) {
 
         // 处理batch
         // case1 :
@@ -500,12 +519,11 @@ public class DataNodeChooser {
         // 注意:发送给表的sql均为 id in (?,?) ，这里不会是经过in优化的sql
 
         if (parameterSettings != null && parameterSettings.isBatch()) {
-            int i = 0;
             Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
             QueryTreeNode whereNode = null;
-            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+            for (int i = 0; i < parameterSettings.getBatchSize(); i++) {
                 // 做一下绑定变量
-                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                dne.assignment(parameterSettings.cloneByBatchIndex(i));
                 // 根据规则计算, batch不处理in优化
                 QueryTreeNode qtn = shardQuery(dne.getNode(), parameterSettings, extraCmd, false);
                 List<ASTNode> subs = new ArrayList();
@@ -531,8 +549,6 @@ public class DataNodeChooser {
                     }
                     ids.add(i);
                 }
-
-                i++;
             }
 
             List<DeleteNode> nodes = new ArrayList<DeleteNode>();
@@ -553,6 +569,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                merge.build();
                 return merge;
             } else {
                 return nodes.get(0);
@@ -572,6 +589,7 @@ public class DataNodeChooser {
                     deleteMerge.merge(buildOneQueryDelete((QueryTreeNode) sub, dne));
                 }
                 deleteMerge.executeOn(deleteMerge.getChild().getDataNode());
+                deleteMerge.build();
                 return deleteMerge;
             } else {
                 return buildOneQueryDelete((QueryTreeNode) subs.get(0), dne);
@@ -589,11 +607,10 @@ public class DataNodeChooser {
 
         // 处理batch
         if (parameterSettings != null && parameterSettings.isBatch()) {
-            int i = 0;
             Map<List<String>, List<Integer>> indexs = new HashMap<List<String>, List<Integer>>();
-            for (Map<Integer, ParameterContext> currentParameter : parameterSettings.getBatchParameters()) {
+            for (int i = 0; i < parameterSettings.getBatchSize(); i++) {
                 // 做一下绑定变量
-                dne.assignment(new Parameters(currentParameter, parameterSettings.isBatch()));
+                dne.assignment(parameterSettings.cloneByBatchIndex(i));
                 // 根据规则计算
                 IFilter insertFilter = createFilter(dne.getColumns(), dne.getValues());
                 List<TargetDB> dataNodeChoosed = shard(indexName, insertFilter, true);
@@ -615,7 +632,6 @@ public class DataNodeChooser {
                     throw new OptimizerException("insert not support muti tables");
                 }
 
-                i++;
             }
 
             List<PutNode> nodes = new ArrayList<PutNode>();
@@ -633,6 +649,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(nodes.get(0).getDataNode()).setExtra(nodes.get(0).getExtra());
+                merge.build();
                 return merge;
             } else {
                 return nodes.get(0);
@@ -679,6 +696,7 @@ public class DataNodeChooser {
                 }
 
                 merge.executeOn(merge.getChild().getDataNode()).setExtra(merge.getChild().getExtra());
+                merge.build();
                 return merge;
             }
         } else {
@@ -726,7 +744,7 @@ public class DataNodeChooser {
         OptimizerContext.getContext().getSchemaManager().getTable(tableName); // 验证下表是否存在
         List<TargetDB> dataNodeChoosed = OptimizerContext.getContext().getRule().shard(logicalName, f, isWrite);
         if (dataNodeChoosed == null || dataNodeChoosed.isEmpty()) {
-            throw new EmptyResultFilterException("无对应执行节点");
+            throw new EmptyResultFilterException();
         }
 
         time = Monitor.monitorAndRenewTime(Monitor.KEY1,
@@ -789,7 +807,7 @@ public class DataNodeChooser {
         }
 
         if (subs.isEmpty()) {
-            throw new EmptyResultFilterException("无对应执行节点");
+            throw new EmptyResultFilterException();
         } else if (subs.size() == 1 && subs.get(0).size() == 1) {
             return subs.get(0).get(0); // 只有单库
         } else {
@@ -1171,18 +1189,62 @@ public class DataNodeChooser {
         return false;
     }
 
+    /**
+     * 判断是否为单库单表 join 单库多表
+     * 
+     * @param left
+     * @param right
+     * @return
+     */
+    private static boolean isJoinOnOneGroup(QueryTreeNode left, QueryTreeNode right) {
+        return isLeftJoinRightOnOneGroup(left, right) || isLeftJoinRightOnOneGroup(right, left);
+    }
+
+    /**
+     * 左表是单库单表，右表为单库多表，是否满足join on group条件
+     * 
+     * @param left
+     * @param right
+     * @return
+     */
+    private static boolean isLeftJoinRightOnOneGroup(QueryTreeNode left, QueryTreeNode right) {
+        if (left instanceof MergeNode) {// 左表不是merge
+            return false;
+        }
+
+        if (!(right instanceof MergeNode)) {// 右表是merge
+            return false;
+        }
+
+        String group1 = getOneGroup(left);
+        String group2 = getOneGroup(right);
+        if (group1 != null && group2 != null) {
+            if (group1.equals(group2)) {
+                left.setBroadcast(true); // 将左表设置为广播表
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static String getOneGroup(QueryTreeNode qtn) {
+        String group = qtn.getDataNode();
+        for (ASTNode node : qtn.getChildren()) {
+            if (node instanceof MergeNode) {
+                return null;
+            }
+
+            if (!group.equals(node.getDataNode())) {
+                return null;
+            }
+        }
+
+        return group;
+    }
+
     private static QueryTreeNode buildJoinMergeJoin(JoinNode join, QueryTreeNode left, QueryTreeNode right,
                                                     Map<String, Object> extraCmd) {
-        // 存在聚合计算，不能展开
-        if (left.isExistAggregate() || left.getLimitFrom() != null || left.getLimitTo() != null) {
-            return null;
-        }
-
-        // 存在聚合计算，不能展开
-        if (right.isExistAggregate() || right.getLimitFrom() != null || right.getLimitTo() != null) {
-            return null;
-        }
-
         // 根据表名的后缀来判断两个表是不是对应的表
         // 底下的节点已经被优先处理
         // 1. 如果是KvIndexNode，没必要转化为join merge join，直接join即可
@@ -1211,6 +1273,16 @@ public class DataNodeChooser {
         } else {
             // 可能是广播表
             rightBroadCast = right.isBroadcast();
+        }
+
+        // 非广播表，并且存在聚合计算，不能展开
+        if (!leftBroadCast && (left.isExistAggregate() || left.getLimitFrom() != null || left.getLimitTo() != null)) {
+            return null;
+        }
+
+        // 非广播表，并且存在聚合计算，不能展开
+        if (!rightBroadCast && (right.isExistAggregate() || right.getLimitFrom() != null || right.getLimitTo() != null)) {
+            return null;
         }
 
         if (leftBroadCast && rightBroadCast) {

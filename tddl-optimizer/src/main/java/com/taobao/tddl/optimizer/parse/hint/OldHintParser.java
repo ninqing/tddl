@@ -10,8 +10,8 @@ import org.apache.commons.lang.StringUtils;
 
 import com.alibaba.fastjson.JSONException;
 import com.taobao.tddl.common.client.util.ThreadLocalMap;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
+import com.taobao.tddl.optimizer.exception.SqlParserException;
 import com.taobao.tddl.rule.model.sqljep.Comparative;
 import com.taobao.tddl.rule.utils.ComparativeStringAnalyser;
 
@@ -38,7 +38,7 @@ public class OldHintParser {
     public static void checkOldThreadLocalHint() {
         if (ThreadLocalMap.get(ROUTE_CONDITION) != null || ThreadLocalMap.get(IS_EXIST_QUITE) != null
             || ThreadLocalMap.get(DB_SELECTOR) != null || ThreadLocalMap.get(RULE_SELECTOR) != null) {
-            throw new TddlRuntimeException("tddl5.x版本已支持复杂SQL,因早期tddl版本不支持的SQL而被迫使用hint可以废弃了,所以以后不再支持此类的ThreadLocal hint,请尝试去除后直接运行SQL");
+            throw new SqlParserException("tddl5.x版本已支持复杂SQL,因早期tddl版本不支持的SQL而被迫使用hint可以废弃了,所以以后不再支持此类的ThreadLocal hint,请尝试去除后直接运行SQL");
         }
     }
 
@@ -131,7 +131,7 @@ public class OldHintParser {
         String max = (String) hints.get("max");
         String orderby = (String) hints.get("orderby");
         if (skip != null || max != null || orderby != null) {
-            throw new TddlRuntimeException("不支持的tddl3.1.x的hint特殊参数");
+            throw new SqlParserException("不支持的tddl3.1.x的hint特殊参数");
         }
     }
 

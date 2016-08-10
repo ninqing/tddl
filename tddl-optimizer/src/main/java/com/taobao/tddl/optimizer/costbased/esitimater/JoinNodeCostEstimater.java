@@ -4,14 +4,13 @@ import com.taobao.tddl.optimizer.core.ast.QueryTreeNode;
 import com.taobao.tddl.optimizer.core.ast.query.JoinNode;
 import com.taobao.tddl.optimizer.core.expression.IBindVal;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
-import com.taobao.tddl.optimizer.exceptions.StatisticsUnavailableException;
 
 /**
  * @author Dreamond
  */
 public class JoinNodeCostEstimater implements QueryTreeCostEstimater {
 
-    public Cost estimate(QueryTreeNode query) throws StatisticsUnavailableException {
+    public Cost estimate(QueryTreeNode query) {
         JoinNode join = (JoinNode) query;
 
         Cost leftCost = CostEsitimaterFactory.estimate(join.getLeftNode());

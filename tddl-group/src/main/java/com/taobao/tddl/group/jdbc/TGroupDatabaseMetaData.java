@@ -8,7 +8,7 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
-import com.taobao.tddl.group.exception.NoMoreDataSourceException;
+import com.taobao.tddl.group.exception.GroupNotAvaliableException;
 
 /**
  * @author linxuan
@@ -32,7 +32,7 @@ public class TGroupDatabaseMetaData implements DatabaseMetaData {
             // false);
             DataSource dataSource = tGroupDataSource.getDBSelector(false).select();
             if (dataSource == null) {
-                throw new NoMoreDataSourceException("groupKey:" + tGroupDataSource.getDbGroupKey()
+                throw new GroupNotAvaliableException("groupKey:" + tGroupDataSource.getDbGroupKey()
                                                     + " has not Available Atom DataSource");
             }
             conn = dataSource.getConnection();

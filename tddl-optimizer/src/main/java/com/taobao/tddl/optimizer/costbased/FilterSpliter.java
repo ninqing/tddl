@@ -18,7 +18,6 @@ import com.taobao.tddl.optimizer.core.expression.IFilter;
 import com.taobao.tddl.optimizer.core.expression.IFilter.OPERATION;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.costbased.chooser.IndexChooser;
-import com.taobao.tddl.optimizer.exceptions.QueryException;
 import com.taobao.tddl.optimizer.utils.FilterUtils;
 import com.taobao.tddl.optimizer.utils.OptimizerUtils;
 
@@ -35,7 +34,7 @@ public class FilterSpliter {
     /**
      * 根据where中的所有条件按照or进行分隔，生成多个query请求. (主要考虑部分存储引擎不支持or语法)
      */
-    public static List<QueryTreeNode> splitByDNF(TableNode node, Map<String, Object> extraCmd) throws QueryException {
+    public static List<QueryTreeNode> splitByDNF(TableNode node, Map<String, Object> extraCmd) {
         if (node.getWhereFilter() == null) {
             return new LinkedList<QueryTreeNode>();
         }

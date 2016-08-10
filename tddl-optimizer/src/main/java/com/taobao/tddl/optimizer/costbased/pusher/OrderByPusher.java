@@ -20,7 +20,7 @@ import com.taobao.tddl.optimizer.core.expression.IFunction;
 import com.taobao.tddl.optimizer.core.expression.IOrderBy;
 import com.taobao.tddl.optimizer.core.expression.ISelectable;
 import com.taobao.tddl.optimizer.core.plan.query.IJoin.JoinStrategy;
-import com.taobao.tddl.optimizer.exceptions.OptimizerException;
+import com.taobao.tddl.optimizer.exception.OptimizerException;
 
 /**
  * 将merge/join中的order by条件下推，包括隐式的order by条件，比如将groupBy转化为orderBy

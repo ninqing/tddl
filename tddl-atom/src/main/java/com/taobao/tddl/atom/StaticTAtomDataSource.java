@@ -9,7 +9,9 @@ import javax.sql.DataSource;
 import com.alibaba.druid.pool.DruidDataSource;
 import com.taobao.tddl.atom.config.TAtomDsConfDO;
 import com.taobao.tddl.atom.config.TAtomDsConfHandle;
-import com.taobao.tddl.atom.exception.AtomAlreadyInitException;
+import com.taobao.tddl.common.exception.TddlException;
+import com.taobao.tddl.common.exception.TddlNestableRuntimeException;
+import com.taobao.tddl.common.exception.code.ErrorCode;
 
 import com.taobao.tddl.common.utils.logger.Logger;
 import com.taobao.tddl.common.utils.logger.LoggerFactory;
@@ -21,44 +23,44 @@ import com.taobao.tddl.common.utils.logger.LoggerFactory;
  */
 public class StaticTAtomDataSource extends AbstractTAtomDataSource {
 
-    private static Logger    logger = LoggerFactory.getLogger(StaticTAtomDataSource.class);
+    private static Logger   logger = LoggerFactory.getLogger(StaticTAtomDataSource.class);
     /**
      * 数据源配置信息
      */
-    private TAtomDsConfDO    confDO = new TAtomDsConfDO();
+    private TAtomDsConfDO   confDO = new TAtomDsConfDO();
 
     /**
      * Jboss数据源通过init初始化
      */
-    private DruidDataSource  druidDataSource;
-
-    private volatile boolean init;
+    private DruidDataSource druidDataSource;
 
     @Override
     public void init(String appName, String dsKey, String unitName) throws Exception {
         init();
     }
 
-    public void init() throws Exception {
-        if (init) {
-            throw new AtomAlreadyInitException("[AlreadyInit] double call Init !");
-        }
-        DruidDataSource localDruidDataSource = TAtomDsConfHandle.convertTAtomDsConf2DruidConf(confDO.getIp(),
-            confDO,
-            confDO.getDbName());
-        boolean checkPram = TAtomDsConfHandle.checkLocalTxDataSourceDO(localDruidDataSource);
-        if (checkPram) {
-            localDruidDataSource.init();
-            // druidDataSource =
-            // TaobaoDataSourceFactory.createLocalTxDataSource(localDruidDataSource);
-            druidDataSource = localDruidDataSource;
-            init = true;
-        } else {
-            throw new Exception("Init DataSource Error Pleace Check!");
+    public void doInit() throws TddlException {
+        try {
+            DruidDataSource localDruidDataSource = TAtomDsConfHandle.convertTAtomDsConf2DruidConf(confDO.getIp(),
+                confDO,
+                confDO.getDbName());
+            boolean checkPram = TAtomDsConfHandle.checkLocalTxDataSourceDO(localDruidDataSource);
+            if (checkPram) {
+                localDruidDataSource.init();
+                druidDataSource = localDruidDataSource;
+            } else {
+                throw new TddlException(ErrorCode.ERR_CONFIG, "atom config check failed");
+            }
+        } catch (Exception e) {
+            throw new TddlNestableRuntimeException(e);
         }
     }
 
     public void destroyDataSource() throws Exception {
+        destroy();
+    }
+
+    protected void doDestroy() throws TddlException {
         if (null != this.druidDataSource) {
             logger.warn("[DataSource Stop] Start!");
             this.druidDataSource.close();

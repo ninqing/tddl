@@ -3,10 +3,9 @@ package com.taobao.tddl.executor.handler;
 import java.util.List;
 
 import com.taobao.tddl.common.exception.TddlException;
-import com.taobao.tddl.common.exception.TddlRuntimeException;
-import com.taobao.tddl.common.utils.ExceptionErrorCodeUtils;
 import com.taobao.tddl.executor.codec.CodecFactory;
 import com.taobao.tddl.executor.common.ExecutionContext;
+import com.taobao.tddl.executor.exception.ExecutorException;
 import com.taobao.tddl.executor.function.ScalarFunction;
 import com.taobao.tddl.executor.record.CloneableRecord;
 import com.taobao.tddl.executor.rowset.IRowSet;
@@ -33,56 +32,67 @@ public class InsertHandler extends PutHandlerCommon {
         ITransaction transaction = executionContext.getTransaction();
         int affect_rows = 0;
         IPut insert = put;
-        CloneableRecord key = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
-            .getCodec(meta.getKeyColumns())
-            .newEmptyRecord();
-        CloneableRecord value = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
-            .getCodec(meta.getValueColumns())
-            .newEmptyRecord();
+
         List columns = insert.getUpdateColumns();
-        L: for (int i = 0; i < columns.size(); i++) {
-            for (ColumnMeta cm : meta.getKeyColumns()) {
-                if (cm.getName().equals(ExecUtils.getColumn(columns.get(i)).getColumnName())) {
-                    Object v = insert.getUpdateValues().get(i);
-                    if (v instanceof IFunction) {
-                        if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
-                            throw new TddlRuntimeException("insert 中不允许出现聚合函数");
+
+        for (int j = 0; j < insert.getMultiValuesSize(); j++) {
+
+            CloneableRecord key = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
+                .getCodec(meta.getKeyColumns())
+                .newEmptyRecord();
+            CloneableRecord value = CodecFactory.getInstance(CodecFactory.FIXED_LENGTH)
+                .getCodec(meta.getValueColumns())
+                .newEmptyRecord();
+
+            List<Object> values = insert.getValues(j);
+
+            L: for (int i = 0; i < columns.size(); i++) {
+                for (ColumnMeta cm : meta.getKeyColumns()) {
+                    if (cm.getName().equals(ExecUtils.getColumn(columns.get(i)).getColumnName())) {
+                        Object v = values.get(i);
+                        if (v instanceof IFunction) {
+                            if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
+                                throw new ExecutorException("insert is not support aggregate function");
+                            }
+                            IFunction func = ((IFunction) v);
+
+                            v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null,
+                                executionContext);
+
                         }
-                        IFunction func = ((IFunction) v);
-
-                        v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null, executionContext);
-
+                        key.put(cm.getName(), v);
+                        continue L;
                     }
-                    key.put(cm.getName(), v);
-                    continue L;
+                }
+                for (ColumnMeta cm : meta.getValueColumns()) {
+                    if (cm.getName().equals(ExecUtils.getColumn(columns.get(i)).getColumnName())) {
+                        Object v = values.get(i);
+                        if (v instanceof IFunction) {
+                            if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
+                                throw new ExecutorException("insert is not support aggregate function");
+                            }
+                            IFunction func = ((IFunction) v);
+
+                            v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null,
+                                executionContext);
+
+                        }
+                        value.put(cm.getName(), v);
+                        break;
+                    }
                 }
             }
-            for (ColumnMeta cm : meta.getValueColumns()) {
-                if (cm.getName().equals(ExecUtils.getColumn(columns.get(i)).getColumnName())) {
-                    Object v = insert.getUpdateValues().get(i);
-                    if (v instanceof IFunction) {
-                        if (((IFunction) v).getFunctionType().equals(FunctionType.Aggregate)) {
-                            throw new TddlRuntimeException("insert 中不允许出现聚合函数");
-                        }
-                        IFunction func = ((IFunction) v);
 
-                        v = ((ScalarFunction) func.getExtraFunction()).scalarCalucate((IRowSet) null, executionContext);
-
-                    }
-                    value.put(cm.getName(), v);
-                    break;
+            if (put.getPutType() == IPut.PUT_TYPE.INSERT) {
+                CloneableRecord value1 = table.get(executionContext, key, meta, put.getTableName());
+                if (value1 != null) {
+                    throw new ExecutorException("Duplicate_entry :" + key);
                 }
             }
+            prepare(transaction, table, null, key, value, PUT_TYPE.INSERT);
+            table.put(executionContext, key, value, meta, put.getTableName());
+            affect_rows++;
         }
-        if (put.getPutType() == IPut.PUT_TYPE.INSERT) {
-            CloneableRecord value1 = table.get(executionContext, key, meta, put.getTableName());
-            if (value1 != null) {
-                throw new TddlException(ExceptionErrorCodeUtils.Duplicate_entry, "exception insert existed :" + key);
-            }
-        }
-        prepare(transaction, table, null, key, value, PUT_TYPE.INSERT);
-        table.put(executionContext, key, value, meta, put.getTableName());
-        affect_rows++;
         return affect_rows;
 
     }

@@ -6,6 +6,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import com.taobao.tddl.common.jdbc.Parameters;
+import com.taobao.tddl.optimizer.OptimizerContext;
 import com.taobao.tddl.optimizer.core.ASTNodeFactory;
 import com.taobao.tddl.optimizer.core.ast.DMLNode;
 import com.taobao.tddl.optimizer.core.ast.query.KVIndexNode;
@@ -30,8 +31,12 @@ public class InsertNode extends DMLNode<InsertNode> {
     public IPut toDataNodeExecutor(int shareIndex) {
         IInsert insert = ASTNodeFactory.getInstance().createInsert();
         if (this.getDuplicateUpdateColumns() != null) {
+            List<String> partiionColumns = OptimizerContext.getContext()
+                .getRule()
+                .getSharedColumns(this.getNode().getTableMeta().getTableName());
+
             for (ISelectable updateColumn : this.getDuplicateUpdateColumns()) {
-                if (this.getNode().getTableMeta().getPrimaryIndex().getPartitionColumns().contains(updateColumn)) {
+                if (partiionColumns.contains(updateColumn.getColumnName())) {
                     throw new IllegalArgumentException("column :" + updateColumn.getColumnName() + " 是分库键，不允许修改");
                 }
 
@@ -66,6 +71,7 @@ public class InsertNode extends DMLNode<InsertNode> {
 
         insert.executeOn(this.getNode().getDataNode());
         insert.setBatchIndexs(this.getBatchIndexs());
+        insert.setExistSequenceVal(this.isExistSequenceVal());
         return insert;
     }
 
